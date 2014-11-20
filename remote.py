@@ -33,6 +33,7 @@ exactly the same way:
 """
 
 import re
+import select
 from subprocess import PIPE, Popen, STDOUT
 from mtb import MtbEvent
 from mtb.input import linux_input
@@ -45,12 +46,12 @@ class RemoteTouchDevice:
   # For android devices you may need to check /proc/bus/input/devices
   # and add the correct device name to this list.
   touchscreen_device_names = [
-      'touchscreen',
-      'max1187x_touchscreen_0',
-      'synaptics_dsx_i2c',
+    'touchscreen',
+    'max1187x_touchscreen_0',
+    'synaptics_dsx_i2c',
   ]
   touchpad_device_names = [
-      'touchpad',
+    'touchpad',
   ]
 
   def __init__(self, addr, is_touchscreen=False):
@@ -83,7 +84,9 @@ class RemoteTouchDevice:
       print 'ERROR: streaming terminated unexpectedly (%d)' % ret_code
       return False
 
-    return True
+    # Block until there's *something* to read, indicating everything is ready
+    readable, _, _, = select.select([self.event_stream_process.stdout], [], [])
+    return self.event_stream_process.stdout in readable
 
 
   def _GetDimensions(self):
@@ -110,7 +113,7 @@ class RemoteTouchDevice:
     """
     raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
 
-  def NextEvent(self):
+  def NextEvent(self, timeout=None):
     """ Wait for and capture the next MTB event
     Once a connection has been initiated with BeginEventStream() this
     function can be called to block until another MTB event arrives
@@ -119,17 +122,23 @@ class RemoteTouchDevice:
     """
     event = None
     while not event:
-        if not self.event_stream_process:
-          return None
+      if not self.event_stream_process:
+        return None
 
-        line = self._GetNextLine()
-        if not line:
-          return None
+      line = self._GetNextLine(timeout)
+      if not line:
+        return None
 
-        event = self._ParseMtbEvent(line)
+      event = self._ParseMtbEvent(line)
     return event
 
-  def _GetNextLine(self):
+  def _GetNextLine(self, timeout=None):
+    if timeout:
+      inputs = [self.event_stream_process.stdout]
+      readable, _, _, = select.select(inputs, [], [], timeout)
+      if inputs[0] not in readable:
+        return None
+
     line = self.event_stream_process.stdout.readline()
     if line == '' and self.event_stream_process.poll() != None:
       self.event_steam_process = None
@@ -165,7 +174,7 @@ class RemoteTouchDevice:
     for line in output.split('\n'):
       line = str.replace(line, '\r', '')
       if any([re.match('^N: Name=".*%s.*"$' % name, line, re.I | re.M)
-          for name in name_strings]):
+              for name in name_strings]):
         found = True
       if found:
         matches = re.match('^H: Handlers=.*event(\d+).*$', line, re.M)
@@ -302,8 +311,8 @@ class ChromeOSTouchDevice(RemoteTouchDevice):
   def _RunRemoteCmd(self, cmd):
     """ Run a command on the shell of a remote ChromeOS DUT """
     args = ['ssh', 'root@%s' % self.addr,
-        '-i', './data/testing_rsa',
-        '-o', 'UserKnownHostsFile=/dev/null',
-        '-o', 'StrictHostKeyChecking=no',
-        cmd]
+            '-i', './data/testing_rsa',
+            '-o', 'UserKnownHostsFile=/dev/null',
+            '-o', 'StrictHostKeyChecking=no',
+            cmd]
     return Popen(args, shell=False, stdin=PIPE, stdout=PIPE, stderr=PIPE)
