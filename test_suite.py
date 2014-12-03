@@ -4,6 +4,7 @@
 
 import colorama as color
 
+import mtb
 import tests
 from remote import ChromeOSTouchDevice, AndroidTouchDevice
 
@@ -80,7 +81,12 @@ class TestSuite:
     print
 
     # Run the validators on these events
-    # TODO (charliemooney): Run the validators here on the captured events
+    # TODO (charliemooney): Run the validators on these MtbPackets here
+    snapshots = mtb.packetize(events)
+    for snapshot in snapshots:
+      for packet in snapshot:
+        print packet
+      print '--'
 
     # Advance the test suite to the next test and variation and return an
     # indicator as to whether this was the last thing to do or not.
