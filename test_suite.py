@@ -6,6 +6,7 @@ import colorama as color
 
 import mtb
 import tests
+from plotter import TouchPlotter
 from remote import ChromeOSTouchDevice, AndroidTouchDevice
 
 
@@ -67,18 +68,20 @@ class TestSuite:
 
     # Wait a long time for the first event, then have a much shorter
     # timeout on subsequent incoming events
-    # TODO (charliemooney): include a visualization here
     events = []
+    plotter = TouchPlotter(self.touch_dev.width, self.touch_dev.height)
     print 'Waiting for 1st event...',
     event = self.touch_dev.NextEvent(TestSuite.NO_EVENTS_DETECTED_TIMEOUT_S)
     if not event:
       print ('\rNo MTB events collected before timeout (%d seconds)!' %
              TestSuite.NO_EVENTS_DETECTED_TIMEOUT_S),
     while event:
+      plotter.add_event(event)
       print '\rCollected %d MTB events' % len(events),
       events.append(event)
       event = self.touch_dev.NextEvent(test.timeout)
     print
+    plotter.end()
 
     # Run the validators on these events
     # TODO (charliemooney): Run the validators on these MtbPackets here
