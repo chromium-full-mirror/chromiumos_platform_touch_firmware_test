@@ -118,12 +118,7 @@ class MtbStateMachine:
 
       if (not request_data_ready) or data_ready:
         packet = MtbPacket(tid, slot, self.syn_time, x, y, pressure)
-      else:
-        packet = None
-      # Even if packet is None, we would like to report this tid so that
-      # its client function get_ordered_finger_paths() could construct
-      # an ordered dictionary correctly based on the tracking ID.
-      current_tid_data.append(packet)
+        current_tid_data.append(packet)
 
     self._del_leaving_slots()
 

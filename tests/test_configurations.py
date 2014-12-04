@@ -12,6 +12,7 @@ the place to do it.
 
 from constants import GV
 from test import Test
+from validator import *
 
 
 # All the test names
@@ -56,6 +57,14 @@ BASIC_TESTS = [ONE_FINGER_TRACKING, ONE_FINGER_TO_EDGE, TWO_FINGER_TRACKING,
 # test suite can simulate electrical noise conditions.
 FN_GEN_TESTS = [NOISE_LINE, NOISE_STATIONARY]
 
+
+# Define the pass/fail criteria for the various validators
+NO_GAP_CRITERIA = '<= 1.8, ~ +1.0'
+RANGE_CRITERIA = '<= 0.01, ~ +0.07'
+REPORT_RATE_CRITERIA = '>= 60'
+
+
+
 # Definitions for the test specifics
 tests_dict = {
   NOISE_STATIONARY:
@@ -86,7 +95,9 @@ tests_dict = {
         GV.MAX_AMPLITUDE: ('20Vpp',),
         GV.SQUARE_WAVE: ('square wave',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 1'),
+    ),
   ),
   NOISE_LINE:
   Test(
@@ -108,7 +119,11 @@ tests_dict = {
       GV.NORMAL: ('',),
       GV.BLTR: ('bottom left to top right',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 1'),
+      NoGapValidator(NO_GAP_CRITERIA),
+      ReportRateValidator(REPORT_RATE_CRITERIA),
+    ),
   ),
   ONE_FINGER_TRACKING:
   Test(
@@ -127,7 +142,11 @@ tests_dict = {
       GV.SLOW: ('3 seconds',),
       GV.NORMAL: ('1 second',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 1'),
+      NoGapValidator(NO_GAP_CRITERIA),
+      ReportRateValidator(REPORT_RATE_CRITERIA),
+    ),
   ),
 
   ONE_FINGER_TO_EDGE:
@@ -144,7 +163,12 @@ tests_dict = {
       GV.CB: ('vertical', 'from the center off bottom edge',),
       GV.SLOW: ('2 seconds',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 1'),
+      NoGapValidator(NO_GAP_CRITERIA),
+      ReportRateValidator(REPORT_RATE_CRITERIA),
+      RangeValidator(RANGE_CRITERIA),
+    ),
   ),
 
   TWO_FINGER_TRACKING:
@@ -165,7 +189,11 @@ tests_dict = {
       GV.SLOW: ('3 seconds',),
       GV.NORMAL: ('1 second',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 2'),
+      NoGapValidator(NO_GAP_CRITERIA),
+      ReportRateValidator(REPORT_RATE_CRITERIA),
+    ),
   ),
 
   FINGER_CROSSING:
@@ -192,7 +220,11 @@ tests_dict = {
       GV.SLOW: ('3 seconds',),
       GV.NORMAL: ('1 second',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 2'),
+      NoGapValidator(NO_GAP_CRITERIA),
+      ReportRateValidator(REPORT_RATE_CRITERIA),
+    ),
   ),
 
   ONE_FINGER_SWIPE:
@@ -204,7 +236,10 @@ tests_dict = {
       GV.BLTR: ('from the bottom left to the top right',),
       GV.TRBL: ('from the top right to the bottom left',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 1'),
+      ReportRateValidator(REPORT_RATE_CRITERIA),
+    ),
   ),
 
   TWO_FINGER_SWIPE:
@@ -215,7 +250,10 @@ tests_dict = {
     subprompt={ GV.TB: ('from top to bottom',),
       GV.BT: ('from bottom to top',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 2'),
+      ReportRateValidator(REPORT_RATE_CRITERIA),
+    ),
   ),
 
   PINCH_TO_ZOOM:
@@ -228,7 +266,11 @@ tests_dict = {
       GV.ZOOM_IN: ('zoom in', 'farther apart'),
       GV.ZOOM_OUT: ('zoom out', 'closer together'),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 2'),
+      NoGapValidator(NO_GAP_CRITERIA),
+      ReportRateValidator(REPORT_RATE_CRITERIA),
+    ),
   ),
 
   ONE_FINGER_TAP:
@@ -248,7 +290,9 @@ tests_dict = {
       GV.RS: ('right hand side',),
       GV.CENTER: ('center',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 1'),
+    ),
   ),
 
   TWO_FINGER_TAP:
@@ -262,7 +306,9 @@ tests_dict = {
       GV.VERTICAL: ('vertically',),
       GV.DIAGONAL: ('diagonally',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 2'),
+    ),
   ),
 
   ONE_FINGER_PHYSICAL_CLICK:
@@ -277,7 +323,9 @@ tests_dict = {
       GV.BS: ('bottom side',),
       GV.BR: ('bottom right corner',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 1'),
+    ),
   ),
 
   TWO_FINGER_PHYSICAL_CLICK:
@@ -287,7 +335,9 @@ tests_dict = {
     prompt='Use two fingers physically click the center of the '
            'touch surface.',
     subprompt=None,
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 2'),
+    ),
   ),
 
   STATIONARY_FINGER_NOT_AFFECTED_BY_2ND_FINGER_TAPS:
@@ -298,7 +348,10 @@ tests_dict = {
            'touch surface, and use a second finger to tap '
            'all around it many times (50)',
     subprompt=None,
-    validators=(),
+    validators=(
+      NoGapValidator(NO_GAP_CRITERIA),
+      ReportRateValidator(REPORT_RATE_CRITERIA),
+    ),
   ),
 
   FAT_FINGER_MOVE_WITH_RESTING_FINGER:
@@ -313,7 +366,11 @@ tests_dict = {
       GV.TB: ('center', 'from top to bottom', 'on the right to'),
       GV.BT: ('center', 'from bottom to top', 'on the left to'),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 2'),
+      NoGapValidator(NO_GAP_CRITERIA),
+      ReportRateValidator(REPORT_RATE_CRITERIA),
+    ),
   ),
 
   DRAG_EDGE_THUMB:
@@ -328,7 +385,11 @@ tests_dict = {
       GV.TB: ('vertically from top to bottom',),
       GV.BT: ('vertically from bottom to top',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 1'),
+      NoGapValidator(NO_GAP_CRITERIA),
+      ReportRateValidator(REPORT_RATE_CRITERIA),
+    ),
   ),
 
   TWO_CLOSE_FINGERS_TRACKING:
@@ -343,7 +404,11 @@ tests_dict = {
       GV.TB: ('vertical', 'from top to bottom',),
       GV.TLBR: ('diagonal', 'from the top left to the bottom right',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 2'),
+      NoGapValidator(NO_GAP_CRITERIA),
+      ReportRateValidator(REPORT_RATE_CRITERIA),
+    ),
   ),
 
   RESTING_FINGER_PLUS_2ND_FINGER_MOVE:
@@ -359,7 +424,11 @@ tests_dict = {
       GV.BRTL: ('from the bottom right to the top left',),
       GV.SLOW: ('3 seconds',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 2'),
+      NoGapValidator(NO_GAP_CRITERIA),
+      ReportRateValidator(REPORT_RATE_CRITERIA),
+    ),
   ),
 
   TWO_FAT_FINGERS_TRACKING:
@@ -372,7 +441,11 @@ tests_dict = {
       GV.LR: ('from left to right',),
       GV.RL: ('from right to left',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 2'),
+      NoGapValidator(NO_GAP_CRITERIA),
+      ReportRateValidator(REPORT_RATE_CRITERIA),
+    ),
   ),
 
   FIRST_FINGER_TRACKING_AND_SECOND_FINGER_TAPS:
@@ -386,7 +459,11 @@ tests_dict = {
       GV.TLBR: ('from top left to bottom right',),
       GV.BRTL: ('from bottom right to top left',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 4'),
+      NoGapValidator(NO_GAP_CRITERIA),
+      ReportRateValidator(REPORT_RATE_CRITERIA),
+    ),
   ),
 
   DRUMROLL:
@@ -419,7 +496,9 @@ tests_dict = {
       GV.BS: ('bottom edge',),
       GV.BR: ('bottom right corner',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 20'),
+    ),
     timeout = 2,
   ),
 
@@ -440,7 +519,11 @@ tests_dict = {
       GV.SLOW: ('2 seconds',),
       GV.NORMAL: ('1 second',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('== 1'),
+      NoGapValidator(NO_GAP_CRITERIA),
+      ReportRateValidator(REPORT_RATE_CRITERIA),
+    ),
   ),
 }
 

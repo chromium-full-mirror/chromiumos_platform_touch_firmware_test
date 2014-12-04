@@ -32,13 +32,13 @@ class TestSuite:
                                            self.options.is_touchscreen)
     else:
       self.touch_dev = AndroidTouchDevice(self.options.addr, True)
-
+    tests.validator.BaseValidator._device = self.touch_dev
 
     # Compute the list of tests to run
     self.tests = tests.generate_test_list(options)
     self.curr_test = 0
     self.curr_variation = 0
-    self.curr_iteration = 0
+    self.curr_iteration = 1
 
   def RunNextTestAndVariation(self):
     """ Run the next test.
@@ -84,12 +84,11 @@ class TestSuite:
     plotter.end()
 
     # Run the validators on these events
-    # TODO (charliemooney): Run the validators on these MtbPackets here
     snapshots = mtb.packetize(events)
-    for snapshot in snapshots:
-      for packet in snapshot:
-        print packet
-      print '--'
+    results = test.RunAllValidators(snapshots)
+    # TODO (charliemooney): Save these Results and build a report out of them
+    for result in results:
+      print result
 
     # Advance the test suite to the next test and variation and return an
     # indicator as to whether this was the last thing to do or not.

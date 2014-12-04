@@ -14,7 +14,7 @@ def packetize(events):
   each finger's state at the time of a SYN.  Essentially it takes a snapshot
   of the state of the pad at the time of each SYN event.
   """
-  packets = []
+  snapshots = []
 
   # initialize the state machine
   sm = MtbStateMachine()
@@ -27,7 +27,8 @@ def packetize(events):
     if not event.is_SYN_REPORT():
       continue
 
-    packet = sm.get_current_data_for_all_tids()
-    packets.append(packet)
+    snapshot = sm.get_current_data_for_all_tids()
+    if snapshot:
+      snapshots.append(snapshot)
 
-  return packets
+  return snapshots
