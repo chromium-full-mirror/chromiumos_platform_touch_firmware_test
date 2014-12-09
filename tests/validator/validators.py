@@ -6,6 +6,7 @@
 
 
 import math
+import numpy as np
 import sys
 
 import fuzzy
@@ -55,8 +56,23 @@ class BaseValidator(object):
 
     return paths
 
-    def validate(events):
-      raise NotImplementedError('Not implemented in subclass.')
+  def _TidOfNthFinger(self, finger_num, snapshots):
+    """ Return the TID of the nth finger to touch the pad """
+    tids_seen = set([])
+    tids_to_check = []
+
+    for snapshot in snapshots:
+      for packet in snapshot:
+        if packet.tid not in tids_seen:
+          tids_seen.add(packet.tid)
+          if len(tids_seen) > finger_num:
+            return packet.tid
+
+    # If there weren't enough fingers, return None
+    return None
+
+  def Validate(events):
+    raise NotImplementedError('Not implemented in subclass.')
 
 
 class CountTrackingIDValidator(BaseValidator):
@@ -70,7 +86,7 @@ class CountTrackingIDValidator(BaseValidator):
     name = self.__class__.__name__
     super(CountTrackingIDValidator, self).__init__(criteria_str, mf, name)
 
-  def validate(self, snapshots):
+  def Validate(self, snapshots):
     paths_by_tid = self._SeparateByTid(snapshots)
     observed_num_tids = len(paths_by_tid)
 
@@ -93,10 +109,10 @@ class ReportRateValidator(BaseValidator):
   MIN_MOVING_DISTANCE_PX = 4
 
   def __init__(self, criteria_str, mf=None):
-    self.name = self.__class__.__name__
-    super(ReportRateValidator, self).__init__(criteria_str, mf, self.name)
+    name = self.__class__.__name__
+    super(ReportRateValidator, self).__init__(criteria_str, mf, name)
 
-  def validate(self, snapshots):
+  def Validate(self, snapshots):
     """ Check that during any period on movement each finger has a high
     enough report rate.
     """
@@ -156,10 +172,10 @@ class RangeValidator(BaseValidator):
   """
 
   def __init__(self, criteria_str, mf=None):
-    self.name = self.__class__.__name__
-    super(RangeValidator, self).__init__(criteria_str, mf, self.name)
+    name = self.__class__.__name__
+    super(RangeValidator, self).__init__(criteria_str, mf, name)
 
-  def validate(self, snapshots):
+  def Validate(self, snapshots):
     """ Check to see the range of X/Y values reported and make sure they're
     within what we expect for this device.
     """
@@ -208,10 +224,10 @@ class NoGapValidator(BaseValidator):
   """
 
   def __init__(self, criteria_str, mf=None):
-    self.name = self.__class__.__name__
-    super(NoGapValidator, self).__init__(criteria_str, mf, self.name)
+    name = self.__class__.__name__
+    super(NoGapValidator, self).__init__(criteria_str, mf, name)
 
-  def validate(self, snapshots):
+  def Validate(self, snapshots):
     """ Compute the ratio of the distances between events and grade that
 
     This function tries to find the largest gap ratio between two gaps
@@ -231,20 +247,148 @@ class NoGapValidator(BaseValidator):
       gaps = [self._distance(path[i], path[i + 1])
               for i in range(len(path) - 1)]
 
-    for i in range(1, len(gaps) - 1):
-      prev_gap = max(gaps[i - 1], 1)
-      curr_gap = gaps[i]
-      next_gap = max(gaps[i + 1], 1)
-      gap_ratio_with_prev = curr_gap / prev_gap
-      gap_ratio_with_next = curr_gap / next_gap
-      if (curr_gap >= GAP_LOWER_BOUND and
-        gap_ratio_with_prev > largest_gap_ratio and
-        gap_ratio_with_next > RATIO_THRESHOLD_CURR_GAP_TO_NEXT_GAP):
-        largest_gap_ratio = gap_ratio_with_prev
+      for i in range(1, len(gaps) - 1):
+        prev_gap = max(gaps[i - 1], 1)
+        curr_gap = gaps[i]
+        next_gap = max(gaps[i + 1], 1)
+        gap_ratio_with_prev = curr_gap / prev_gap
+        gap_ratio_with_next = curr_gap / next_gap
+        if (curr_gap >= GAP_LOWER_BOUND and
+          gap_ratio_with_prev > largest_gap_ratio and
+          gap_ratio_with_next > RATIO_THRESHOLD_CURR_GAP_TO_NEXT_GAP):
+          largest_gap_ratio = gap_ratio_with_prev
 
     result = Result()
     result.name = self.name
     result.criteria = self.criteria_str
+
+    # If there were not enough gaps and we know nothing report an error
+    if largest_gap_ratio < 0:
+      largest_gap_ratio = float('inf')
+      result.error = ('Error computing gap ratios.  Perhaps there were not '
+                      'enough events collected.')
     result.observed = largest_gap_ratio
+    result.score = self.fc.mf.grade(result.observed)
+    return result
+
+class LinearityValidator(BaseValidator):
+  """ Validator to verify linearity based on x vs t and y vs t
+
+  Example:
+      To check the linearity of the line drawn by the first finger:
+        LinearityValidator('<= 0.03, ~ +0.07', finger=0)
+  """
+  # Define the partial group size for calculating Mean Squared Error
+  MSE_PARTIAL_GROUP_SIZE = 1
+
+  def __init__(self, criteria_str, mf=None, finger=None):
+    name = self.__class__.__name__
+    name += ('Finger%d' % finger) if finger is not None else 'AllFingers'
+    self.finger = finger
+    super(LinearityValidator, self).__init__(criteria_str, mf, name)
+
+  def _CalculateResiduals(self, line, times, values):
+    """ Calculate the residuals for this time/value series against the line.
+
+    @param line: The regression line of values vs time
+    @param times: a list of times
+    @param values: a list of the values corresponding to those times
+
+    This method returns the list of residuals, where
+        residual[i] = line[t_i] - v_i
+    where t_i is an element in times and
+          v_i is a corresponding element in values.
+
+    We calculate the vertical distance (value distance) here because the
+    horizontal axis (times) always represent the time instants, and the
+    vertical axis (values) should be either the coordinates in x or y axis.
+    """
+    return [float(line(t) - v) for t, v in zip(times, values)]
+
+  def _SimpleLinearRegression(self, times, values):
+    """Calculate the simple linear regression line and returns the
+    sum of squared residuals.
+
+    @param times: the list of time instants
+    @param values: the list of corresponding x or y coordinates
+
+    It calculates the residuals (fitting errors) of the points at the
+    specified segments against the computed simple linear regression line.
+
+    Reference:
+    - Simple linear regression:
+      http://en.wikipedia.org/wiki/Simple_linear_regression
+    - numpy.polyfit(): used to calculate the simple linear regression line.
+      http://docs.scipy.org/doc/numpy/reference/generated/numpy.polyfit.html
+    """
+    # At least 2 points to determine a line.
+    if len(times) < 2 or len(values) < 2:
+      return []
+
+    midsection_start = int(len(times) * 0.1)
+    midsection_end = len(times) - midsection_start
+    mid_segment_t = times[midsection_start:midsection_end]
+    mid_segment_y = values[midsection_start:midsection_end]
+
+    # Check to make sure there are enough samples to continue
+    if len(mid_segment_t) <= 2 or len(mid_segment_y) <= 2:
+      return []
+
+    # Calculate the simple linear regression line.
+    degree = 1
+    regress_line = np.poly1d(np.polyfit(mid_segment_t, mid_segment_y, degree))
+
+    # Compute the fitting errors of the specified segments.
+    return self._CalculateResiduals(regress_line, mid_segment_t, mid_segment_y)
+
+  def _ErrorsForSingleAxis(self, times, values):
+    """ Calculate linearity errors for one set of data points vs time """
+    # It is fine if axis-time is a horizontal line.
+    errors_px = self._SimpleLinearRegression(times, values)
+    if not errors_px:
+      return (0, 0)
+
+    # Calculate the max errors
+    max_err_px = max(map(abs, errors_px))
+
+    # Calculate the root mean square errors
+    e2 = [e * e for e in errors_px]
+    rms_err_px = (float(sum(e2)) / len(e2)) ** 0.5
+
+    return (max_err_px, rms_err_px)
+
+  def Validate(self, snapshots):
+    """ Check if the packets conforms to specified criteria. """
+    paths_by_tid = self._SeparateByTid(snapshots)
+    tids_to_check = paths_by_tid.keys()
+    if self.finger is not None:
+      tid = self._TidOfNthFinger(self.finger, snapshots)
+      tids_to_check = [tid] if tid is not None else []
+
+    max_err = float('-inf')
+    for tid in tids_to_check:
+      path = paths_by_tid[tid]
+      ys = [y for tid, slot, ts, x, y, pressure in path]
+      xs = [x for tid, slot, ts, x, y, pressure in path]
+      times = [ts for tid, slot, ts, x, y, pressure in path]
+
+      max_err_x, rms_err_x = self._ErrorsForSingleAxis(times, xs)
+      max_err = max(max_err, max_err_x)
+
+      max_err_y, rms_err_y = self._ErrorsForSingleAxis(times, ys)
+      max_err = max(max_err, max_err_y)
+
+    result = Result()
+    result.name = self.name
+    result.criteria = self.criteria_str
+    if max_err < 0:
+      max_err = float('inf')
+      if not tids_to_check:
+        result.error = ('There was no finger #%d as far as we can tell.' %
+                        self.finger)
+      else:
+        result.error = ('Unable to compute linearity.  Perhaps there were '
+                        'not enough events collected.')
+    result.observed = max_err
     result.score = self.fc.mf.grade(result.observed)
     return result

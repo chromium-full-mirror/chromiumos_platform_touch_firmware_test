@@ -62,6 +62,9 @@ FN_GEN_TESTS = [NOISE_LINE, NOISE_STATIONARY]
 NO_GAP_CRITERIA = '<= 1.8, ~ +1.0'
 RANGE_CRITERIA = '<= 0.01, ~ +0.07'
 REPORT_RATE_CRITERIA = '>= 60'
+LINEARITY_CRITERIA = '<= 0.8, ~ +2.4'
+RELAXED_LINEARITY_CRITERIA = '<= 1.5, ~ +3.0'
+
 
 
 
@@ -121,6 +124,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 1'),
+      LinearityValidator(LINEARITY_CRITERIA),
       NoGapValidator(NO_GAP_CRITERIA),
       ReportRateValidator(REPORT_RATE_CRITERIA),
     ),
@@ -144,6 +148,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 1'),
+      LinearityValidator(LINEARITY_CRITERIA),
       NoGapValidator(NO_GAP_CRITERIA),
       ReportRateValidator(REPORT_RATE_CRITERIA),
     ),
@@ -165,6 +170,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 1'),
+      LinearityValidator(LINEARITY_CRITERIA),
       NoGapValidator(NO_GAP_CRITERIA),
       ReportRateValidator(REPORT_RATE_CRITERIA),
       RangeValidator(RANGE_CRITERIA),
@@ -191,6 +197,8 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 2'),
+      LinearityValidator(LINEARITY_CRITERIA, finger=0),
+      LinearityValidator(LINEARITY_CRITERIA, finger=1),
       NoGapValidator(NO_GAP_CRITERIA),
       ReportRateValidator(REPORT_RATE_CRITERIA),
     ),
@@ -222,6 +230,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 2'),
+      LinearityValidator(LINEARITY_CRITERIA, finger=1),
       NoGapValidator(NO_GAP_CRITERIA),
       ReportRateValidator(REPORT_RATE_CRITERIA),
     ),
@@ -368,6 +377,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 2'),
+      LinearityValidator(RELAXED_LINEARITY_CRITERIA, finger=1),
       NoGapValidator(NO_GAP_CRITERIA),
       ReportRateValidator(REPORT_RATE_CRITERIA),
     ),
@@ -387,6 +397,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 1'),
+      LinearityValidator(RELAXED_LINEARITY_CRITERIA),
       NoGapValidator(NO_GAP_CRITERIA),
       ReportRateValidator(REPORT_RATE_CRITERIA),
     ),
@@ -406,6 +417,8 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 2'),
+      LinearityValidator(RELAXED_LINEARITY_CRITERIA, finger=0),
+      LinearityValidator(RELAXED_LINEARITY_CRITERIA, finger=1),
       NoGapValidator(NO_GAP_CRITERIA),
       ReportRateValidator(REPORT_RATE_CRITERIA),
     ),
@@ -426,6 +439,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 2'),
+      LinearityValidator(LINEARITY_CRITERIA, finger=1),
       NoGapValidator(NO_GAP_CRITERIA),
       ReportRateValidator(REPORT_RATE_CRITERIA),
     ),
@@ -443,6 +457,8 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 2'),
+      LinearityValidator(RELAXED_LINEARITY_CRITERIA, finger=0),
+      LinearityValidator(RELAXED_LINEARITY_CRITERIA, finger=1),
       NoGapValidator(NO_GAP_CRITERIA),
       ReportRateValidator(REPORT_RATE_CRITERIA),
     ),
@@ -461,6 +477,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 4'),
+      LinearityValidator(LINEARITY_CRITERIA, finger=0),
       NoGapValidator(NO_GAP_CRITERIA),
       ReportRateValidator(REPORT_RATE_CRITERIA),
     ),
@@ -521,6 +538,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 1'),
+      LinearityValidator(LINEARITY_CRITERIA),
       NoGapValidator(NO_GAP_CRITERIA),
       ReportRateValidator(REPORT_RATE_CRITERIA),
     ),

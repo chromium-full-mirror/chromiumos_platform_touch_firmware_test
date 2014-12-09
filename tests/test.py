@@ -23,7 +23,7 @@ class Test:
         self.timeout = timeout
 
     def RunAllValidators(self, snapshots):
-      return [validator.validate(snapshots) for validator in self.validators]
+      return [validator.Validate(snapshots) for validator in self.validators]
 
     def PromptForVariation(self, variation_number):
         """ Generate an English prompt to explain to the user what gesture to
