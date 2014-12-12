@@ -64,8 +64,7 @@ RANGE_CRITERIA = '<= 0.01, ~ +0.07'
 REPORT_RATE_CRITERIA = '>= 60'
 LINEARITY_CRITERIA = '<= 0.8, ~ +2.4'
 RELAXED_LINEARITY_CRITERIA = '<= 1.5, ~ +3.0'
-
-
+STATIONARY_FINGER_CRITERIA = '<= 1.0'
 
 
 # Definitions for the test specifics
@@ -100,6 +99,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 1'),
+      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA),
     ),
   ),
   NOISE_LINE:
@@ -233,6 +233,7 @@ tests_dict = {
       LinearityValidator(LINEARITY_CRITERIA, finger=1),
       NoGapValidator(NO_GAP_CRITERIA),
       ReportRateValidator(REPORT_RATE_CRITERIA),
+      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA, finger=0),
     ),
   ),
 
@@ -301,6 +302,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 1'),
+      StationaryTapValidator(STATIONARY_FINGER_CRITERIA),
     ),
   ),
 
@@ -317,6 +319,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 2'),
+      StationaryTapValidator(STATIONARY_FINGER_CRITERIA),
     ),
   ),
 
@@ -334,6 +337,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 1'),
+      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA),
     ),
   ),
 
@@ -346,6 +350,7 @@ tests_dict = {
     subprompt=None,
     validators=(
       CountTrackingIDValidator('== 2'),
+      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA),
     ),
   ),
 
@@ -360,6 +365,7 @@ tests_dict = {
     validators=(
       NoGapValidator(NO_GAP_CRITERIA),
       ReportRateValidator(REPORT_RATE_CRITERIA),
+      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA, finger=0),
     ),
   ),
 
@@ -380,6 +386,7 @@ tests_dict = {
       LinearityValidator(RELAXED_LINEARITY_CRITERIA, finger=1),
       NoGapValidator(NO_GAP_CRITERIA),
       ReportRateValidator(REPORT_RATE_CRITERIA),
+      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA, finger=0),
     ),
   ),
 
@@ -442,6 +449,7 @@ tests_dict = {
       LinearityValidator(LINEARITY_CRITERIA, finger=1),
       NoGapValidator(NO_GAP_CRITERIA),
       ReportRateValidator(REPORT_RATE_CRITERIA),
+      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA, finger=0),
     ),
   ),
 
@@ -515,6 +523,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 20'),
+      StationaryTapValidator(STATIONARY_FINGER_CRITERIA),
     ),
     timeout = 2,
   ),

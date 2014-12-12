@@ -215,6 +215,7 @@ class RangeValidator(BaseValidator):
                       'Probably not enough events were collected.')
     return result
 
+
 class NoGapValidator(BaseValidator):
   """ Validator to make sure that there are no significant gaps in a line.
 
@@ -270,6 +271,7 @@ class NoGapValidator(BaseValidator):
     result.observed = largest_gap_ratio
     result.score = self.fc.mf.grade(result.observed)
     return result
+
 
 class LinearityValidator(BaseValidator):
   """ Validator to verify linearity based on x vs t and y vs t
@@ -392,3 +394,66 @@ class LinearityValidator(BaseValidator):
     result.observed = max_err
     result.score = self.fc.mf.grade(result.observed)
     return result
+
+
+class StationaryValidator(BaseValidator):
+  """ Validator to make sure a finger we expect to remain still didn't move.
+
+  This class is inherited by both StationaryFingerValidator and
+  StationaryTapValidator, and is not used directly as a validator.
+  """
+  def __init__(self, criteria, mf=None, finger=None):
+    name = self.__class__.__name__
+    super(StationaryValidator, self).__init__(criteria, mf, name)
+    self.finger = finger
+
+  def Validate(self, snapshots):
+    """ Check the moving distance of the specified finger. """
+    paths_by_tid = self._SeparateByTid(snapshots)
+    tids_to_check = paths_by_tid.keys()
+    if self.finger is not None:
+      tid = self._TidOfNthFinger(self.finger, snapshots)
+      tids_to_check = [tid] if tid is not None else []
+
+    max_distance = float('-inf')
+    for tid in tids_to_check:
+      for p1 in paths_by_tid[tid]:
+        for p2 in paths_by_tid[tid]:
+          max_distance = max(max_distance, self._distance(p1, p2))
+
+    result = Result()
+    result.name = self.name
+    result.criteria = self.criteria_str
+    if max_distance < 0:
+      max_distance = float('inf')
+      if not tids_to_check:
+        result.error = ('There was no finger #%d as far as we can tell.' %
+                        self.finger)
+      else:
+        result.error = ('Unable to compute distances.  Perhaps there were '
+                        'not enough events collected.')
+    result.observed = max_distance
+    result.score = self.fc.mf.grade(result.observed)
+    return result
+
+
+class StationaryFingerValidator(StationaryValidator):
+  """ Validator to check for "pulling" effects by another finger.
+
+  Example:
+      To verify if the specified stationary finger is not pulled away more
+      than 1.0 mm by another finger.
+        StationaryFingerValidator('<= 1.0')
+  """
+  pass
+
+
+class StationaryTapValidator(StationaryValidator):
+  """ Validator to check the wobble of taps and clicks.
+
+  Example:
+      To verify if the first tapping finger specified does not wobble larger
+      than 1.0 mm.
+        StationaryTapValidator('<= 1.0', finger=0)
+  """
+  pass
