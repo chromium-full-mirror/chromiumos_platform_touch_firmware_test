@@ -589,3 +589,35 @@ class NoReversedMotionEndsValidator(NoReversedMotionValidator):
   def __init__(self, criteria_str, mf=None, finger=None):
     super(NoReversedMotionEndsValidator, self).__init__(
                                           criteria_str, mf, finger, self.ENDS)
+class CountPacketsValidator(BaseValidator):
+  """ Validator to check that there is a sufficient number of packets for
+  each finger that is seen.
+
+  Example:
+      To verify if there are at least 3 packets for each finger:
+        CountPacketsValidator('>= 3, ~ -3')
+  """
+
+  def __init__(self, criteria_str, mf=None):
+    name = self.__class__.__name__
+    super(CountPacketsValidator, self).__init__(criteria_str, mf, name)
+
+  def Validate(self, snapshots):
+    """ Check the number of packets for each finger """
+    # Find how many packets arrived for each tracking ID
+    paths_by_tid = self._SeparateByTid(snapshots)
+    packet_counts = [len(path) for path in paths_by_tid.values()]
+
+    # Build a result object and return the results of the validator
+    # Use whichever finger had the *least* packets as the result
+    result = Result()
+    result.name = self.name
+    result.criteria = self.criteria_str
+    if not packet_counts:
+      result.observed = float(0)
+      result.score = self.fc.mf.grade(result.observed)
+      result.error = 'No events were collected for ANY fingers.'
+    else:
+      result.observed = min(packet_counts)
+      result.score = self.fc.mf.grade(result.observed)
+    return result

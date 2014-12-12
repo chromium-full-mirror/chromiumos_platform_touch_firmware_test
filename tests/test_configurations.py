@@ -59,6 +59,7 @@ FN_GEN_TESTS = [NOISE_LINE, NOISE_STATIONARY]
 
 
 # Define the pass/fail criteria for the various validators
+COUNT_PACKETS_CRITERIA = '>= 3, ~ -3'
 NO_GAP_CRITERIA = '<= 1.8, ~ +1.0'
 NO_REVERSED_MOTION_CRITERIA = '<= 5, ~ +30'
 RANGE_CRITERIA = '<= 0.01, ~ +0.07'
@@ -258,6 +259,7 @@ tests_dict = {
       GV.TRBL: ('from the top right to the bottom left',),
     },
     validators=(
+      CountPacketsValidator(COUNT_PACKETS_CRITERIA),
       CountTrackingIDValidator('== 1'),
       ReportRateValidator(REPORT_RATE_CRITERIA),
     ),
@@ -272,6 +274,7 @@ tests_dict = {
       GV.BT: ('from bottom to top',),
     },
     validators=(
+      CountPacketsValidator(COUNT_PACKETS_CRITERIA),
       CountTrackingIDValidator('== 2'),
       ReportRateValidator(REPORT_RATE_CRITERIA),
     ),
