@@ -30,8 +30,32 @@ class BaseValidator(object):
     self.fc = fuzzy.FuzzyCriteria(self.criteria_str, mf=mf)
     self.name = name
 
-  def _distance(self, p1, p2):
+  def _Distance(self, p1, p2):
     return math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2)
+
+  def _SegmentPath(self, path, start_and_end_percentage=0.1):
+    """ Assuming that the path takes a roughly straight line, this function
+    segments the packetss that are in the extreme ends of the line (by
+    distance, not time or position in the array)  It then returns the three
+    sectioned off segments (start, middle, end)
+    """
+    start = path[0]
+    end = path[-1]
+    total_distance = self._Distance(start, end)
+    trim_distance = start_and_end_percentage * total_distance
+    lo = hi = None
+    for i, packet in enumerate(path):
+      # If we haven't found the first packet yet, check if it's far enough away
+      # from the start to not get trimmed.
+      if lo is None:
+        if self._Distance(packet, start) > trim_distance:
+          lo = i
+      # Otherwise see if this packet is too close to the end
+      elif hi is None:
+        if self._Distance(packet, end) < trim_distance:
+          hi = i
+
+    return path[:lo], path[lo:hi], path[hi:]
 
   def _SeparateByTid(self, snapshots):
     """ Given all the snapshots of some gesture, separate the packets by tid
@@ -128,7 +152,7 @@ class ReportRateValidator(BaseValidator):
       for i, packet in enumerate(path):
         if i == 0:
           continue
-        distance_moved = self._distance(packet, path[i - 1])
+        distance_moved = self._Distance(packet, path[i - 1])
         if distance_moved >  ReportRateValidator.MIN_MOVING_DISTANCE_PX:
           continue
         if start != i - 1:
@@ -245,7 +269,7 @@ class NoGapValidator(BaseValidator):
     largest_gap_ratio = float('-inf')
 
     for path in paths_by_tid.values():
-      gaps = [self._distance(path[i], path[i + 1])
+      gaps = [self._Distance(path[i], path[i + 1])
               for i in range(len(path) - 1)]
 
       for i in range(1, len(gaps) - 1):
@@ -369,7 +393,9 @@ class LinearityValidator(BaseValidator):
 
     max_err = float('-inf')
     for tid in tids_to_check:
-      path = paths_by_tid[tid]
+      start, middle, end = self._SegmentPath(paths_by_tid[tid])
+      path = middle
+
       ys = [y for tid, slot, ts, x, y, pressure in path]
       xs = [x for tid, slot, ts, x, y, pressure in path]
       times = [ts for tid, slot, ts, x, y, pressure in path]
@@ -385,7 +411,7 @@ class LinearityValidator(BaseValidator):
     result.criteria = self.criteria_str
     if max_err < 0:
       max_err = float('inf')
-      if not tids_to_check:
+      if not tids_to_check and self.finger is not None:
         result.error = ('There was no finger #%d as far as we can tell.' %
                         self.finger)
       else:
@@ -419,7 +445,7 @@ class StationaryValidator(BaseValidator):
     for tid in tids_to_check:
       for p1 in paths_by_tid[tid]:
         for p2 in paths_by_tid[tid]:
-          max_distance = max(max_distance, self._distance(p1, p2))
+          max_distance = max(max_distance, self._Distance(p1, p2))
 
     result = Result()
     result.name = self.name
@@ -457,3 +483,109 @@ class StationaryTapValidator(StationaryValidator):
         StationaryTapValidator('<= 1.0', finger=0)
   """
   pass
+
+
+class NoReversedMotionValidator(BaseValidator):
+  """ Validator to measure any reversed motion detected
+
+  Example:
+      To measure the reversed motion for the first finger:
+      NoReversedMotionValidator('== 0, ~ +20', finger=0)
+  """
+  # We will want to check different portions of the line for reversed motions.
+  # These values indication which section of the line we want to check
+  MIDDLE = 'middle'
+  ENDS = 'ends'
+
+  RATIO_CUTOFF = 3.0
+
+  def __init__(self, criteria_str, mf=None, finger=None, section=None):
+    name = self.__class__.__name__
+    super(NoReversedMotionValidator, self).__init__(criteria_str, mf, name)
+    self.finger = finger
+    self.section = section
+
+  def _GetReversedGaps(self, path):
+    """ Measure any reversed motion (opposed to the general direction) """
+    # Measure the x/y gaps between packets
+    dxs = [path[i + 1].x - path[i].x for i in range(len(path) - 1)]
+    dys = [path[i + 1].y - path[i].y for i in range(len(path) - 1)]
+
+    # Measure the gaps in all directions
+    left_gaps = [gap for gap in dxs if gap < 0]
+    right_gaps = [gap for gap in dxs if gap > 0]
+    if len(right_gaps) > 0:
+      left_to_right_ratio = float(len(left_gaps)) / float(len(right_gaps))
+    else:
+      left_to_right_ratio = float('inf')
+    x_moving = (left_to_right_ratio > self.RATIO_CUTOFF or
+                left_to_right_ratio < (1.0 / self.RATIO_CUTOFF))
+
+    up_gaps = [gap for gap in dys if gap < 0]
+    down_gaps = [gap for gap in dys if gap > 0]
+    if len(down_gaps) > 0:
+      up_to_down_ratio = float(len(up_gaps)) / float(len(down_gaps))
+    else:
+      up_to_down_ratio = float('inf')
+    y_moving = (up_to_down_ratio > self.RATIO_CUTOFF or
+                up_to_down_ratio < (1.0 / self.RATIO_CUTOFF))
+
+    # Check which directions the line is drawing in.
+    reversed_gaps = []
+    if x_moving:
+      reversed_gaps.extend(left_gaps if left_to_right_ratio < 1.0
+                           else right_gaps)
+    if y_moving:
+      reversed_gaps.extend(up_gaps if up_to_down_ratio < 1.0 else down_gaps)
+
+    return reversed_gaps
+
+  def Validate(self, snapshots):
+    """ All X/Y values should be monotonic in the selected section of line. """
+    # First, find the paths for each of the fingers we are supposed to check
+    paths_by_tid = self._SeparateByTid(snapshots)
+    tids_to_check = paths_by_tid.keys()
+    if self.finger is not None:
+      tid = self._TidOfNthFinger(self.finger, snapshots)
+      tids_to_check = [tid] if tid is not None else []
+
+    # For each finger, compute the total reversed distance and sum them
+    reversed_total = 0
+    for tid in tids_to_check:
+      paths = [paths_by_tid[tid]]
+      if self.section:
+        start, middle, end = self._SegmentPath(paths_by_tid[tid])
+        if self.section == self.MIDDLE:
+          paths = [middle]
+        elif self.section == self.ENDS:
+          paths = [start, end]
+
+      for path in paths:
+        reversed_gaps = self._GetReversedGaps(path)
+        reversed_total += sum([abs(gap) for gap in reversed_gaps])
+
+    # Build a result object and return the results of the validator
+    result = Result()
+    result.name = self.name
+    result.criteria = self.criteria_str
+    if not tids_to_check:
+      reversed_total = float('inf')
+      if len(snapshots) == 0 or not self.finger:
+        result.error = 'No events were collected, unable to validate'
+      else:
+        result.error = ('There was no finger #%d as far as we can tell.' %
+                        self.finger)
+    result.observed = reversed_total
+    result.score = self.fc.mf.grade(result.observed)
+    return result
+
+
+class NoReversedMotionMiddleValidator(NoReversedMotionValidator):
+  def __init__(self, criteria_str, mf=None, finger=None):
+    super(NoReversedMotionMiddleValidator, self).__init__(
+                                          criteria_str, mf, finger, self.MIDDLE)
+
+class NoReversedMotionEndsValidator(NoReversedMotionValidator):
+  def __init__(self, criteria_str, mf=None, finger=None):
+    super(NoReversedMotionEndsValidator, self).__init__(
+                                          criteria_str, mf, finger, self.ENDS)
