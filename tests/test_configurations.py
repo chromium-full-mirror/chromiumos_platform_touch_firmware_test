@@ -65,6 +65,7 @@ NO_REVERSED_MOTION_CRITERIA = '<= 5, ~ +30'
 RANGE_CRITERIA = '<= 0.01, ~ +0.07'
 REPORT_RATE_CRITERIA = '>= 60'
 LINEARITY_CRITERIA = '<= 0.8, ~ +2.4'
+PINCH_CRITERIA = '>= 200, ~ -100'
 RELAXED_LINEARITY_CRITERIA = '<= 1.5, ~ +3.0'
 STATIONARY_FINGER_CRITERIA = '<= 1.0'
 
@@ -293,6 +294,7 @@ tests_dict = {
     validators=(
       CountTrackingIDValidator('== 2'),
       NoGapValidator(NO_GAP_CRITERIA),
+      PinchValidator(PINCH_CRITERIA),
       ReportRateValidator(REPORT_RATE_CRITERIA),
     ),
   ),

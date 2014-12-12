@@ -621,3 +621,43 @@ class CountPacketsValidator(BaseValidator):
       result.observed = min(packet_counts)
       result.score = self.fc.mf.grade(result.observed)
     return result
+
+
+class PinchValidator(BaseValidator):
+  """ Validator to check that a pinch zoomed in/out.
+
+  Example:
+      To verify that the two fingers are drawing closer:
+        PinchValidator('>= 200, ~ -100')
+  """
+
+  def __init__(self, criteria_str, mf=None, device=None):
+    name = self.__class__.__name__
+    super(PinchValidator, self).__init__(criteria_str, mf, name)
+
+  def Validate(self, snapshots):
+    """ Check the relative direction of two fingers """
+    paths_by_tid = self._SeparateByTid(snapshots)
+    if len(paths_by_tid) > 2:
+      # If more than 2 fingers are observed, use the two with the most packets.
+      # It's likely that the extras are stray touches
+      longest_two_tids = sorted(paths_by_tid.keys(),
+                                key=lambda x:len(paths_by_tid[x]))[-2:]
+      paths_by_tid = dict([(tid, paths_by_tid[tid])
+                           for tid in longest_two_tids])
+
+    relative_motion = 0
+    if len(paths_by_tid) == 2:
+      paths = paths_by_tid.values()
+      starting_distance = self._Distance(paths[0][0], paths[1][1])
+      ending_distance = self._Distance(paths[0][-1], paths[1][-1])
+      relative_motion = ending_distance - starting_distance
+
+    result = Result()
+    result.name = self.name
+    result.criteria = self.criteria_str
+    result.observed = abs(relative_motion)
+    result.score = self.fc.mf.grade(result.observed)
+    if len(paths_by_tid) < 2:
+      result.error = 'Not enough fingers seen.  Must have 2 for a pinch/zoom.'
+    return result
