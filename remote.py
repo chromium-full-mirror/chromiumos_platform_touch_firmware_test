@@ -52,6 +52,7 @@ class RemoteTouchDevice:
   ]
   touchpad_device_names = [
     'touchpad',
+    'trackpad',
   ]
 
   def __init__(self, addr, is_touchscreen=False):
