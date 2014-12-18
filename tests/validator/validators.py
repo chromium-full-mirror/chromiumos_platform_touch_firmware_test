@@ -12,8 +12,10 @@ import sys
 import fuzzy
 import mtb
 
-from result import Result
 from inspect import isfunction
+from result import Result
+
+from minicircle import minicircle
 
 
 class BaseValidator(object):
@@ -660,4 +662,90 @@ class PinchValidator(BaseValidator):
     result.score = self.fc.mf.grade(result.observed)
     if len(paths_by_tid) < 2:
       result.error = 'Not enough fingers seen.  Must have 2 for a pinch/zoom.'
+    return result
+
+
+class DrumrollValidator(BaseValidator):
+  """ Validator to check that two fingers are separated during a drumroll
+  All points from the same finger should be within 2 circles of a given radius
+
+  Essentially the issue this is checking for is that when two fingers are
+  tapping in quick succession, it's not uncommon for the pad to give them the
+  same tracking ID.  Worse yet, some pads will actually interpolate a few
+  points in between the fingers to make up for the movement it "missed."
+
+  Example:
+      To verify that the max radius of all minimal enclosing circles generated
+      by alternately tapping the index and middle fingers is within 2.0 mm.
+        DrumrollValidator('<= 2.0')
+  """
+
+  def __init__(self, criteria_str, mf=None):
+    name = self.__class__.__name__
+    super(DrumrollValidator, self).__init__(criteria_str, mf, name)
+
+  def _GetTwoFarthestPoints(self, packets):
+    """ Find the two points that are farthest apart in the packets """
+    if len(packets) <= 1:
+      return None, None
+
+    max_distance = float('-inf')
+    two_farthest_points = (None, None)
+
+    for p1 in packets:
+      for p2 in packets:
+        distance = self._Distance(p1, p2)
+        if distance > max_distance:
+          two_farthest_points = (p1, p2)
+          max_distance = distance
+
+    return two_farthest_points
+
+
+  def _FindTwoFarthestClusters(self, packets):
+    """ Separate all the points where these packets are into two separated
+    clusters.  This is done by finding the two farthest apart points, then
+    grouping the remaining points based on their proximity to those two.
+    """
+    p1, p2 = self._GetTwoFarthestPoints(packets)
+    if p1 is None or p2 is None:
+      return [], []
+
+    cluster1 = set([p for p in packets
+                    if self._Distance(p, p1) < self._Distance(p, p2)])
+    cluster2 = set([p for p in packets
+                    if self._Distance(p, p1) >= self._Distance(p, p2)])
+    return cluster1, cluster2
+
+  def _MinimumEnclosingRadius(self, packets):
+    """ Compute the radius of the smallest circle that can surround all of
+    the points where the packets are.
+    """
+    if len(packets) <= 1:
+      return 0
+    circle = minicircle(packets)
+    return circle.radius
+
+  def Validate(self, snapshots):
+    """ For each tracking ID, the events should all be able to be enclosed in
+    a circle with a radius which is scored by this validator.
+    """
+    paths_by_tid = self._SeparateByTid(snapshots)
+    radii = []
+    # for each finger, see how big the two radii are and store them all
+    for path in paths_by_tid.values():
+      clusters = self._FindTwoFarthestClusters(path)
+      radii += [self._MinimumEnclosingRadius(cluster) for cluster in clusters]
+
+    result = Result()
+    result.name = self.name
+    result.criteria = self.criteria_str
+    if radii:
+      # The biggest radius is the value we will be scoring
+      result.observed = max(radii)
+    else:
+      result.observed = float('inf')
+      result.error = ('Unable to determine radii.  Perhaps not enough '
+                      'events were collected.')
+    result.score = self.fc.mf.grade(result.observed)
     return result

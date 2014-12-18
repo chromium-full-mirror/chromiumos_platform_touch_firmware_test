@@ -60,6 +60,7 @@ FN_GEN_TESTS = [NOISE_LINE, NOISE_STATIONARY]
 
 # Define the pass/fail criteria for the various validators
 COUNT_PACKETS_CRITERIA = '>= 3, ~ -3'
+DRUMROLL_CRITERIA = '<= 2.0'
 NO_GAP_CRITERIA = '<= 1.8, ~ +1.0'
 NO_REVERSED_MOTION_CRITERIA = '<= 5, ~ +30'
 RANGE_CRITERIA = '<= 0.01, ~ +0.07'
@@ -529,7 +530,10 @@ tests_dict = {
     subprompt={
       GV.FAST: ('as fast as possible',),
     },
-    validators=(),
+    validators=(
+      CountTrackingIDValidator('>= 10'),
+      DrumrollValidator(DRUMROLL_CRITERIA),
+    ),
     timeout = 2,
   ),
 
