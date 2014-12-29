@@ -17,27 +17,27 @@ class MtbEvent:
     return self.event_type == EV_ABS and self.event_code == ABS_MT_TRACKING_ID
 
   def is_new_contact(self):
-    """ Is this packet generating new contact (Tracking ID)? """
+    """ Is this event generating new contact (Tracking ID)? """
     return self.is_ABS_MT_TRACKING_ID() and self.value != -1
 
   def is_finger_leaving(self):
-    """ Is the finger is leaving in this packet? """
+    """ Is the finger is leaving in this event? """
     return self.is_ABS_MT_TRACKING_ID() and self.value == -1
 
   def is_ABS_MT_SLOT(self):
-    """ Is this packet ABS_MT_SLOT? """
+    """ Is this event ABS_MT_SLOT? """
     return self.event_type == EV_ABS and self.event_code == ABS_MT_SLOT
 
   def is_ABS_MT_POSITION_X(self):
-    """ Is this packet ABS_MT_POSITION_X? """
+    """ Is this event ABS_MT_POSITION_X? """
     return self.event_type == EV_ABS and self.event_code == ABS_MT_POSITION_X
 
   def is_ABS_MT_POSITION_Y(self):
-    """ Is this packet ABS_MT_POSITION_Y? """
+    """ Is this event ABS_MT_POSITION_Y? """
     return self.event_type == EV_ABS and self.event_code == ABS_MT_POSITION_Y
 
   def is_ABS_MT_PRESSURE(self):
-    """ Is this packet ABS_MT_PRESSURE? """
+    """ Is this event ABS_MT_PRESSURE? """
     return self.event_type == EV_ABS and self.event_code == ABS_MT_PRESSURE
 
   def is_finger_data(self):

@@ -37,7 +37,7 @@ class BaseValidator(object):
 
   def _SegmentPath(self, path, start_and_end_percentage=0.1):
     """ Assuming that the path takes a roughly straight line, this function
-    segments the packetss that are in the extreme ends of the line (by
+    segments the fingers that are in the extreme ends of the line (by
     distance, not time or position in the array)  It then returns the three
     sectioned off segments (start, middle, end)
     """
@@ -46,38 +46,37 @@ class BaseValidator(object):
     total_distance = self._Distance(start, end)
     trim_distance = start_and_end_percentage * total_distance
     lo = hi = None
-    for i, packet in enumerate(path):
-      # If we haven't found the first packet yet, check if it's far enough away
+    for i, finger in enumerate(path):
+      # If we haven't found the first finger yet, check if it's far enough away
       # from the start to not get trimmed.
       if lo is None:
-        if self._Distance(packet, start) > trim_distance:
+        if self._Distance(finger, start) > trim_distance:
           lo = i
-      # Otherwise see if this packet is too close to the end
+      # Otherwise see if this finger is too close to the end
       elif hi is None:
-        if self._Distance(packet, end) < trim_distance:
+        if self._Distance(finger, end) < trim_distance:
           hi = i
 
     return path[:lo], path[lo:hi], path[hi:]
 
   def _SeparateByTid(self, snapshots):
-    """ Given all the snapshots of some gesture, separate the packets by tid
-    This takes in a list of snapshots (each is a list of packets from
-    different fingers) and outputs a dictionary mapping tids to a list of
-    only their packets (in order).
+    """ Given all the snapshots of some gesture, separate the fingers by tid
+    This takes in a list of MtbSnapshots and outputs a dictionary mapping tids
+    to a list of only their MtbFinger's (in order).
     """
     # First find all the TIDs that are present in the snapshots
     tids = set([])
-    for packets in snapshots:
-      tids = tids.union(set([(tid) for tid, _, _, _, _, _ in packets]))
+    for snapshot in snapshots:
+      tids = tids.union(set([(finger.tid) for finger in snapshot.fingers]))
 
-    # Then separate the packets by TID
+    # Then separate the fingers by TID
     paths = {}
     for tid in tids:
       path = []
-      for packets in snapshots:
-        for packet in packets:
-          if packet.tid == tid:
-            path.append(packet)
+      for snapshot in snapshots:
+        for finger in snapshot.fingers:
+          if finger.tid == tid:
+            path.append(finger)
       paths[tid] = path
 
     return paths
@@ -88,16 +87,16 @@ class BaseValidator(object):
     tids_to_check = []
 
     for snapshot in snapshots:
-      for packet in snapshot:
-        if packet.tid not in tids_seen:
-          tids_seen.add(packet.tid)
+      for finger in snapshot.fingers:
+        if finger.tid not in tids_seen:
+          tids_seen.add(finger.tid)
           if len(tids_seen) > finger_num:
-            return packet.tid
+            return finger.tid
 
     # If there weren't enough fingers, return None
     return None
 
-  def Validate(events):
+  def Validate(self, snapshots):
     raise NotImplementedError('Not implemented in subclass.')
 
 
@@ -147,14 +146,14 @@ class ReportRateValidator(BaseValidator):
 
     # If a finger isn't moving, its report rate may drop due to the MTB delta
     # compression.  Any time the finger's x/y isn't changing much between two
-    # packets, we should ignore that time delta.
+    # fingers, we should ignore that time delta.
     moving_segments = []
     for path in paths_by_tid.values():
       start = 0
-      for i, packet in enumerate(path):
+      for i, finger in enumerate(path):
         if i == 0:
           continue
-        distance_moved = self._Distance(packet, path[i - 1])
+        distance_moved = self._Distance(finger, path[i - 1])
         if distance_moved >  ReportRateValidator.MIN_MOVING_DISTANCE_PX:
           continue
         if start != i - 1:
@@ -162,10 +161,10 @@ class ReportRateValidator(BaseValidator):
         start = i
       moving_segments.append(path[start:])
 
-    # Compute the time deltas between consecutive packets for each finger
+    # Compute the time deltas between consecutive readings for each finger
     deltas = []
     for segment in moving_segments:
-      times = [ts for tid, slot, ts, x, y, pressure in segment]
+      times = [finger.syn_time for finger in segment]
       deltas.extend([times[i] - times[i - 1] for i in range(1, len(times))])
 
     # The average time delta between events during moving periods can be used
@@ -209,12 +208,11 @@ class RangeValidator(BaseValidator):
     min_x = min_y = float('inf')
     max_x = max_y = float('-inf')
     for snapshot in snapshots:
-      for packet in snapshot:
-        tid, slot, ts, x, y, pressure = packet
-        min_x = min(min_x, x)
-        max_x = max(max_x, x)
-        min_y = min(min_y, y)
-        max_y = max(max_y, y)
+      for finger in snapshot.fingers:
+        min_x = min(min_x, finger.x)
+        max_x = max(max_x, finger.x)
+        min_y = min(min_y, finger.y)
+        max_y = max(max_y, finger.y)
 
     # We should be able to guess the direction based on which edge was close
     right_gap = BaseValidator._device.width - max_x
@@ -386,7 +384,7 @@ class LinearityValidator(BaseValidator):
     return (max_err_px, rms_err_px)
 
   def Validate(self, snapshots):
-    """ Check if the packets conforms to specified criteria. """
+    """ Check if the fingers conform to specified criteria. """
     paths_by_tid = self._SeparateByTid(snapshots)
     tids_to_check = paths_by_tid.keys()
     if self.finger is not None:
@@ -398,9 +396,9 @@ class LinearityValidator(BaseValidator):
       start, middle, end = self._SegmentPath(paths_by_tid[tid])
       path = middle
 
-      ys = [y for tid, slot, ts, x, y, pressure in path]
-      xs = [x for tid, slot, ts, x, y, pressure in path]
-      times = [ts for tid, slot, ts, x, y, pressure in path]
+      xs = [finger.x for finger in path]
+      ys = [finger.y for finger in path]
+      times = [finger.syn_time for finger in path]
 
       max_err_x, rms_err_x = self._ErrorsForSingleAxis(times, xs)
       max_err = max(max_err, max_err_x)
@@ -455,8 +453,11 @@ class StationaryValidator(BaseValidator):
     if max_distance < 0:
       max_distance = float('inf')
       if not tids_to_check:
-        result.error = ('There was no finger #%d as far as we can tell.' %
-                        self.finger)
+        if self.finger is None:
+          result.error = ('There were not enough events recorded.')
+        else:
+          result.error = ('There was no finger #%d as far as we can tell.' %
+                          self.finger)
       else:
         result.error = ('Unable to compute distances.  Perhaps there were '
                         'not enough events collected.')
@@ -509,7 +510,7 @@ class NoReversedMotionValidator(BaseValidator):
 
   def _GetReversedGaps(self, path):
     """ Measure any reversed motion (opposed to the general direction) """
-    # Measure the x/y gaps between packets
+    # Measure the x/y gaps between finger readings
     dxs = [path[i + 1].x - path[i].x for i in range(len(path) - 1)]
     dys = [path[i + 1].y - path[i].y for i in range(len(path) - 1)]
 
@@ -592,11 +593,11 @@ class NoReversedMotionEndsValidator(NoReversedMotionValidator):
     super(NoReversedMotionEndsValidator, self).__init__(
                                           criteria_str, mf, finger, self.ENDS)
 class CountPacketsValidator(BaseValidator):
-  """ Validator to check that there is a sufficient number of packets for
+  """ Validator to check that there is a sufficient number of readings for
   each finger that is seen.
 
   Example:
-      To verify if there are at least 3 packets for each finger:
+      To verify if there are at least 3 readings for each finger:
         CountPacketsValidator('>= 3, ~ -3')
   """
 
@@ -605,22 +606,22 @@ class CountPacketsValidator(BaseValidator):
     super(CountPacketsValidator, self).__init__(criteria_str, mf, name)
 
   def Validate(self, snapshots):
-    """ Check the number of packets for each finger """
-    # Find how many packets arrived for each tracking ID
+    """ Check the number of readings for each finger """
+    # Find how many readings arrived for each tracking ID
     paths_by_tid = self._SeparateByTid(snapshots)
-    packet_counts = [len(path) for path in paths_by_tid.values()]
+    reading_counts = [len(path) for path in paths_by_tid.values()]
 
     # Build a result object and return the results of the validator
-    # Use whichever finger had the *least* packets as the result
+    # Use whichever finger had the *least* readings as the result
     result = Result()
     result.name = self.name
     result.criteria = self.criteria_str
-    if not packet_counts:
+    if not reading_counts:
       result.observed = float(0)
       result.score = self.fc.mf.grade(result.observed)
       result.error = 'No events were collected for ANY fingers.'
     else:
-      result.observed = min(packet_counts)
+      result.observed = min(reading_counts)
       result.score = self.fc.mf.grade(result.observed)
     return result
 
@@ -641,7 +642,7 @@ class PinchValidator(BaseValidator):
     """ Check the relative direction of two fingers """
     paths_by_tid = self._SeparateByTid(snapshots)
     if len(paths_by_tid) > 2:
-      # If more than 2 fingers are observed, use the two with the most packets.
+      # If more than 2 fingers are observed, use the two with the most readings.
       # It's likely that the extras are stray touches
       longest_two_tids = sorted(paths_by_tid.keys(),
                                 key=lambda x:len(paths_by_tid[x]))[-2:]
@@ -684,16 +685,16 @@ class DrumrollValidator(BaseValidator):
     name = self.__class__.__name__
     super(DrumrollValidator, self).__init__(criteria_str, mf, name)
 
-  def _GetTwoFarthestPoints(self, packets):
-    """ Find the two points that are farthest apart in the packets """
-    if len(packets) <= 1:
+  def _GetTwoFarthestPoints(self, fingers):
+    """ Find the two points that are farthest apart in the readings """
+    if len(fingers) <= 1:
       return None, None
 
     max_distance = float('-inf')
     two_farthest_points = (None, None)
 
-    for p1 in packets:
-      for p2 in packets:
+    for p1 in fingers:
+      for p2 in fingers:
         distance = self._Distance(p1, p2)
         if distance > max_distance:
           two_farthest_points = (p1, p2)
@@ -702,28 +703,28 @@ class DrumrollValidator(BaseValidator):
     return two_farthest_points
 
 
-  def _FindTwoFarthestClusters(self, packets):
-    """ Separate all the points where these packets are into two separated
+  def _FindTwoFarthestClusters(self, fingers):
+    """ Separate all the points where these fingers are into two separated
     clusters.  This is done by finding the two farthest apart points, then
     grouping the remaining points based on their proximity to those two.
     """
-    p1, p2 = self._GetTwoFarthestPoints(packets)
+    p1, p2 = self._GetTwoFarthestPoints(fingers)
     if p1 is None or p2 is None:
       return [], []
 
-    cluster1 = set([p for p in packets
-                    if self._Distance(p, p1) < self._Distance(p, p2)])
-    cluster2 = set([p for p in packets
-                    if self._Distance(p, p1) >= self._Distance(p, p2)])
+    cluster1 = set([f for f in fingers
+                    if self._Distance(f, p1) < self._Distance(f, p2)])
+    cluster2 = set([f for f in fingers
+                    if self._Distance(f, p1) >= self._Distance(f, p2)])
     return cluster1, cluster2
 
-  def _MinimumEnclosingRadius(self, packets):
+  def _MinimumEnclosingRadius(self, fingers):
     """ Compute the radius of the smallest circle that can surround all of
-    the points where the packets are.
+    the points where the fingers are.
     """
-    if len(packets) <= 1:
+    if len(fingers) <= 1:
       return 0
-    circle = minicircle(packets)
+    circle = minicircle(fingers)
     return circle.radius
 
   def Validate(self, snapshots):
@@ -747,5 +748,58 @@ class DrumrollValidator(BaseValidator):
       result.observed = float('inf')
       result.error = ('Unable to determine radii.  Perhaps not enough '
                       'events were collected.')
+    result.score = self.fc.mf.grade(result.observed)
+    return result
+
+
+class PhysicalClickValidator(BaseValidator):
+  """ Validator to check for the number of physical clicks with a given number
+  of fingers.
+
+  Example:
+      To verify that the gesture included a single, 1-finger physical click
+        PhysicalClickValidator('== 1', fingers=1)
+  """
+
+  def __init__(self, criteria_str, fingers, mf=None):
+    name = self.__class__.__name__
+    self.fingers = fingers
+    super(PhysicalClickValidator, self).__init__(criteria_str, mf, name)
+
+  def _CountClicks(self, snapshots):
+    """ Count how many clicks there were for each number of fingers.  To be
+    counted a the button must go down and up, and the number of fingers is
+    considered to be the number of fingers seen while the button was initially
+    pressed down.  This is a slight simplification of the actual gestures
+    library, but is correct in the vast majority of cases, and should always
+    work with an ideal touch pad.
+
+    This returns a dictionary mapping the number of finger->number of clicks
+    eg {1: 2} would indicate there were 2, 1-finger clicks
+       {2: 1, 1: 3} would indicate there were 3 1-finger and 1 2-finger clicks
+    """
+    clicks = {}
+    button_pressed = False
+    fingers_down = 0
+    for snapshot in snapshots:
+      # If the button just got pressed (rising edge)
+      if snapshot.button_pressed and not button_pressed:
+        button_pressed = True
+        fingers_down = len(snapshot.fingers)
+
+      # If the button just got released (falling edge)
+      elif button_pressed and not snapshot.button_pressed:
+        clicks[fingers_down] = clicks.get(fingers_down, 0) + 1
+        button_pressed = False
+    return clicks
+
+  def Validate(self, snapshots):
+    """ Check the how many physical clicks were seen with the # of fingers """
+    clicks = self._CountClicks(snapshots)
+
+    result = Result()
+    result.name = self.name
+    result.criteria = self.criteria_str
+    result.observed = clicks.get(self.fingers, 0)
     result.score = self.fc.mf.grade(result.observed)
     return result

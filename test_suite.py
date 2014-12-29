@@ -84,7 +84,7 @@ class TestSuite:
     plotter.end()
 
     # Run the validators on these events
-    snapshots = mtb.packetize(events)
+    snapshots = mtb.process(events)
     results = test.RunAllValidators(snapshots)
     # TODO (charliemooney): Save these Results and build a report out of them
     for result in results:

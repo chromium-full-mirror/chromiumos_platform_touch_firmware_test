@@ -65,12 +65,13 @@ class TouchPlotter:
     if not event.is_SYN_REPORT():
       return
 
-    # Any TID with a finger currently on the pad should get a new packet
+    # Any TID with a finger currently on the pad should get a new finger
     tids_to_draw = set([])
-    for packet in self.sm.get_current_data_for_all_tids():
-      if packet:
-        self.paths_by_tid[packet.tid].append(packet)
-        tids_to_draw.add(packet.tid)
+    snapshot = self.sm.get_current_snapshot()
+    for finger in snapshot.fingers:
+      if finger:
+        self.paths_by_tid[finger.tid].append(finger)
+        tids_to_draw.add(finger.tid)
 
     # Go through and draw all the contacts
     for tid in tids_to_draw:

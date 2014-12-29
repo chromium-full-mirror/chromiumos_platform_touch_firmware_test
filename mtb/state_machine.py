@@ -4,8 +4,10 @@
 
 from collections import namedtuple
 
-MtbPacket = namedtuple('MtbPacket',
-                       ['tid', 'slot', 'syn_time', 'x', 'y', 'pressure'])
+MtbFinger = namedtuple('MtbFinger', ['tid', 'slot', 'syn_time',
+                                     'x', 'y', 'pressure'])
+MtbSnapshot = namedtuple('MtbSnapshot', ['syn_time', 'button_pressed',
+                                         'fingers'])
 
 class MtbStateMachine:
   """The state machine for MTB events.
@@ -37,6 +39,7 @@ class MtbStateMachine:
     self.new_tid = False
     self.number_fingers = 0
     self.leaving_slots = []
+    self.button_pressed = False
 
   def _del_leaving_slots(self):
     """ Delete the slots and tracking IDs for any leaving fingers """
@@ -50,8 +53,8 @@ class MtbStateMachine:
     self.tid = tid
     self.slot_to_tid[self.slot] = self.tid
     self.new_tid = True
-    self.x = {self.tid: None}
-    self.y = {self.tid: None}
+    self.x[self.tid] = None
+    self.y[self.tid] = None
     self.pressure[self.tid] = None
     self.number_fingers += 1
 
@@ -71,6 +74,11 @@ class MtbStateMachine:
     # Do not delete this slot until this last packet is reported.
     elif event.is_finger_leaving():
       self.leaving_slots.append(self.slot)
+
+    # The physical click button is not associated with any finger/slot so
+    # it should also be handled independently here but updating the state
+    elif event.is_BTN_LEFT():
+      self.button_pressed = (event.value == 1)
 
     else:
       # Gracefully handle the case where we weren't given a tracking id
@@ -94,7 +102,7 @@ class MtbStateMachine:
       elif event.is_SYN_REPORT():
         self.syn_time = event.timestamp
 
-  def get_current_data_for_all_tids(self, request_data_ready=True):
+  def get_current_snapshot(self, request_data_ready=True):
     """Get current packet's data including x, y, pressure, and
     the syn_time for all tids.
 
@@ -102,7 +110,7 @@ class MtbStateMachine:
             current_tid_data until all data including x, y, pressure,
             syn_time, etc. in the packet have been assigned.
     """
-    current_tid_data = []
+    current_fingers = []
     for slot, tid in self.slot_to_tid.items():
       x = self.x.get(tid)
       y = self.y.get(tid)
@@ -117,9 +125,11 @@ class MtbStateMachine:
                        [x, y, pressure, self.syn_time]))
 
       if (not request_data_ready) or data_ready:
-        packet = MtbPacket(tid, slot, self.syn_time, x, y, pressure)
-        current_tid_data.append(packet)
+        finger = MtbFinger(tid, slot, self.syn_time, x, y, pressure)
+        current_fingers.append(finger)
 
     self._del_leaving_slots()
 
-    return sorted(current_tid_data)
+    current_snapshot = MtbSnapshot(self.syn_time, self.button_pressed,
+                                   current_fingers)
+    return current_snapshot

@@ -354,6 +354,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 1'),
+      PhysicalClickValidator('== 1', fingers=1),
       StationaryFingerValidator(STATIONARY_FINGER_CRITERIA),
     ),
   ),
@@ -367,6 +368,7 @@ tests_dict = {
     subprompt=None,
     validators=(
       CountTrackingIDValidator('== 2'),
+      PhysicalClickValidator('== 1', fingers=2),
       StationaryFingerValidator(STATIONARY_FINGER_CRITERIA),
     ),
   ),
