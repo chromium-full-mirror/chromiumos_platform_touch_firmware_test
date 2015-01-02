@@ -103,8 +103,9 @@ tests_dict = {
         GV.SQUARE_WAVE: ('square wave',),
     },
     validators=(
-      CountTrackingIDValidator('== 1'),
-      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA_MM),
+      DiscardInitialSecondsValidatorWrapper(CountTrackingIDValidator('== 1')),
+      DiscardInitialSecondsValidatorWrapper(
+                StationaryFingerValidator(STATIONARY_FINGER_CRITERIA_MM)),
     ),
   ),
   NOISE_LINE:
@@ -128,12 +129,17 @@ tests_dict = {
       GV.BLTR: ('bottom left to top right',),
     },
     validators=(
-      CountTrackingIDValidator('== 1'),
-      LinearityValidator(LINEARITY_CRITERIA_MM),
-      NoGapValidator(NO_GAP_CRITERIA_RATIO),
-      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
-      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM),
-      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
+      DiscardInitialSecondsValidatorWrapper(CountTrackingIDValidator('== 1')),
+      DiscardInitialSecondsValidatorWrapper(
+              LinearityValidator(LINEARITY_CRITERIA_MM)),
+      DiscardInitialSecondsValidatorWrapper(
+              NoGapValidator(NO_GAP_CRITERIA_RATIO)),
+      DiscardInitialSecondsValidatorWrapper(
+              NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM)),
+      DiscardInitialSecondsValidatorWrapper(
+              NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM)),
+      DiscardInitialSecondsValidatorWrapper(
+              ReportRateValidator(REPORT_RATE_CRITERIA_HTZ)),
     ),
   ),
   ONE_FINGER_TRACKING:

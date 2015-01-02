@@ -896,3 +896,41 @@ class HysteresisValidator(BaseValidator):
     if error:
       result.error = error
     return result
+
+
+class DiscardInitialSecondsValidatorWrapper(BaseValidator):
+  """ This validator wraps another validator and run that validator on the
+  gesture, but with the first bit of time removed.
+
+  This is used to more accureately match our spec for noise immunity.  The spec
+  allows for a bit of time before the touch device needs to return to normal
+  funtionality after electrical noise increases.  Using this validator you can
+  do things like check the linearity of a line "after the first 2 seconds."
+  """
+  def __init__(self, validator, mf=None, initial_seconds_to_discard=1):
+    self.validator = validator
+    self.initial_seconds_to_discard = initial_seconds_to_discard
+    name = self.__class__.__name__
+    super(DiscardInitialSecondsValidatorWrapper, self).__init__(
+                                              validator.criteria_str, mf, name)
+  def Validate(self, snapshots):
+    """ Remove the first few snapshots from the list then pass them on to the
+    sub-validator for validation.
+    """
+    if len(snapshots) > 0:
+      # Use the timestamp of the first event, then add the amount of time being
+      # discarded to compute a cutoff time.
+      start_time = snapshots[0].syn_time
+      new_start_time = start_time + self.initial_seconds_to_discard
+
+      # Filter out any events that occurred before the cutoff
+      trimmed_snapshots = [s for s in snapshots if s.syn_time >= new_start_time]
+
+      # Finally pass the trimmed snapshots on to the sub-validator
+      result = self.validator.Validate(trimmed_snapshots)
+    else:
+      result = self.validator.Validate([])
+
+    # Modifying the result's name to indicate some values were trimmed.
+    result.name = 'Noisy%s' % result.name
+    return result
