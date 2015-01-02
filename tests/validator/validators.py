@@ -803,3 +803,75 @@ class PhysicalClickValidator(BaseValidator):
     result.observed = clicks.get(self.fingers, 0)
     result.score = self.fc.mf.grade(result.observed)
     return result
+
+
+class HysteresisValidator(BaseValidator):
+  """ Validator to check if the finger position jumps initially when it starts
+  moving.
+
+  This is to check for the issue of too much "movement hysteresis" being
+  applied in the FW.  Some touch devices try to prevent jitter by imposing a
+  minimum distance a finger must move before it starts reporting the movements.
+  This works really well, but it makes it impossible to make fine (single
+  pixel) adjustments to the cursor position with the touchpad if this value is
+  set too high.
+
+  When the movement hysteresis is too high, you can tell because there will
+  be a large gap (relative to the other events' spacings) between the first
+  two positions of the finger.  This Validator computes the distance between
+  the first and second locations the finger reports as well as the distance
+  between the second and third locations and computes the ratio of those
+  values.  If this ratio is skewed, then we know there was a high movement
+  hysteresis that would have resulted in a cursor jump.
+
+  Example:
+    To make sure the first gap is no more than 2x the size of the next gap:
+    HysteresisValidator('<= 2.0')
+  """
+
+  def __init__(self, criteria_str, mf=None):
+    name = self.__class__.__name__
+    super(HysteresisValidator, self).__init__(criteria_str, mf, name)
+
+  def _FindNextDistinctLocation(self, path, start_location):
+    for i in range(start_location, len(path)):
+      if self._Distance(path[i], path[start_location]) > 0.0:
+        return i, path[i]
+    return None, None
+
+  def Validate(self, snapshots):
+    """ Check for a large jump at the beginning of the finger's path. """
+    error = None
+
+    try:
+     # First find the finger to test.  This will be whichever tracking id
+     # has the most events, so it's easy to tell.
+     paths_by_tid = self._SeparateByTid(snapshots)
+     path = sorted(paths_by_tid.values(), key=lambda x: -len(x))[0]
+
+     # Find the first packet and the next two that moved.  they may not be the
+     # adjacent packets if the x/y locations stayed the same, but pressure or
+     # some other values changed.
+     point0 = path[0]
+     point1_idx, point1 = self._FindNextDistinctLocation(path, 0)
+     _, point2 = self._FindNextDistinctLocation(path, point1_idx)
+
+     # Find the distances between these points
+     distance1 = self._Distance(point0, point1)
+     distance2 = self._Distance(point1, point2)
+
+     # Compute the ratio between them to see if there was a jump
+     ratio = distance1 / distance2
+    except:
+      # If something fails (eg: not enough points) set the ratio to infinity
+      ratio = float('inf')
+      error = 'Not enough distinct events seen'
+
+    result = Result()
+    result.name = self.name
+    result.criteria = self.criteria_str
+    result.observed = ratio
+    result.score = self.fc.mf.grade(result.observed)
+    if error:
+      result.error = error
+    return result
