@@ -66,7 +66,7 @@ class RemoteTouchDevice:
     if not self.device_num:
       print 'ERROR: Unable to determind the device number!'
 
-    self.width, self.height = self._GetDimensions()
+    self.width, self.height, self.x_res, self.y_res = self._GetDimensions()
 
   def BeginEventStream(self):
     """ Initiate a stream of MTB events from the DUT
@@ -91,12 +91,26 @@ class RemoteTouchDevice:
 
 
   def _GetDimensions(self):
-    """ Read out to the DUT and determine the dimensions of the sensor
-    This function should return (width, height) and is called automatically
-    in the constructor to set self.width and self.height.
+    """ Read out to the DUT and determine the dimensions of the sensor and the
+    x/y resolution.
+    This function should return (width, height, x_res, y_res) and is called
+    automatically in the constructor to set self.width, self.height, self.x_res
+    and self.y_res.
     """
     raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
 
+  def PxToMm_X(self, x):
+    return float(x) / float(self.x_res)
+
+  def PxToMm_Y(self, x):
+    return float(x) / float(self.x_res)
+
+  def PxToMm(self, (x, y)):
+    return self.PxToMm_X(x), self.PxToMm_Y(y)
+
+  def DimensionsInMm(self):
+    """ Convert width/height into mm """
+    return self.PxToMm_X(self.width), self.PxToMm_Y(self.height)
 
   def _ParseMtbEvent(self, line):
     """ Specifies how to parse a line of output into an MtbEvent object
@@ -189,11 +203,56 @@ class AndroidTouchDevice(RemoteTouchDevice):
     self.begin_event_stream_cmd = 'getevent -tv /dev/input/event%d'
     RemoteTouchDevice.__init__(self, addr, is_touchscreen)
 
+
+  def _GetResolution(self):
+    """ Android devices don't report their touchscreen resolution to the
+    kernel, but instead have their resolution tied to the LCD resolution.
+    To determine this we can pull down their LCD resolution and convert
+    from px/in to px/mm to remain consistent with other devices.
+
+    The output of Android's "getprop" command outputs a list of properties
+    that look like this:
+      ...
+      [ro.setupwizard.mode]: [OPTIONAL]
+      [ro.sf.lcd_density]: [320]
+      [ro.somc.customerid]: [110]
+      ...
+    We simply run that command on the DUT and then look for the line that
+    contains the "lcd_density" and parse out the value.
+    """
+    MM_PER_INCH_CONVERSION = 25.4
+    cmd = 'getprop'
+    pattern = '^.*\[ro.sf.lcd_density\]:\s*\[(\d*)\].*$'
+
+    output = self._RunRemoteCmd(cmd).stdout.read()
+    for line in output.split('\n'):
+      matches = re.match(pattern, line, re.M)
+      if matches:
+        return float(matches.group(1)) / MM_PER_INCH_CONVERSION
+
+    return None
+
   def _GetDimensions(self):
     """ Get the dimensions of the touch device by using the getevent -p
     tool.  This program prints the range of each value that the touch
     device will return, so this checks the range for X and Y positions
     and returns them.
+
+    Running "getevent -p" on Android will output the details for the values
+    the device will output as shown below.  The first number is a code that
+    specifies which parameter it is describing, then it has other information
+    about it such as min/max/etc.
+      ...
+      0035  : value 0, min 0, max 1080, fuzz 0, flat 0, resolution 0
+      0036  : value 0, min 0, max 1920, fuzz 0, flat 0, resolution 0
+      ...
+    This function finds the line for the X and Y values and parses them out
+    and gets their ranges.
+
+    Note: Android doesn't seem to report the resolution in the typical
+    fashion here, so it is computed in the function _GetResolution() as a
+    separate step before returning.  To see how we compute resolution
+    information for Android, look in that function.
     """
     width = height = None
     cmd = 'getevent -p /dev/input/event%d' % self.device_num
@@ -210,7 +269,8 @@ class AndroidTouchDevice(RemoteTouchDevice):
       elif code == linux_input.ABS_MT_POSITION_Y:
         height = max_value
 
-    return width, height
+    resolution = self._GetResolution()
+    return width, height, resolution, resolution
 
   def _ToSignedInt(self, x, bits):
     return x if x & (1 << (bits - 1)) == 0 else x - (1 << bits)
@@ -259,31 +319,52 @@ class ChromeOSTouchDevice(RemoteTouchDevice):
     command to figure out the dimensions, this function simply consumes
     the first few lines of output (before actual events are reported)
     and parses out the ranges.
+
+    The first thing that evtest outputs is a bunch of information about
+    the values the device will produce.  Among that information are blocks
+    that looks like this describing the range of x & y values.
+      ...
+      Event code 53 (ABS_MT_POSITION_X)
+        Value      0
+        Min        0
+        Max     3029
+        Resolution      31
+      ...
+    This function finds them and parses out the max values and resolutions for
+    both X and Y values.
     """
     # Compute the dimensions by reading the first few lines
     self.BeginEventStream()
 
-    ready_for_width = False
-    ready_for_height = False
+    ready_for_x = False
+    ready_for_y = False
     width = height = None
-    while width is None or height is None:
+    x_resolution = y_resolution = None
+    while not all([width, height, x_resolution, y_resolution]):
       line = self._GetNextLine()
       if 'Event code 53 (ABS_MT_POSITION_X)' in line:
-        ready_for_width = True
+        ready_for_x = True
       elif 'Event code 54 (ABS_MT_POSITION_Y)' in line:
-        ready_for_height = True
-      elif ready_for_width or ready_for_height:
-        matches = re.match('^\s*Max\s*(\d+).*$', line)
+        ready_for_y = True
+      elif ready_for_x or ready_for_y:
+        matches = re.match('^\s*(\S+)\s*(\d+).*$', line)
         if matches:
-          value = int(matches.group(1))
-          if ready_for_width:
+          attribute = matches.group(1)
+          value = int(matches.group(2))
+
+          if attribute == 'Max' and ready_for_x:
             width = value
-            ready_for_width = False
-          elif ready_for_height:
+          elif attribute == 'Max' and ready_for_y:
             height = value
-            ready_for_height = False
+          elif attribute == 'Resolution' and ready_for_x:
+            x_resolution = value
+            ready_for_x = False
+          elif attribute == 'Resolution' and ready_for_y:
+            y_resolution = value
+            ready_for_y = False
+
     self.EndEventStream()
-    return width, height
+    return width, height, x_resolution, y_resolution
 
   def _ParseMtbEvent(self, line):
     """ How to parse out the ChromeOS-specific event format
