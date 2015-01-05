@@ -34,3 +34,26 @@ def process(events):
       snapshots.append(snapshot)
 
   return snapshots
+
+
+class SnapshotStream(object):
+  """ This class bundles events into a snapshot stream in a real-time manner.
+  """
+
+  def __init__(self, device):
+    self.sm = MtbStateMachine()
+    self.device = device
+
+  def Get(self):
+    """ Get one snapshot at a time and its related events and leaving_slots. """
+    events = []
+    while True:
+      event = self.device.NextEvent()
+      events.append(str(event))
+      self.sm.add_event(event)
+
+      # Output the snapshot if a SYN_REPORT event is seen.
+      if event.is_SYN_REPORT():
+        leaving_slots = self.sm.leaving_slots
+        snapshot = self.sm.get_current_snapshot()
+        return (snapshot, events, leaving_slots)
