@@ -66,7 +66,11 @@ class RemoteTouchDevice:
     if not self.device_num:
       print 'ERROR: Unable to determind the device number!'
 
-    self.width, self.height, self.x_res, self.y_res = self._GetDimensions()
+    # Determine the ranges/resolutions of the various attributes of fingers
+    x, y, p = self._GetDimensions()
+    self.x_min, self.x_max, self.x_res = x['min'], x['max'], x['resolution']
+    self.y_min, self.y_max, self.y_res = y['min'], y['max'], y['resolution']
+    self.p_min, self.p_max = p['min'], p['max']
 
   def BeginEventStream(self):
     """ Initiate a stream of MTB events from the DUT
@@ -91,11 +95,16 @@ class RemoteTouchDevice:
 
 
   def _GetDimensions(self):
-    """ Read out to the DUT and determine the dimensions of the sensor and the
-    x/y resolution.
-    This function should return (width, height, x_res, y_res) and is called
-    automatically in the constructor to set self.width, self.height, self.x_res
-    and self.y_res.
+    """ Reach out to the DUT and determine the dimensions of the sensor, the
+    x/y resolution, and the range of pressure values it reports.
+
+    This function should return three dictionaries of the following form:
+      (x, y, p)
+    where x and why have 'min' 'max' and 'resolution' defined, and p has only
+    'min' and 'max.
+
+    This is called automatically in the constructor to set the ranges for all
+    of the various dimensions of the device.
     """
     raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
 
@@ -110,7 +119,8 @@ class RemoteTouchDevice:
 
   def DimensionsInMm(self):
     """ Convert width/height into mm """
-    return self.PxToMm_X(self.width), self.PxToMm_Y(self.height)
+    return (self.PxToMm_X(self.x_max - self.x_min),
+            self.PxToMm_Y(self.y_max - self.y_min))
 
   def _ParseMtbEvent(self, line):
     """ Specifies how to parse a line of output into an MtbEvent object
@@ -235,8 +245,8 @@ class AndroidTouchDevice(RemoteTouchDevice):
   def _GetDimensions(self):
     """ Get the dimensions of the touch device by using the getevent -p
     tool.  This program prints the range of each value that the touch
-    device will return, so this checks the range for X and Y positions
-    and returns them.
+    device will return, so this checks the range for X/Y positions and
+    pressure and returns them.
 
     Running "getevent -p" on Android will output the details for the values
     the device will output as shown below.  The first number is a code that
@@ -245,32 +255,38 @@ class AndroidTouchDevice(RemoteTouchDevice):
       ...
       0035  : value 0, min 0, max 1080, fuzz 0, flat 0, resolution 0
       0036  : value 0, min 0, max 1920, fuzz 0, flat 0, resolution 0
+      003a  : value 0, min 0, max 181, fuzz 0, flat 0, resolution 0
       ...
-    This function finds the line for the X and Y values and parses them out
-    and gets their ranges.
+    This function finds the line for X, Y, and pressure values and parses them
+    out to get their ranges.
 
-    Note: Android doesn't seem to report the resolution in the typical
+    Note: Android doesn't seem to report the X/Y resolution in the typical
     fashion here, so it is computed in the function _GetResolution() as a
     separate step before returning.  To see how we compute resolution
     information for Android, look in that function.
     """
-    width = height = None
+    x = y = p = None
     cmd = 'getevent -p /dev/input/event%d' % self.device_num
     output = self._RunRemoteCmd(cmd).stdout.read()
     for line in output.split('\n'):
-      pattern = '^.*([0-9a-f]{4})\s+:\s+.*max (\d*),.*$'
+      pattern = '^.*([0-9a-f]{4})\s+:\s+.*min (\d*),\s+max (\d*),.*$'
       matches = re.match(pattern, line, re.M)
       if not matches:
         continue
       code = int(matches.group(1), 16)
-      max_value = int(matches.group(2))
+      min_value = int(matches.group(2))
+      max_value = int(matches.group(3))
       if code == linux_input.ABS_MT_POSITION_X:
-        width = max_value
+        x = {'min': min_value, 'max': max_value}
       elif code == linux_input.ABS_MT_POSITION_Y:
-        height = max_value
+        y = {'min': min_value, 'max': max_value}
+      elif code == linux_input.ABS_MT_PRESSURE:
+        p = {'min': min_value, 'max': max_value}
 
     resolution = self._GetResolution()
-    return width, height, resolution, resolution
+    x['resolution'] = resolution
+    y['resolution'] = resolution
+    return x, y, p
 
   def _ToSignedInt(self, x, bits):
     return x if x & (1 << (bits - 1)) == 0 else x - (1 << bits)
@@ -314,7 +330,7 @@ class ChromeOSTouchDevice(RemoteTouchDevice):
     RemoteTouchDevice.__init__(self, addr, is_touchscreen)
 
   def _GetDimensions(self):
-    """ Evtest simply outputs the legal ranges of values for X and Y at
+    """ Evtest simply outputs the legal ranges of values for X/Y/etc at
     the beginning of its output.  So instead of issuing a new remote
     command to figure out the dimensions, this function simply consumes
     the first few lines of output (before actual events are reported)
@@ -322,7 +338,7 @@ class ChromeOSTouchDevice(RemoteTouchDevice):
 
     The first thing that evtest outputs is a bunch of information about
     the values the device will produce.  Among that information are blocks
-    that looks like this describing the range of x & y values.
+    that looks like this describing the range of x/y/etc values.
       ...
       Event code 53 (ABS_MT_POSITION_X)
         Value      0
@@ -331,40 +347,36 @@ class ChromeOSTouchDevice(RemoteTouchDevice):
         Resolution      31
       ...
     This function finds them and parses out the max values and resolutions for
-    both X and Y values.
+    both X and Y values, in addition to the maximum value for pressure.
     """
+    def _GetDimensions_Aux(required_attributes):
+      """ This helper function parses out the ranges for a single dimension """
+      dim = {}
+      while not all([(attrib in dim) for attrib in required_attributes]):
+        line = self._GetNextLine()
+        matches = re.match('^\s*(\S+)\s*(\d+).*$', line)
+        if matches:
+          attribute = matches.group(1).lower()
+          value = int(matches.group(2))
+          if attribute in required_attributes:
+            dim[attribute] = value
+      return dim
+
     # Compute the dimensions by reading the first few lines
     self.BeginEventStream()
 
-    ready_for_x = False
-    ready_for_y = False
-    width = height = None
-    x_resolution = y_resolution = None
-    while not all([width, height, x_resolution, y_resolution]):
+    x = y = p = None
+    while not all([x, y, p]):
       line = self._GetNextLine()
       if 'Event code 53 (ABS_MT_POSITION_X)' in line:
-        ready_for_x = True
+        x = _GetDimensions_Aux(['min', 'max', 'resolution'])
       elif 'Event code 54 (ABS_MT_POSITION_Y)' in line:
-        ready_for_y = True
-      elif ready_for_x or ready_for_y:
-        matches = re.match('^\s*(\S+)\s*(\d+).*$', line)
-        if matches:
-          attribute = matches.group(1)
-          value = int(matches.group(2))
-
-          if attribute == 'Max' and ready_for_x:
-            width = value
-          elif attribute == 'Max' and ready_for_y:
-            height = value
-          elif attribute == 'Resolution' and ready_for_x:
-            x_resolution = value
-            ready_for_x = False
-          elif attribute == 'Resolution' and ready_for_y:
-            y_resolution = value
-            ready_for_y = False
+        y = _GetDimensions_Aux(['min', 'max', 'resolution'])
+      elif 'Event code 58 (ABS_MT_PRESSURE)' in line:
+        p = _GetDimensions_Aux(['min', 'max'])
 
     self.EndEventStream()
-    return width, height, x_resolution, y_resolution
+    return x, y, p
 
   def _ParseMtbEvent(self, line):
     """ How to parse out the ChromeOS-specific event format

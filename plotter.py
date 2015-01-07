@@ -27,10 +27,17 @@ class TouchPlotter:
   EXPORT_IMAGE_WIDTH = 500
   COLORS = ['F00', '0F0', '00F', 'FF0', 'F0F', '0FF', 'FFF']
 
-  def __init__(self, width, height):
+  def __init__(self, x_min, x_max, y_min, y_max):
     self.paths_by_tid = defaultdict(list)
     self.curves_by_tid = defaultdict(lambda:self.plot_window.plot())
     self.pens_by_tid = {}
+
+    self.x_min = x_min
+    self.x_max = x_max
+    self.y_min = y_min
+    self.y_max = y_max
+    width = x_max - x_min
+    height = y_max - y_min
 
     # The MtbStateMachine that makes sense of the incoming events
     self.sm = mtb.MtbStateMachine()
@@ -78,8 +85,8 @@ class TouchPlotter:
 
     # Go through and draw all the contacts
     for tid in tids_to_draw:
-      xs = [p.x for p in self.paths_by_tid[tid]]
-      ys = [p.y for p in self.paths_by_tid[tid]]
+      xs = [p.x - self.x_min for p in self.paths_by_tid[tid]]
+      ys = [p.y - self.y_min for p in self.paths_by_tid[tid]]
 
       # If we don't already have a pen set up for this TID, do so now
       if tid not in self.pens_by_tid:
