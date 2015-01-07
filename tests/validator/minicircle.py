@@ -174,7 +174,7 @@ def _make_Set_of_Points(points):
 
     @param points: could be a list/set of pairs_of_ints/Point_objects.
     """
-    return Set([p if isinstance(p, Point) else Point(p.x, p.y) for p in points])
+    return Set([p if isinstance(p, Point) else Point(p[0], p[1]) for p in points])
 
 
 def minicircle(points):

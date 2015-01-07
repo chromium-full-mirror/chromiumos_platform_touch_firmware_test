@@ -60,16 +60,16 @@ FN_GEN_TESTS = [NOISE_LINE, NOISE_STATIONARY]
 
 # Define the pass/fail criteria for the various validators
 COUNT_PACKETS_CRITERIA = '>= 3, ~ -3'
-DRUMROLL_CRITERIA = '<= 2.0'
-HYSTERESIS_CRITERIA = '<= 2.0'
-NO_GAP_CRITERIA = '<= 1.8, ~ +1.0'
-NO_REVERSED_MOTION_CRITERIA = '<= 5, ~ +30'
-RANGE_CRITERIA = '<= 0.01, ~ +0.07'
-REPORT_RATE_CRITERIA = '>= 60'
-LINEARITY_CRITERIA = '<= 0.8, ~ +2.4'
-PINCH_CRITERIA = '>= 200, ~ -100'
-RELAXED_LINEARITY_CRITERIA = '<= 1.5, ~ +3.0'
-STATIONARY_FINGER_CRITERIA = '<= 1.0'
+DRUMROLL_CRITERIA_MM = '<= 2.0'
+HYSTERESIS_CRITERIA_RATIO = '<= 2.0'
+NO_GAP_CRITERIA_RATIO = '<= 1.8, ~ +1.0'
+NO_REVERSED_MOTION_CRITERIA_MM = '<= 1, ~ +0.5'
+RANGE_CRITERIA_MM = '<= 0.5, ~ +1.0'
+REPORT_RATE_CRITERIA_HTZ = '>= 60'
+LINEARITY_CRITERIA_MM = '<= 0.8, ~ +2.4'
+PINCH_CRITERIA_MM = '>= 15, ~ -5'
+RELAXED_LINEARITY_CRITERIA_MM = '<= 1.5, ~ +3.0'
+STATIONARY_FINGER_CRITERIA_MM = '<= 1.0'
 
 
 # Definitions for the test specifics
@@ -104,7 +104,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 1'),
-      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA),
+      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA_MM),
     ),
   ),
   NOISE_LINE:
@@ -129,11 +129,11 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 1'),
-      LinearityValidator(LINEARITY_CRITERIA),
-      NoGapValidator(NO_GAP_CRITERIA),
-      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA),
-      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA),
-      ReportRateValidator(REPORT_RATE_CRITERIA),
+      LinearityValidator(LINEARITY_CRITERIA_MM),
+      NoGapValidator(NO_GAP_CRITERIA_RATIO),
+      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
+      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM),
+      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
     ),
   ),
   ONE_FINGER_TRACKING:
@@ -155,11 +155,11 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 1'),
-      LinearityValidator(LINEARITY_CRITERIA),
-      NoGapValidator(NO_GAP_CRITERIA),
-      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA),
-      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA),
-      ReportRateValidator(REPORT_RATE_CRITERIA),
+      LinearityValidator(LINEARITY_CRITERIA_MM),
+      NoGapValidator(NO_GAP_CRITERIA_RATIO),
+      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
+      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM),
+      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
     ),
   ),
 
@@ -179,12 +179,12 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 1'),
-      LinearityValidator(LINEARITY_CRITERIA),
-      NoGapValidator(NO_GAP_CRITERIA),
-      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA),
-      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA),
-      ReportRateValidator(REPORT_RATE_CRITERIA),
-      RangeValidator(RANGE_CRITERIA),
+      LinearityValidator(LINEARITY_CRITERIA_MM),
+      NoGapValidator(NO_GAP_CRITERIA_RATIO),
+      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
+      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM),
+      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
+      RangeValidator(RANGE_CRITERIA_MM),
     ),
   ),
 
@@ -208,12 +208,12 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 2'),
-      LinearityValidator(LINEARITY_CRITERIA, finger=0),
-      LinearityValidator(LINEARITY_CRITERIA, finger=1),
-      NoGapValidator(NO_GAP_CRITERIA),
-      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA),
-      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA),
-      ReportRateValidator(REPORT_RATE_CRITERIA),
+      LinearityValidator(LINEARITY_CRITERIA_MM, finger=0),
+      LinearityValidator(LINEARITY_CRITERIA_MM, finger=1),
+      NoGapValidator(NO_GAP_CRITERIA_RATIO),
+      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
+      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM),
+      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
     ),
   ),
 
@@ -243,12 +243,12 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 2'),
-      LinearityValidator(LINEARITY_CRITERIA, finger=1),
-      NoGapValidator(NO_GAP_CRITERIA),
-      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA, finger=1),
-      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA, finger=1),
-      ReportRateValidator(REPORT_RATE_CRITERIA),
-      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA, finger=0),
+      LinearityValidator(LINEARITY_CRITERIA_MM, finger=1),
+      NoGapValidator(NO_GAP_CRITERIA_RATIO),
+      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=1),
+      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=1),
+      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
+      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA_MM, finger=0),
     ),
   ),
 
@@ -264,7 +264,7 @@ tests_dict = {
     validators=(
       CountPacketsValidator(COUNT_PACKETS_CRITERIA),
       CountTrackingIDValidator('== 1'),
-      ReportRateValidator(REPORT_RATE_CRITERIA),
+      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
     ),
   ),
 
@@ -279,7 +279,7 @@ tests_dict = {
     validators=(
       CountPacketsValidator(COUNT_PACKETS_CRITERIA),
       CountTrackingIDValidator('== 2'),
-      ReportRateValidator(REPORT_RATE_CRITERIA),
+      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
     ),
   ),
 
@@ -295,9 +295,9 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 2'),
-      NoGapValidator(NO_GAP_CRITERIA),
-      PinchValidator(PINCH_CRITERIA),
-      ReportRateValidator(REPORT_RATE_CRITERIA),
+      NoGapValidator(NO_GAP_CRITERIA_RATIO),
+      PinchValidator(PINCH_CRITERIA_MM),
+      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
     ),
   ),
 
@@ -320,7 +320,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 1'),
-      StationaryTapValidator(STATIONARY_FINGER_CRITERIA),
+      StationaryTapValidator(STATIONARY_FINGER_CRITERIA_MM),
     ),
   ),
 
@@ -337,7 +337,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 2'),
-      StationaryTapValidator(STATIONARY_FINGER_CRITERIA),
+      StationaryTapValidator(STATIONARY_FINGER_CRITERIA_MM),
     ),
   ),
 
@@ -356,7 +356,7 @@ tests_dict = {
     validators=(
       CountTrackingIDValidator('== 1'),
       PhysicalClickValidator('== 1', fingers=1),
-      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA),
+      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA_MM),
     ),
   ),
 
@@ -370,7 +370,7 @@ tests_dict = {
     validators=(
       CountTrackingIDValidator('== 2'),
       PhysicalClickValidator('== 1', fingers=2),
-      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA),
+      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA_MM),
     ),
   ),
 
@@ -383,9 +383,9 @@ tests_dict = {
            'all around it many times (50)',
     subprompt=None,
     validators=(
-      NoGapValidator(NO_GAP_CRITERIA),
-      ReportRateValidator(REPORT_RATE_CRITERIA),
-      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA, finger=0),
+      NoGapValidator(NO_GAP_CRITERIA_RATIO),
+      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
+      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA_MM, finger=0),
     ),
   ),
 
@@ -403,12 +403,12 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 2'),
-      LinearityValidator(RELAXED_LINEARITY_CRITERIA, finger=1),
-      NoGapValidator(NO_GAP_CRITERIA),
-      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA, finger=1),
-      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA, finger=1),
-      ReportRateValidator(REPORT_RATE_CRITERIA),
-      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA, finger=0),
+      LinearityValidator(RELAXED_LINEARITY_CRITERIA_MM, finger=1),
+      NoGapValidator(NO_GAP_CRITERIA_RATIO),
+      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=1),
+      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=1),
+      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
+      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA_MM, finger=0),
     ),
   ),
 
@@ -426,11 +426,11 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 1'),
-      LinearityValidator(RELAXED_LINEARITY_CRITERIA),
-      NoGapValidator(NO_GAP_CRITERIA),
-      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA),
-      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA),
-      ReportRateValidator(REPORT_RATE_CRITERIA),
+      LinearityValidator(RELAXED_LINEARITY_CRITERIA_MM),
+      NoGapValidator(NO_GAP_CRITERIA_RATIO),
+      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
+      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM),
+      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
     ),
   ),
 
@@ -448,12 +448,12 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 2'),
-      LinearityValidator(RELAXED_LINEARITY_CRITERIA, finger=0),
-      LinearityValidator(RELAXED_LINEARITY_CRITERIA, finger=1),
-      NoGapValidator(NO_GAP_CRITERIA),
-      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA),
-      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA),
-      ReportRateValidator(REPORT_RATE_CRITERIA),
+      LinearityValidator(RELAXED_LINEARITY_CRITERIA_MM, finger=0),
+      LinearityValidator(RELAXED_LINEARITY_CRITERIA_MM, finger=1),
+      NoGapValidator(NO_GAP_CRITERIA_RATIO),
+      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
+      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM),
+      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
     ),
   ),
 
@@ -472,12 +472,12 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 2'),
-      LinearityValidator(LINEARITY_CRITERIA, finger=1),
-      NoGapValidator(NO_GAP_CRITERIA),
-      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA, finger=1),
-      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA, finger=1),
-      ReportRateValidator(REPORT_RATE_CRITERIA),
-      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA, finger=0),
+      LinearityValidator(LINEARITY_CRITERIA_MM, finger=1),
+      NoGapValidator(NO_GAP_CRITERIA_RATIO),
+      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=1),
+      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=1),
+      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
+      StationaryFingerValidator(STATIONARY_FINGER_CRITERIA_MM, finger=0),
     ),
   ),
 
@@ -493,12 +493,12 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 2'),
-      LinearityValidator(RELAXED_LINEARITY_CRITERIA, finger=0),
-      LinearityValidator(RELAXED_LINEARITY_CRITERIA, finger=1),
-      NoGapValidator(NO_GAP_CRITERIA),
-      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA),
-      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA),
-      ReportRateValidator(REPORT_RATE_CRITERIA),
+      LinearityValidator(RELAXED_LINEARITY_CRITERIA_MM, finger=0),
+      LinearityValidator(RELAXED_LINEARITY_CRITERIA_MM, finger=1),
+      NoGapValidator(NO_GAP_CRITERIA_RATIO),
+      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
+      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM),
+      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
     ),
   ),
 
@@ -515,11 +515,11 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 4'),
-      LinearityValidator(LINEARITY_CRITERIA, finger=0),
-      NoGapValidator(NO_GAP_CRITERIA),
-      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA, finger=0),
-      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA, finger=0),
-      ReportRateValidator(REPORT_RATE_CRITERIA),
+      LinearityValidator(LINEARITY_CRITERIA_MM, finger=0),
+      NoGapValidator(NO_GAP_CRITERIA_RATIO),
+      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=0),
+      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=0),
+      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
     ),
   ),
 
@@ -535,7 +535,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('>= 10'),
-      DrumrollValidator(DRUMROLL_CRITERIA),
+      DrumrollValidator(DRUMROLL_CRITERIA_MM),
     ),
     timeout = 2,
   ),
@@ -558,7 +558,7 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 20'),
-      StationaryTapValidator(STATIONARY_FINGER_CRITERIA),
+      StationaryTapValidator(STATIONARY_FINGER_CRITERIA_MM),
     ),
     timeout = 2,
   ),
@@ -582,12 +582,12 @@ tests_dict = {
     },
     validators=(
       CountTrackingIDValidator('== 1'),
-      HysteresisValidator(HYSTERESIS_CRITERIA),
-      LinearityValidator(LINEARITY_CRITERIA),
-      NoGapValidator(NO_GAP_CRITERIA),
-      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA),
-      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA),
-      ReportRateValidator(REPORT_RATE_CRITERIA),
+      HysteresisValidator(HYSTERESIS_CRITERIA_RATIO),
+      LinearityValidator(LINEARITY_CRITERIA_MM),
+      NoGapValidator(NO_GAP_CRITERIA_RATIO),
+      NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
+      NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM),
+      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
     ),
   ),
 }

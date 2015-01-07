@@ -35,6 +35,11 @@ class BaseValidator(object):
   def _Distance(self, p1, p2):
     return math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2)
 
+  def _DistanceMm(self, p1, p2):
+    p1_mm_x, p1_mm_y = BaseValidator._device.PxToMm((p1.x, p1.y))
+    p2_mm_x, p2_mm_y = BaseValidator._device.PxToMm((p2.x, p2.y))
+    return math.sqrt((p1_mm_x - p2_mm_x) ** 2 + (p1_mm_y - p2_mm_y) ** 2)
+
   def _SegmentPath(self, path, start_and_end_percentage=0.1):
     """ Assuming that the path takes a roughly straight line, this function
     segments the fingers that are in the extreme ends of the line (by
@@ -214,12 +219,19 @@ class RangeValidator(BaseValidator):
         min_y = min(min_y, finger.y)
         max_y = max(max_y, finger.y)
 
+    # Convert those values to mm
+    max_x_mm = BaseValidator._device.PxToMm_X(max_x)
+    min_x_mm = BaseValidator._device.PxToMm_X(min_x)
+    max_y_mm = BaseValidator._device.PxToMm_Y(max_y)
+    min_y_mm = BaseValidator._device.PxToMm_Y(min_y)
+
     # We should be able to guess the direction based on which edge was close
-    right_gap = BaseValidator._device.width - max_x
-    bottom_gap = BaseValidator._device.height - max_y
+    width_mm, height_mm = BaseValidator._device.DimensionsInMm()
+    right_gap = width_mm - max_x_mm
+    bottom_gap = height_mm - max_y_mm
     min_gap = float('inf')
     detected_direction = None
-    for gap, direction in [(min_x, 'Left'), (min_y, 'Top'),
+    for gap, direction in [(min_x_mm, 'Left'), (min_y_mm, 'Top'),
                            (right_gap, 'Right'), (bottom_gap, 'Bottom')]:
       if abs(gap) < abs(min_gap):
         min_gap = gap
@@ -227,8 +239,8 @@ class RangeValidator(BaseValidator):
 
     # Finally package up the result and return it for the closest edge
     result = Result()
-    result.observed = min_gap
     result.criteria = self.criteria_str
+    result.observed = min_gap
     result.score = self.fc.mf.grade(result.observed)
 
     if detected_direction:
@@ -391,33 +403,33 @@ class LinearityValidator(BaseValidator):
       tid = self._TidOfNthFinger(self.finger, snapshots)
       tids_to_check = [tid] if tid is not None else []
 
-    max_err = float('-inf')
+    max_err_mm = float('-inf')
     for tid in tids_to_check:
       start, middle, end = self._SegmentPath(paths_by_tid[tid])
       path = middle
 
-      xs = [finger.x for finger in path]
-      ys = [finger.y for finger in path]
+      xs_mm = [BaseValidator._device.PxToMm_X(finger.x) for finger in path]
+      ys_mm = [BaseValidator._device.PxToMm_Y(finger.y) for finger in path]
       times = [finger.syn_time for finger in path]
 
-      max_err_x, rms_err_x = self._ErrorsForSingleAxis(times, xs)
-      max_err = max(max_err, max_err_x)
+      max_err_x_mm, rms_err_x_mm = self._ErrorsForSingleAxis(times, xs_mm)
+      max_err_mm = max(max_err_mm, max_err_x_mm)
 
-      max_err_y, rms_err_y = self._ErrorsForSingleAxis(times, ys)
-      max_err = max(max_err, max_err_y)
+      max_err_y_mm, rms_err_y_mm = self._ErrorsForSingleAxis(times, ys_mm)
+      max_err_mm = max(max_err_mm, max_err_y_mm)
 
     result = Result()
     result.name = self.name
     result.criteria = self.criteria_str
-    if max_err < 0:
-      max_err = float('inf')
+    if max_err_mm < 0:
+      max_err_mm = float('inf')
       if not tids_to_check and self.finger is not None:
         result.error = ('There was no finger #%d as far as we can tell.' %
                         self.finger)
       else:
         result.error = ('Unable to compute linearity.  Perhaps there were '
                         'not enough events collected.')
-    result.observed = max_err
+    result.observed = max_err_mm
     result.score = self.fc.mf.grade(result.observed)
     return result
 
@@ -445,7 +457,7 @@ class StationaryValidator(BaseValidator):
     for tid in tids_to_check:
       for p1 in paths_by_tid[tid]:
         for p2 in paths_by_tid[tid]:
-          max_distance = max(max_distance, self._Distance(p1, p2))
+          max_distance = max(max_distance, self._DistanceMm(p1, p2))
 
     result = Result()
     result.name = self.name
@@ -492,8 +504,9 @@ class NoReversedMotionValidator(BaseValidator):
   """ Validator to measure any reversed motion detected
 
   Example:
-      To measure the reversed motion for the first finger:
-      NoReversedMotionValidator('== 0, ~ +20', finger=0)
+    To verify that there is no more than 5mm of reversed motion for the first
+    finger on the pad:
+      NoReversedMotionValidator('<= 5', finger=0)
   """
   # We will want to check different portions of the line for reversed motions.
   # These values indication which section of the line we want to check
@@ -536,10 +549,15 @@ class NoReversedMotionValidator(BaseValidator):
     # Check which directions the line is drawing in.
     reversed_gaps = []
     if x_moving:
-      reversed_gaps.extend(left_gaps if left_to_right_ratio < 1.0
-                           else right_gaps)
+      x_reversed_gaps = left_gaps if left_to_right_ratio < 1.0 else right_gaps
+      x_reversed_gaps_mm = [BaseValidator._device.PxToMm_X(gap)
+                            for gap in x_reversed_gaps]
+      reversed_gaps.extend(x_reversed_gaps_mm)
     if y_moving:
-      reversed_gaps.extend(up_gaps if up_to_down_ratio < 1.0 else down_gaps)
+      y_reversed_gaps = up_gaps if up_to_down_ratio < 1.0 else down_gaps
+      y_reversed_gaps_mm = [BaseValidator._device.PxToMm_Y(gap)
+                            for gap in y_reversed_gaps]
+      reversed_gaps.extend(y_reversed_gaps_mm)
 
     return reversed_gaps
 
@@ -630,8 +648,8 @@ class PinchValidator(BaseValidator):
   """ Validator to check that a pinch zoomed in/out.
 
   Example:
-      To verify that the two fingers are drawing closer:
-        PinchValidator('>= 200, ~ -100')
+    To verify that the two fingers' relative distances changes by at least 15mm
+        PinchValidator('>= 15, ~ -5')
   """
 
   def __init__(self, criteria_str, mf=None, device=None):
@@ -652,8 +670,8 @@ class PinchValidator(BaseValidator):
     relative_motion = 0
     if len(paths_by_tid) == 2:
       paths = paths_by_tid.values()
-      starting_distance = self._Distance(paths[0][0], paths[1][1])
-      ending_distance = self._Distance(paths[0][-1], paths[1][-1])
+      starting_distance = self._DistanceMm(paths[0][0], paths[1][0])
+      ending_distance = self._DistanceMm(paths[0][-1], paths[1][-1])
       relative_motion = ending_distance - starting_distance
 
     result = Result()
@@ -663,6 +681,8 @@ class PinchValidator(BaseValidator):
     result.score = self.fc.mf.grade(result.observed)
     if len(paths_by_tid) < 2:
       result.error = 'Not enough fingers seen.  Must have 2 for a pinch/zoom.'
+    elif len(paths_by_tid) > 2:
+      result.error = 'Too many fingers seen.  Must have 2 for a pinch/zoom.'
     return result
 
 
@@ -719,12 +739,13 @@ class DrumrollValidator(BaseValidator):
     return cluster1, cluster2
 
   def _MinimumEnclosingRadius(self, fingers):
-    """ Compute the radius of the smallest circle that can surround all of
+    """ Compute the radius (in mm) of the smallest circle that can surround all
     the points where the fingers are.
     """
     if len(fingers) <= 1:
       return 0
-    circle = minicircle(fingers)
+    fingers_mm = [BaseValidator._device.PxToMm((f.x, f.y)) for f in fingers]
+    circle = minicircle(fingers_mm)
     return circle.radius
 
   def Validate(self, snapshots):
