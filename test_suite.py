@@ -8,6 +8,7 @@ import mtb
 import tests
 from plotter import TouchPlotter
 from remote import ChromeOSTouchDevice, AndroidTouchDevice
+from report import Report
 
 
 class TestSuite:
@@ -39,6 +40,9 @@ class TestSuite:
     self.curr_test = 0
     self.curr_variation = 0
     self.curr_iteration = 1
+
+    # Create a new Report that will store all the test Results
+    self.report = Report()
 
   def RunNextTestAndVariation(self):
     """ Run the next test.
@@ -86,9 +90,9 @@ class TestSuite:
     # Run the validators on these events
     snapshots = mtb.process(events)
     results = test.RunAllValidators(snapshots)
-    # TODO (charliemooney): Save these Results and build a report out of them
-    for result in results:
-      print result
+
+    # Add the results into our report (And have it print them to stdout, too)
+    self.report.AddResults(results, verbose=True)
 
     # Advance the test suite to the next test and variation and return an
     # indicator as to whether this was the last thing to do or not.
