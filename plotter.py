@@ -10,6 +10,8 @@ The class works by maintaining its own MtbStateMachine and updating it with
 the new events it receives.  Every time a SYN arrives, it updates the display.
 """
 
+import os
+import tempfile
 from collections import defaultdict
 
 import pyqtgraph as pg
@@ -22,6 +24,7 @@ import mtb
 qt_app = QtGui.QApplication([])
 
 class TouchPlotter:
+  EXPORT_IMAGE_WIDTH = 500
   COLORS = ['F00', '0F0', '00F', 'FF0', 'F0F', '0FF', 'FFF']
 
   def __init__(self, width, height):
@@ -91,5 +94,26 @@ class TouchPlotter:
     qt_app.processEvents()
 
   def end(self):
-    """ After the plot is no longer needed, clean up resources. """
+    """ After the plot is no longer needed, clean up resources and return a
+    snapshot of the final plot to be saved/bundled with the report.
+
+    The returned image should be a .png image that can later be base64 encoded
+    and included in an HTML document or written to disk directly as a file.
+    """
+    # First, export the image that's currently displayed as a .png image.
+    # Unfortunately, PyQtPlot doesn't allow you to export directly into memory,
+    # so this image is saved into a temp file and read back into ram before
+    # the file on the hard drive is deleted.
+    tmp_filename = tempfile.mktemp(suffix='.png')
+    exporter = pg.exporters.ImageExporter.ImageExporter(
+                                                    self.plot_window.plotItem)
+    exporter.parameters()['width'] = TouchPlotter.EXPORT_IMAGE_WIDTH
+    exporter.export(tmp_filename)
+    with open(tmp_filename, 'rb') as fo:
+      image = fo.read()
+    os.remove(tmp_filename)
+
+    # Clean up the plotter's resources and close the window before returning
     self.plot_window.win.close()
+
+    return image

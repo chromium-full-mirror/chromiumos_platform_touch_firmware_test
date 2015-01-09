@@ -85,7 +85,7 @@ class TestSuite:
       events.append(event)
       event = self.touch_dev.NextEvent(test.timeout)
     print
-    plotter.end()
+    plot_image_png = plotter.end()
 
     # Run the validators on these events
     snapshots = mtb.process(events)
