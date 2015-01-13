@@ -92,8 +92,12 @@ class TestSuite:
     snapshots = mtb.process(events)
     results = test.RunAllValidators(snapshots)
 
+    # Bundle the Validator results with some details of which gesture was used
+    # during the test for easier debugging.
+    test_result = tests.TestResult(results, prompt, plot_image_png)
+
     # Add the results into our report (And have it print them to stdout, too)
-    self.report.AddResults(results, verbose=True)
+    self.report.AddTestResult(test_result, verbose=True)
 
     # Advance the test suite to the next test and variation and return an
     # indicator as to whether this was the last thing to do or not.

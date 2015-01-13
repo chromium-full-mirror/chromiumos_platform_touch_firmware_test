@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import base64
 import os
 import pickle
 
@@ -34,11 +35,11 @@ class Report:
     with open(filename, 'wb') as fo:
       pickle.dump(self, fo)
 
-  def AddResults(self, results, verbose=False):
-    """ Add a new list results to this Report """
-    self.results.extend(results)
+  def AddTestResult(self, test_result, verbose=False):
+    """ Add a new TestResult object to this Report """
+    self.results.append(test_result)
     if verbose:
-      for result in results:
+      for result in test_result.validator_results:
         print result
 
   def GenerateHtml(self):
@@ -99,12 +100,19 @@ class Report:
     # TODO(charliemooney): add links in to the detailed output.  Currently this
     # just shows the score, but it should actually be a quick way to jump to a
     # gesture that caused this low score.
-    return '<li>%f</li>' % result.score
+    return '<li><a href="#%s">%f</a></li>' % (result.test_id, result.score)
 
   def _GenerateValidatorHtml(self, validator_name):
     """ Generate all the HTML for a single entry in the Validators list. """
+    # Just to make passing test ID's around easier I start out by storing a
+    # copy temporarily inside each validator Result.
+    for test_result in self.results:
+      for validator_result in test_result.validator_results:
+        validator_result.test_id = test_result.test_id
+
     # First separate all the results for this validator
-    results = [r for r in self.results if r.name == validator_name]
+    results = [vr for tr in self.results for vr in tr.validator_results
+               if vr.name == validator_name]
 
     # Build up a div to display the name of the Validator
     contents = '%s (%d)' % (validator_name, len(results))
@@ -128,6 +136,54 @@ class Report:
     return ('<li onclick="expandResultDetails(this)">%s%s%s</li>' %
             (name_div, scores_div, details))
 
+  def _GenerateInlinePngTag(self, image):
+    """ Convert the png image passed in into an embedded image tag.
+    This allows us to include images within the HTML but not need to include
+    any data files so it's easier to pass around just the single file.
+    """
+    return ('<img class="plot" src="data:image/png;base64,%s" />' %
+             base64.b64encode(image))
+
+  def _GenerateValidatorDetails(self, validator_result):
+    """ This generates a little table with the details of a single Valifator's
+    results for display in the "test details" section of the HTML report.
+    These are displayed just to the right of the screenshot of the gesture's
+    points.
+    """
+    def ValueRow(label, value):
+      label_cell = '<td class="label">%s:</td>' % label
+      value_cell = '<td>%s</td>' % value
+      return '<tr class="value">%s%s</tr>' % (label_cell, value_cell)
+
+    name = '<tr><td colspan=2 class="name">%s</td></tr>' % validator_result.name
+    units = validator_result.units
+    criteria = ValueRow('Criteria',
+                        '%s (%s)' % (validator_result.criteria, units))
+    observed = ValueRow('Observed',
+                        '%s (%s)' % (validator_result.observed, units))
+    score = ValueRow('Score', '%f' % validator_result.score)
+
+    error = ''
+    if validator_result.error:
+      error = ValueRow('Error', validator_result.error)
+
+    table = ('<table>%s%s%s%s%s</table>' %
+             (name, criteria, observed, score, error))
+    return '<div class="validator_details">%s</div>' % table
+
+  def _GenerateTestDetailsHtml(self, test_result):
+    """ Generate the HTML for a list item that shows all the details for a
+    single TestResult object.  This include the test's prompt, an image of the
+    gesture, and the full results for each validator run on this test.
+    """
+    prompt_html = '<h3>%s</h3>' % test_result.prompt
+    img_html = self._GenerateInlinePngTag(test_result.image)
+    validators_html = ''.join([self._GenerateValidatorDetails(vr)
+                               for vr in test_result.validator_results])
+    content = '<a name="%s">%s%s%s</a>' % (test_result.test_id, prompt_html,
+                                           img_html, validators_html)
+    return '<li>%s</li>' % content
+
   def _GenerateHtmlBody(self):
     """ Generate the html for the <body> tag of the Report.
     This includes the actual results and anything else that will go within the
@@ -137,19 +193,23 @@ class Report:
     title = '<h1>Touch FW Testing Results</h1>'
 
     # Generate the list of validators and their scores
-    validator_names = set([result.name for result in self.results])
+    validator_list_title = '<h2>Validator Scores</h1>'
+    validator_names = set([vr.name for tr in self.results
+                           for vr in tr.validator_results])
     validator_list_inner = ''.join([self._GenerateValidatorHtml(name)
                                     for name in validator_names])
     validator_list_headings = self._GenerateValidatorHeadingHtml()
     validator_list_inner = validator_list_headings + validator_list_inner
-    validator_list = '<ul class="validators">%s</ul>' % validator_list_inner
+    validator_list = ('%s<ul class="validators">%s</ul>' %
+                      (validator_list_title, validator_list_inner))
 
     # Generate the detailed view of each gesture
-    # TODO(charliemooney): Display each gesture w/ its validators, scores, and
-    # an image of the plot here like the original version.  The validator list
-    # will link to anchors in this section to allow you to drill down quickly
-    # to the gesture that caused problems.
+    test_details_list_heading = '<h2>Test Details</h2>'
+    test_details_list_inner = ''.join([self._GenerateTestDetailsHtml(tr)
+                                       for tr in self.results])
+    test_details_list = ('%s<ul class="test_details">%s</ul>' %
+                         (test_details_list_heading, test_details_list_inner))
 
     # Wrap everything in <body> tags and return that string
-    return '<body>%s%s</body>' % (title, validator_list)
+    return '<body>%s%s%s</body>' % (title, validator_list, test_details_list)
 

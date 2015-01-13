@@ -56,3 +56,46 @@ ul.result_details {
 ul.result_details > li {
   clear: both;
 }
+
+ul.test_details > li {
+  clear: both;
+  border: 1px solid black;
+  overflow: hidden;
+  padding: 5px;
+  margin: 5px;
+  max-width: 30cm;
+}
+
+ul.test_details > li div.validator_details {
+  clear: right;
+  float: right;
+  width: 48%;
+  padding-bottom: 0.5cm;
+}
+
+ul.test_details > li div.validator_details > table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+ul.test_details > li div.validator_details td {
+  border: 1px solid #929e9e;
+}
+
+ul.test_details > li div.validator_details td.label {
+  width: 1mm;
+}
+
+ul.test_details > li div.validator_details td.name {
+  text-align: center;
+  font-weight: bold;
+}
+
+ul.test_details > li div.validator_details tr.value:hover {
+  background: #aabbbb;
+}
+
+img.plot {
+  float: left;
+  width: 48%;
+}
