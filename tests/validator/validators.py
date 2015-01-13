@@ -122,6 +122,7 @@ class CountTrackingIDValidator(BaseValidator):
 
     result = Result()
     result.name = self.name
+    result.units = '#'
     result.criteria = self.criteria_str
     result.observed = observed_num_tids
     result.score = self.fc.mf.grade(result.observed)
@@ -182,6 +183,7 @@ class ReportRateValidator(BaseValidator):
     # Finally package up the result and return it for the closest edge
     result = Result()
     result.name = self.name
+    result.units = 'Hz'
     result.criteria = self.criteria_str
     result.observed = observed_report_rate
     result.score = self.fc.mf.grade(result.observed)
@@ -246,6 +248,7 @@ class RangeValidator(BaseValidator):
 
     # Finally package up the result and return it for the closest edge
     result = Result()
+    result.units = 'mm'
     result.criteria = self.criteria_str
     result.observed = min_gap
     result.score = self.fc.mf.grade(result.observed)
@@ -304,6 +307,7 @@ class NoGapValidator(BaseValidator):
 
     result = Result()
     result.name = self.name
+    result.units = '*ratio*'
     result.criteria = self.criteria_str
 
     # If there were not enough gaps and we know nothing report an error
@@ -427,6 +431,7 @@ class LinearityValidator(BaseValidator):
 
     result = Result()
     result.name = self.name
+    result.units = 'mm'
     result.criteria = self.criteria_str
     if max_err_mm < 0:
       max_err_mm = float('inf')
@@ -468,6 +473,7 @@ class StationaryValidator(BaseValidator):
 
     result = Result()
     result.name = self.name
+    result.units = 'mm'
     result.criteria = self.criteria_str
     if max_distance < 0:
       max_distance = float('inf')
@@ -595,6 +601,7 @@ class NoReversedMotionValidator(BaseValidator):
     # Build a result object and return the results of the validator
     result = Result()
     result.name = self.name
+    result.units = 'mm'
     result.criteria = self.criteria_str
     if not tids_to_check:
       reversed_total = float('inf')
@@ -640,6 +647,7 @@ class CountPacketsValidator(BaseValidator):
     # Use whichever finger had the *least* readings as the result
     result = Result()
     result.name = self.name
+    result.units = '#'
     result.criteria = self.criteria_str
     if not reading_counts:
       result.observed = float(0)
@@ -683,6 +691,7 @@ class PinchValidator(BaseValidator):
 
     result = Result()
     result.name = self.name
+    result.units = 'mm'
     result.criteria = self.criteria_str
     result.observed = abs(relative_motion)
     result.score = self.fc.mf.grade(result.observed)
@@ -768,6 +777,7 @@ class DrumrollValidator(BaseValidator):
 
     result = Result()
     result.name = self.name
+    result.units = 'mm'
     result.criteria = self.criteria_str
     if radii:
       # The biggest radius is the value we will be scoring
@@ -827,6 +837,7 @@ class PhysicalClickValidator(BaseValidator):
 
     result = Result()
     result.name = self.name
+    result.units = '#'
     result.criteria = self.criteria_str
     result.observed = clicks.get(self.fingers, 0)
     result.score = self.fc.mf.grade(result.observed)
@@ -897,6 +908,7 @@ class HysteresisValidator(BaseValidator):
 
     result = Result()
     result.name = self.name
+    result.units = '*ratio*'
     result.criteria = self.criteria_str
     result.observed = ratio
     result.score = self.fc.mf.grade(result.observed)

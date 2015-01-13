@@ -14,13 +14,14 @@ class Result:
     self.name = None
     self.criteria = None
     self.observed = None
+    self.units = None
     self.score = None
     self.error = None
 
   def __str__(self):
     s = 'name: %s\n' % str(self.name)
-    s += '    criteria: %s\n' % str(self.criteria)
-    s += '    observed: %s\n' % str(self.observed)
+    s += '    criteria: %s (%s)\n' % (str(self.criteria), str(self.units))
+    s += '    observed: %s (%s)\n' % (str(self.observed), str(self.units))
     s += '    score: %f\n' % self.score
     if self.error:
       s += '    ERROR: %s\n' % str(self.error)
