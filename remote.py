@@ -326,7 +326,7 @@ class AndroidTouchDevice(RemoteTouchDevice):
 
 class ChromeOSTouchDevice(RemoteTouchDevice):
   def __init__(self, addr, is_touchscreen=False):
-    self.begin_event_stream_cmd = 'evtest /dev/input/event%d'
+    self.begin_event_stream_cmd = 'evtest --grab /dev/input/event%d'
     RemoteTouchDevice.__init__(self, addr, is_touchscreen)
 
   def _GetDimensions(self):
