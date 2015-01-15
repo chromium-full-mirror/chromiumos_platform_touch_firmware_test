@@ -49,6 +49,10 @@ class SnapshotStream(object):
     events = []
     while True:
       event = self.device.NextEvent()
+      # If the event is None, it probably means that the event_stream_process
+      # was terminated.
+      if not event:
+        return (None, events, None)
       events.append(str(event))
       self.sm.add_event(event)
 

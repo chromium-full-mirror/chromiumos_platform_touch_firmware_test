@@ -34,6 +34,7 @@ exactly the same way:
 
 import re
 import select
+import time
 from subprocess import PIPE, Popen, STDOUT
 from mtb import MtbEvent
 from mtb.input import linux_input
@@ -165,6 +166,11 @@ class RemoteTouchDevice:
         return None
 
     line = self.event_stream_process.stdout.readline()
+
+    # If the event_stream_process had been terminated, just return None.
+    if self.event_stream_process is None:
+      return None
+
     if line == '' and self.event_stream_process.poll() != None:
       self.event_steam_process = None
       return None
@@ -172,13 +178,29 @@ class RemoteTouchDevice:
 
   def EndEventStream(self):
     """ Stops the stream of events
-    This terminates the subprocess that's maintaining the connection
-    with the DUT and returns its return code.
+
+    There are two steps.
+    Step 1: Kill the remote process; otherwise, it becomes a zombie process.
+    Step 2: Kill the local ssh/adb subprocess.
+            This terminates the subprocess that's maintaining the connection
+            with the DUT and returns its return code.
     """
-    if not self.event_stream_process:
+    # Step 1: kill the remote process; otherwise, it becomes a zombie process.
+    self._RunRemoteCmd(self.kill_remote_process_cmd)
+    time.sleep(0.2)
+
+    # Step 2: Kill the local ssh/adb subprocess.
+    # If self.event_stream_process has been terminated, its value is None.
+    if self.event_stream_process is None:
       return None
-    self.event_stream_process.terminate()
-    return_code = self.event_stream_process.wait()
+
+    # Kill the subprocess if it is still alive with return_code as None.
+    return_code = self.event_stream_process.poll()
+    if return_code is None:
+      self.event_stream_process.terminate()
+      return_code = self.event_stream_process.wait()
+      if return_code is None:
+        print 'Error in killing the event_stream_process!'
     self.event_stream_process = None
     return return_code
 
@@ -211,8 +233,14 @@ class RemoteTouchDevice:
 class AndroidTouchDevice(RemoteTouchDevice):
   def __init__(self, addr, is_touchscreen=False):
     self.begin_event_stream_cmd = 'getevent -tv /dev/input/event%d'
+    self.kill_remote_process_cmd = (
+        'for f in `ls /proc/`; do'
+        '  grep getevent /proc/$f/cmdline &>/dev/null;'
+        '  if [ "$?" == "0" -a "$f" != "self" ]; then'
+        '    kill $f;'
+        '  fi;'
+        'done')
     RemoteTouchDevice.__init__(self, addr, is_touchscreen)
-
 
   def _GetResolution(self):
     """ Android devices don't report their touchscreen resolution to the
@@ -327,6 +355,7 @@ class AndroidTouchDevice(RemoteTouchDevice):
 class ChromeOSTouchDevice(RemoteTouchDevice):
   def __init__(self, addr, is_touchscreen=False):
     self.begin_event_stream_cmd = 'evtest --grab /dev/input/event%d'
+    self.kill_remote_process_cmd = 'killall evtest'
     RemoteTouchDevice.__init__(self, addr, is_touchscreen)
 
   def _GetDimensions(self):
