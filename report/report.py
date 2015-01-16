@@ -197,7 +197,7 @@ class Report:
     validator_names = set([vr.name for tr in self.results
                            for vr in tr.validator_results])
     validator_list_inner = ''.join([self._GenerateValidatorHtml(name)
-                                    for name in validator_names])
+                                    for name in sorted(validator_names)])
     validator_list_headings = self._GenerateValidatorHeadingHtml()
     validator_list_inner = validator_list_headings + validator_list_inner
     validator_list = ('%s<ul class="validators">%s</ul>' %
