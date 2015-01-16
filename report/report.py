@@ -122,7 +122,7 @@ class Report:
     min_score = '<div class="min">%f</div>' % min([r.score for r in results])
     max_score = '<div class="max">%f</div>' % max([r.score for r in results])
     avg_score = ('<div class="avg">%f</div>' %
-                 (sum([r.score for r in results]) / len(results)))
+                 (sum([r.score for r in results]) / float(len(results))))
     contents = '%s%s%s' % (min_score, max_score, avg_score)
     scores_div = '<div class="scores">%s</div>' % contents
 
