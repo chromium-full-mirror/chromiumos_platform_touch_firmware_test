@@ -95,7 +95,9 @@ class TouchPlotter:
         self.pens_by_tid[tid] = pg.mkPen({'color': next_color, 'width': 2})
 
       # Update the points for this TID's curve
-      self.curves_by_tid[tid].setData(x=xs, y=ys, pen=self.pens_by_tid[tid])
+      self.curves_by_tid[tid].setData(
+          x=xs, y=ys, pen=self.pens_by_tid[tid], symbol='o', symbolSize=5.0,
+          symbolPen=self.pens_by_tid[tid], symbolBrush=None)
 
     # Update the display
     qt_app.processEvents()
