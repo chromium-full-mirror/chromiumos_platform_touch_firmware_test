@@ -276,11 +276,11 @@ class AndroidTouchDevice(RemoteTouchDevice):
       code = int(matches.group(1), 16)
       min_value = int(matches.group(2))
       max_value = int(matches.group(3))
-      if code == linux_input.ABS_MT_POSITION_X:
+      if code in [linux_input.ABS_MT_POSITION_X, linux_input.ABS_X]:
         x = {'min': min_value, 'max': max_value}
-      elif code == linux_input.ABS_MT_POSITION_Y:
+      elif code in [linux_input.ABS_MT_POSITION_Y, linux_input.ABS_Y]:
         y = {'min': min_value, 'max': max_value}
-      elif code == linux_input.ABS_MT_PRESSURE:
+      elif code in [linux_input.ABS_MT_PRESSURE, linux_input.ABS_PRESSURE]:
         p = {'min': min_value, 'max': max_value}
 
     resolution = self._GetResolution()
