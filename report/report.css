@@ -25,7 +25,7 @@ ul.validators > li {
 ul.validators > li.heading {
   background: none;
   font-weight: bold;
-  text-align: center;
+  height: 2cm;
 }
 
 ul.validators > li:hover {
@@ -40,13 +40,25 @@ ul.validators > li > div.name {
   float: left;
 }
 
-ul.validators > li > div.scores {
-  float: right;
+ul.validators > li.heading > div.name {
+  padding-top: 1.25cm;
 }
 
-ul.validators > li > div.scores > div {
+ul.validators > li > div.scores,
+ul.validators > li > div.values {
+  float: right;
+  padding-left: 0.5cm;
+  text-align: center;
+}
+
+ul.validators > li > div.scores > div,
+ul.validators > li > div.values > div {
   float: right;
   width: 2cm;
+}
+
+ul.validators > li > div.values > div.units {
+  border-right: 1px black solid;
 }
 
 ul.result_details {

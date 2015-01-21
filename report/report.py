@@ -86,11 +86,16 @@ class Report:
     min_heading = '<div class="min">Min</div>'
     max_heading = '<div class="max">Max</div>'
     avg_heading = '<div class="avg">Avg</div>'
-    scores_heading = ('<div class="scores">%s%s%s</div>' %
+    units_heading = '<div class="units">Units</div>'
+    scores_heading = ('<div class="scores"><p>Scores:<p>%s%s%s</div>' %
                       (min_heading, max_heading, avg_heading))
 
+    values_heading = ('<div class="values"><p>Values:</p>%s%s%s%s</div>' %
+                      (units_heading, min_heading, max_heading, avg_heading))
+
     name_heading = '<div class="name">Validator Name (# of results)</div>'
-    return '<li class="heading">%s%s</li>' % (name_heading, scores_heading)
+    return ('<li class="heading">%s%s%s</li>' %
+            (name_heading, scores_heading, values_heading))
 
   def _GetResultDetailsHtml(self, result):
     """ Generate all the HTML showing the details for the specified result.
@@ -98,7 +103,7 @@ class Report:
     can drill down to see the specific gesture that generated this result.
     """
     return ('<li><a class="test_link" onclick="preventClickPropagation(event)" '
-            'href="#%s">%f</a></li>' % (result.test_id, result.score))
+            'href="#%s">%.2f</a></li>' % (result.test_id, result.score))
 
   def _GenerateValidatorHtml(self, validator_name):
     """ Generate all the HTML for a single entry in the Validators list. """
@@ -111,15 +116,34 @@ class Report:
     # First separate all the results for this validator
     results = [vr for tr in self.results for vr in tr.validator_results
                if vr.name == validator_name]
+    if not results:
+      return ''
 
     # Build up a div to display the name of the Validator
     contents = '%s (%d)' % (validator_name, len(results))
     name_div = '<div class="name">%s</div>' % contents
 
-    # Next build up a div to display the score for this Validator
-    min_score = '<div class="min">%f</div>' % min([r.score for r in results])
-    max_score = '<div class="max">%f</div>' % max([r.score for r in results])
-    avg_score = ('<div class="avg">%f</div>' %
+    # Build up a div to display the observed values for this Validator
+    min_value_div = ('<div class="min">%.2f</div>' %
+                     min([r.observed for r in results]))
+    max_value_div = ('<div class="max">%.2f</div>' %
+                     max([r.observed for r in results]))
+    # Note, infinite values indicating error messages destroy the usefullness
+    # of averages, so we only actually average the finite values we observed.
+    def _IsFinite(x):
+      return x not in [float('inf'), float('-inf'), float('NaN')]
+    values = [r.observed for r in results if _IsFinite(r.observed)]
+    avg_value = ('%.2f' % (sum(values) / float(len(values)))) if values else '?'
+    avg_value_div = '<div class="avg">%s</div>' % avg_value
+    value_units_div = '<div class="units">(%s)</div>' % results[0].units
+    contents = ('%s%s%s%s' %
+                (value_units_div, min_value_div, max_value_div, avg_value_div))
+    values_div = '<div class="values">%s</div>' % contents
+
+    # Next build up a div to display the scores for this Validator
+    min_score = '<div class="min">%.2f</div>' % min([r.score for r in results])
+    max_score = '<div class="max">%.2f</div>' % max([r.score for r in results])
+    avg_score = ('<div class="avg">%.2f</div>' %
                  (sum([r.score for r in results]) / float(len(results))))
     contents = '%s%s%s' % (min_score, max_score, avg_score)
     scores_div = '<div class="scores">%s</div>' % contents
@@ -131,8 +155,8 @@ class Report:
     details = '<ul class="result_details">%s</ul>' % details
 
     # Compose them all together into one list element for the Validator
-    return ('<li onclick="expandResultDetails(this)">%s%s%s</li>' %
-            (name_div, scores_div, details))
+    return ('<li onclick="expandResultDetails(this)">%s%s%s%s</li>' %
+            (name_div, scores_div, values_div, details))
 
   def _GenerateInlinePngTag(self, image):
     """ Convert the png image passed in into an embedded image tag.
@@ -158,8 +182,8 @@ class Report:
     criteria = ValueRow('Criteria',
                         '%s (%s)' % (validator_result.criteria, units))
     observed = ValueRow('Observed',
-                        '%s (%s)' % (validator_result.observed, units))
-    score = ValueRow('Score', '%f' % validator_result.score)
+                        '%.2f (%s)' % (validator_result.observed, units))
+    score = ValueRow('Score', '%.2f' % validator_result.score)
 
     error = ''
     if validator_result.error:
