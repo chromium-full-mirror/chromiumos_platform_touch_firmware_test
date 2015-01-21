@@ -97,10 +97,8 @@ class Report:
     These are displayed in a list under the heading for their validator so you
     can drill down to see the specific gesture that generated this result.
     """
-    # TODO(charliemooney): add links in to the detailed output.  Currently this
-    # just shows the score, but it should actually be a quick way to jump to a
-    # gesture that caused this low score.
-    return '<li><a href="#%s">%f</a></li>' % (result.test_id, result.score)
+    return ('<li><a class="test_link" onclick="preventClickPropagation(event)" '
+            'href="#%s">%f</a></li>' % (result.test_id, result.score))
 
   def _GenerateValidatorHtml(self, validator_name):
     """ Generate all the HTML for a single entry in the Validators list. """
@@ -176,7 +174,8 @@ class Report:
     single TestResult object.  This include the test's prompt, an image of the
     gesture, and the full results for each validator run on this test.
     """
-    prompt_html = '<h3>%s</h3>' % test_result.prompt
+    prompt_html = ('<h3><a href="#%s">%s</a></h3>' %
+                   (test_result.test_id, test_result.prompt))
     img_html = self._GenerateInlinePngTag(test_result.image)
     validators_html = ''.join([self._GenerateValidatorDetails(vr)
                                for vr in test_result.validator_results])

@@ -17,3 +17,10 @@ function expandResultDetails(validatorElement) {
     }
   }
 }
+
+function preventClickPropagation(event) {
+  // This click handler keeps the clicked object's parents from acting on the
+  // click too.  This is used to keep expandable divs open after a link in them
+  // has been clicked.  Otherwise, it would also close the expandable div.
+  event.stopPropagation();
+}
