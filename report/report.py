@@ -102,8 +102,17 @@ class Report:
     These are displayed in a list under the heading for their validator so you
     can drill down to see the specific gesture that generated this result.
     """
-    return ('<li><a class="test_link" onclick="preventClickPropagation(event)" '
-            'href="#%s">%.2f</a></li>' % (result.test_id, result.score))
+    score_div = '<div class="score">%.2f</div>' % result.score
+    value_div = ('<div class="value">%.2f %s</div>' %
+                 (result.observed, result.units))
+    # Add a link to the detailed test run information wrapping the contents
+    contents = ('<a onclick="preventClickPropagation(event)" '
+                '   href="#%s">%s%s</a>' %
+                (result.test_id, score_div, value_div))
+
+    # Finally, color code the text for this particular result
+    color = self._HeatmapColor(result.score)
+    return '<li style="color: %s;">%s</li>' % (color, contents)
 
   def _GenerateValidatorHtml(self, validator_name):
     """ Generate all the HTML for a single entry in the Validators list. """
@@ -143,20 +152,50 @@ class Report:
     # Next build up a div to display the scores for this Validator
     min_score = '<div class="min">%.2f</div>' % min([r.score for r in results])
     max_score = '<div class="max">%.2f</div>' % max([r.score for r in results])
-    avg_score = ('<div class="avg">%.2f</div>' %
-                 (sum([r.score for r in results]) / float(len(results))))
+    avg_score_value = sum([r.score for r in results]) / float(len(results))
+    avg_score = '<div class="avg">%.2f</div>' % avg_score_value
     contents = '%s%s%s' % (min_score, max_score, avg_score)
     scores_div = '<div class="scores">%s</div>' % contents
 
     # Build up the HTML for this validator's details.  (This is the part
     # that is usually hidden until you click on a validator)
+    details_heading = ('<li class="heading">'
+                       '<div class="score">Score</div>'
+                       '<div class="value">Observed Value</div>'
+                       '</li>')
     details = ''.join([self._GetResultDetailsHtml(r)
-                       for r in sorted(results, key=lambda r: r.score)])
-    details = '<ul class="result_details">%s</ul>' % details
+                 for r in sorted(results, key=lambda r: (r.score, r.observed))])
+    details = ('<ul class="result_details">%s%s</ul>' %
+               (details_heading, details))
 
-    # Compose them all together into one list element for the Validator
-    return ('<li onclick="expandResultDetails(this)">%s%s%s%s</li>' %
-            (name_div, scores_div, values_div, details))
+    # Compose them all together into one content div element for the Validator
+    content_div = ('<div onclick="expandResultDetails(this)" '
+                   '     class="contents">%s%s%s%s</div>' %
+                   (name_div, scores_div, values_div, details))
+
+    # Compute which background color to give this Validator.  This is determined
+    # by the average score, and changes the bg color to indicate failure/success
+    color = self._HeatmapColor(avg_score_value)
+
+    # Build a list element with a the custom color and an overlay div that can
+    # darken to create a mouseover effect.
+    return ('<li style="background: %s;">%s<div class=overlay></div></li>' %
+            (color, content_div))
+
+  def _HeatmapColor(self, score):
+    """ Compute a heatmap color based on a score from 0.0 to 1.0.  The color
+    is interpolated between red and green using a cubic exponential function and
+    can be used as a visual indicator of a scores success/failure.
+    This returns a css hex encoded color string of the form "#RRGGBB"
+    """
+    fail_color = {'r': 0xf4, 'g': 0x43, 'b': 0x36}
+    pass_color = {'r': 0x4c, 'g': 0xaf, 'b': 0x50}
+
+    alpha = (((score * 2.0 - 1.0) ** 3) + 1.0) / 2.0
+    r = (pass_color['r'] * alpha) + (fail_color['r'] * (1.0 - alpha))
+    g = (pass_color['g'] * alpha) + (fail_color['g'] * (1.0 - alpha))
+    b = (pass_color['b'] * alpha) + (fail_color['b'] * (1.0 - alpha))
+    return "#%02x%02x%02x" % (int(r), int(g), int(b))
 
   def _GenerateInlinePngTag(self, image):
     """ Convert the png image passed in into an embedded image tag.

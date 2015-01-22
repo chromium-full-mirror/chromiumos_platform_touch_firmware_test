@@ -15,28 +15,40 @@ ul.validators {
 }
 
 ul.validators > li {
-  background: #aabbbb;
   margin: 5px;
   padding: 5px;
+  position: relative;
   clear: both;
   overflow: hidden;
 }
 
 ul.validators > li.heading {
-  background: none;
   font-weight: bold;
   height: 2cm;
 }
 
-ul.validators > li:hover {
-  background: #929e9e;
+ul.validators > li > div.overlay {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  width:100%;
+  height: 100%;
+  z-index: 1;
 }
 
-ul.validators > li.heading:hover {
-  background: none;
+ul.validators > li:hover > div.overlay {
+  background: #000;
+  opacity: 0.2;
 }
 
-ul.validators > li > div.name {
+ul.validators > li > div.contents {
+  position: relative;
+  clear: both;
+  overflow: hidden;
+  z-index: 2;
+}
+
+ul.validators > li div.name {
   float: left;
 }
 
@@ -44,29 +56,73 @@ ul.validators > li.heading > div.name {
   padding-top: 1.25cm;
 }
 
-ul.validators > li > div.scores,
-ul.validators > li > div.values {
+ul.validators > li div.scores,
+ul.validators > li div.values {
   float: right;
   padding-left: 0.5cm;
   text-align: center;
 }
 
-ul.validators > li > div.scores > div,
-ul.validators > li > div.values > div {
+ul.validators > li div.scores > div,
+ul.validators > li div.values > div {
   float: right;
   width: 2cm;
 }
 
-ul.validators > li > div.values > div.units {
+ul.validators > li div.values > div.units {
   border-right: 1px black solid;
 }
 
 ul.result_details {
   display: none;
+  list-style-type: none;
+  clear:left;
 }
 
-ul.result_details > li {
-  clear: both;
+ul.result_details > li:not(.heading):before {
+  margin-left: -0.5cm;
+  padding: 0.5cm;
+  font-weight: bold;
+  content: '\25a0';
+  text-shadow: 1px 1px 2px black,
+               1px -1px 2px black,
+               -1px 1px 2px black,
+               -1px -1px 2px black;
+}
+
+ul.result_details > li.heading {
+  font-weight: bold;
+  margin-left: 0.5cm;
+}
+
+ul.result_details > li a {
+  text-decoration: none;
+}
+
+ul.result_details > li a:hover {
+  font-weight: bold;
+}
+
+ul.result_details > li div.score,
+ul.result_details > li div.value {
+  display: inline-block;
+  min-width: 2cm;
+}
+
+a:link {
+  color: #0d47a1;
+}
+
+a:visited {
+  color: #4527a0;
+}
+
+a:hover {
+  color: #1565c0;
+}
+
+a:active {
+  color: #673ab7;
 }
 
 ul.test_details > li {
