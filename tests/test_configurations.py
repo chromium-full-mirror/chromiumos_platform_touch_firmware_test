@@ -27,6 +27,9 @@ TWO_FINGER_SWIPE = 'two_finger_swipe'
 PINCH_TO_ZOOM = 'pinch_to_zoom'
 ONE_FINGER_TAP = 'one_finger_tap'
 TWO_FINGER_TAP = 'two_finger_tap'
+THREE_FINGER_TAP = 'three_finger_tap'
+FOUR_FINGER_TAP = 'four_finger_tap'
+FIVE_FINGER_TAP = 'five_finger_tap'
 ONE_FINGER_PHYSICAL_CLICK = 'one_finger_physical_click'
 TWO_FINGER_PHYSICAL_CLICK = 'two_fingers_physical_click'
 STATIONARY_FINGER_NOT_AFFECTED_BY_2ND_FINGER_TAPS = \
@@ -45,8 +48,8 @@ ONE_FINGER_TRACKING_FROM_CENTER = 'one_finger_tracking_from_center'
 # Basic tests are ones that require no special hardware to perform
 BASIC_TESTS = [ONE_FINGER_TRACKING, ONE_FINGER_TO_EDGE, TWO_FINGER_TRACKING,
   FINGER_CROSSING, ONE_FINGER_SWIPE, TWO_FINGER_SWIPE, PINCH_TO_ZOOM,
-  ONE_FINGER_TAP, TWO_FINGER_TAP, ONE_FINGER_PHYSICAL_CLICK,
-  TWO_FINGER_PHYSICAL_CLICK,
+  ONE_FINGER_TAP, TWO_FINGER_TAP, THREE_FINGER_TAP, FOUR_FINGER_TAP,
+  FIVE_FINGER_TAP, ONE_FINGER_PHYSICAL_CLICK, TWO_FINGER_PHYSICAL_CLICK,
   STATIONARY_FINGER_NOT_AFFECTED_BY_2ND_FINGER_TAPS,
   FAT_FINGER_MOVE_WITH_RESTING_FINGER, DRAG_EDGE_THUMB,
   TWO_CLOSE_FINGERS_TRACKING, RESTING_FINGER_PLUS_2ND_FINGER_MOVE,
@@ -70,6 +73,7 @@ LINEARITY_CRITERIA_MM = '<= 0.8, ~ +2.4'
 PINCH_CRITERIA_MM = '>= 15, ~ -5'
 RELAXED_LINEARITY_CRITERIA_MM = '<= 1.5, ~ +3.0'
 STATIONARY_FINGER_CRITERIA_MM = '<= 1.0'
+RELAXED_STATIONARY_FINGER_CRITERIA_MM = '<= 3.0'
 
 
 # Definitions for the test specifics
@@ -344,6 +348,43 @@ tests_dict = {
     validators=(
       CountTrackingIDValidator('== 2'),
       StationaryTapValidator(STATIONARY_FINGER_CRITERIA_MM),
+    ),
+  ),
+
+  THREE_FINGER_TAP:
+  Test(
+    name=THREE_FINGER_TAP,
+    variations=None,
+    prompt='Use three fingers to tap the center of the touch surface.',
+    subprompt=None,
+    validators=(
+      CountTrackingIDValidator('== 3'),
+      StationaryTapValidator(RELAXED_STATIONARY_FINGER_CRITERIA_MM),
+    ),
+  ),
+
+  FOUR_FINGER_TAP:
+  Test(
+    name=FOUR_FINGER_TAP,
+    variations=None,
+    prompt='Use four fingers to tap the center of the touch surface.',
+    subprompt=None,
+    validators=(
+      CountTrackingIDValidator('== 4'),
+      StationaryTapValidator(RELAXED_STATIONARY_FINGER_CRITERIA_MM),
+    ),
+  ),
+
+
+  FIVE_FINGER_TAP:
+  Test(
+    name=FIVE_FINGER_TAP,
+    variations=None,
+    prompt='Use five fingers to tap the center of the touch surface.',
+    subprompt=None,
+    validators=(
+      CountTrackingIDValidator('== 5'),
+      StationaryTapValidator(RELAXED_STATIONARY_FINGER_CRITERIA_MM),
     ),
   ),
 
