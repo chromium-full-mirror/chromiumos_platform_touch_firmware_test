@@ -430,8 +430,6 @@ tests_dict = {
            'all around it many times (50)',
     subprompt=None,
     validators=(
-      NoGapValidator(NO_GAP_CRITERIA_RATIO),
-      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
       StationaryFingerValidator(STATIONARY_FINGER_CRITERIA_MM, finger=0),
     ),
   ),
