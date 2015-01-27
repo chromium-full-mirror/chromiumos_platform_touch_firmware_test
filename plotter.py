@@ -2,11 +2,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-""" This module defines a class used to plot MtbEvents live as they arrive
+""" This module defines a class used to plot MtEvents live as they arrive
 
 This is done the pyqtgraph library to plot the points.  It's not as common as
 matplotlib, but it's much much faster which is very useful for live updating.
-The class works by maintaining its own MtbStateMachine and updating it with
+The class works by maintaining its own state machine and updating it with
 the new events it receives.  Every time a SYN arrives, it updates the display.
 """
 
@@ -17,7 +17,7 @@ from collections import defaultdict
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
 
-import mtb
+import mt
 
 
 # Initialize Qt display here only once
@@ -27,7 +27,7 @@ class TouchPlotter:
   EXPORT_IMAGE_WIDTH = 500
   COLORS = ['F00', '0F0', '00F', 'FF0', 'F0F', '0FF', 'FFF']
 
-  def __init__(self, x_min, x_max, y_min, y_max):
+  def __init__(self, x_min, x_max, y_min, y_max, protocol=mt.MTB):
     self.paths_by_tid = defaultdict(list)
     self.curves_by_tid = defaultdict(lambda:self.plot_window.plot())
     self.pens_by_tid = {}
@@ -39,8 +39,12 @@ class TouchPlotter:
     width = x_max - x_min
     height = y_max - y_min
 
-    # The MtbStateMachine that makes sense of the incoming events
-    self.sm = mtb.MtbStateMachine()
+
+    # The MtStateMachine that makes sense of the incoming events
+    if protocol == mt.MTA:
+      self.sm = mt.MtaStateMachine()
+    else:
+      self.sm = mt.MtbStateMachine()
 
     # Configure the main window
     pg.setConfigOptions(background='b')
@@ -64,7 +68,7 @@ class TouchPlotter:
     self.plot_window.plotItem.vb.updateBackground()
 
   def add_event(self, event):
-    """ Take an MtbEvent and update the plot if required.
+    """ Take an MtEvent and update the plot if required.
 
     A TouchPlotter maintains a visual plot of the events "so far", and this
     funtion just adds an additional event to the internal state.

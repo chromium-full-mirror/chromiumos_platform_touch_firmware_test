@@ -14,7 +14,7 @@ The basic work flow for a RemoteTouchDevice is this:
   a boolean to indicate if you want a touchscreen or touchpad.
  2. Call the device's BeginEventStream() method to initiate a connection
   and do any setup work that platform might require.
- 3. Repeatedly call NextEvent(), which will block until another MTB event
+ 3. Repeatedly call NextEvent(), which will block until another MT event
   arrives.  Note: These are raw MTB events, it does not wait for SYN events
   but instead returns each event as they arrive.
  4. Close/cleanup the connection by running EndEventStream()
@@ -36,8 +36,9 @@ import re
 import select
 import time
 from subprocess import PIPE, Popen, STDOUT
-from mtb import MtbEvent
-from mtb.input import linux_input
+
+import mt
+from mt.input import linux_input
 
 
 class RemoteTouchDevice:
@@ -50,6 +51,7 @@ class RemoteTouchDevice:
     'touchscreen',
     'max1187x_touchscreen_0',
     'synaptics_dsx_i2c',
+    'mtk-tpd',
   ]
   touchpad_device_names = [
     'touchpad',
@@ -73,6 +75,9 @@ class RemoteTouchDevice:
     self.y_min, self.y_max, self.y_res = y['min'], y['max'], y['resolution']
     self.p_min, self.p_max = p['min'], p['max']
 
+    # Determine with protocol the device uses: MTA or MTB
+    self.protocol = self._GetMtProtocol()
+
   def BeginEventStream(self):
     """ Initiate a stream of MTB events from the DUT
     This function starts up an ongoing connection over which we can
@@ -94,6 +99,17 @@ class RemoteTouchDevice:
     readable, _, _, = select.select([self.event_stream_process.stdout], [], [])
     return self.event_stream_process.stdout in readable
 
+  def _GetMtProtocol(self):
+    """ This function determines the Multitouch protocol used by this device.
+    For most devices mtb is used, but for a few devices mta has been
+    encountered.
+
+    This function is called for all devices in the constructor and needs to
+    be implimented by the subclass.  If a particular class of devices will
+    always use one protocol this function can simply return that value without
+    contacting the device at all
+    """
+    raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
 
   def _GetDimensions(self):
     """ Reach out to the DUT and determine the dimensions of the sensor, the
@@ -123,11 +139,11 @@ class RemoteTouchDevice:
     return (self.PxToMm_X(self.x_max - self.x_min),
             self.PxToMm_Y(self.y_max - self.y_min))
 
-  def _ParseMtbEvent(self, line):
-    """ Specifies how to parse a line of output into an MtbEvent object
+  def _ParseMtEvent(self, line):
+    """ Specifies how to parse a line of output into an MtEvent object
     This function should take in a single line of output from stdout and
-    return None in the case the input does not contain an MTB event or
-    the MtbEvent object that it represents.
+    return None in the case the input does not contain an MT event or
+    the MtEvent object that it represents.
     """
     raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
 
@@ -140,11 +156,11 @@ class RemoteTouchDevice:
     raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
 
   def NextEvent(self, timeout=None):
-    """ Wait for and capture the next MTB event
+    """ Wait for and capture the next MT event
     Once a connection has been initiated with BeginEventStream() this
-    function can be called to block until another MTB event arrives
+    function can be called to block until another MT event arrives
     from the DUT.  If the subprocess has stopped, None is returned,
-    otherwise a string with the MTB event is returned.
+    otherwise a string with the MT event is returned.
     """
     event = None
     while not event:
@@ -155,7 +171,7 @@ class RemoteTouchDevice:
       if not line:
         return None
 
-      event = self._ParseMtbEvent(line)
+      event = self._ParseMtEvent(line)
     return event
 
   def _GetNextLine(self, timeout=None):
@@ -242,6 +258,28 @@ class AndroidTouchDevice(RemoteTouchDevice):
         'done')
     RemoteTouchDevice.__init__(self, addr, is_touchscreen)
 
+  def _GetMtProtocol(self):
+    """ Android devices usually use mtb, but for some devices they still use
+    mta.  You can tell the difference by looking at the events that the touch
+    device will emit.  If they use the BTN_TOUCH key, you know it is mta, as
+    that is the event that is used to indicate a finger touching the pad for
+    mta only, whereas mtb uses tracking ids to do this.
+
+    Devices that use mta will have an entry when querying the touch device
+    with "getevent" like the line below.
+
+      KEY (0001): 014a
+
+    Note that 014a is the code for BTN_TOUCH.  If we see that we know it's an
+    mta Android device.  If not, then it's mtb.
+    """
+    cmd = 'getevent -p /dev/input/event%d' % self.device_num
+    output = self._RunRemoteCmd(cmd).stdout.read()
+    for line in output.split('\n'):
+      if re.match('^.*KEY\s+\(\d+\):.*\s+014a.*$', line):
+        return mt.MTA
+    return mt.MTB
+
   def _GetResolution(self):
     """ Android devices don't report their touchscreen resolution to the
     kernel, but instead have their resolution tied to the LCD resolution.
@@ -319,7 +357,7 @@ class AndroidTouchDevice(RemoteTouchDevice):
   def _ToSignedInt(self, x, bits):
     return x if x & (1 << (bits - 1)) == 0 else x - (1 << bits)
 
-  def _ParseMtbEvent(self, line):
+  def _ParseMtEvent(self, line):
     """ How to parse out the Android-specific event format
 
     Android events look like this:
@@ -342,7 +380,7 @@ class AndroidTouchDevice(RemoteTouchDevice):
     event_code = int(matches.group(4), 16)
     value = self._ToSignedInt(int(matches.group(5), 16), bits=32)
 
-    return MtbEvent(timestamp, event_type, event_code, value)
+    return mt.MtEvent(timestamp, event_type, event_code, value)
 
   def _RunRemoteCmd(self, cmd):
     """ Run a command on the shell of a remote Android DUT """
@@ -357,6 +395,10 @@ class ChromeOSTouchDevice(RemoteTouchDevice):
     self.begin_event_stream_cmd = 'evtest --grab /dev/input/event%d'
     self.kill_remote_process_cmd = 'killall evtest'
     RemoteTouchDevice.__init__(self, addr, is_touchscreen)
+
+  def _GetMtProtocol(self):
+    """ ChromeOS devices always use mtb, so we can simply return that. """
+    return mt.MTB
 
   def _GetDimensions(self):
     """ Evtest simply outputs the legal ranges of values for X/Y/etc at
@@ -407,7 +449,7 @@ class ChromeOSTouchDevice(RemoteTouchDevice):
     self.EndEventStream()
     return x, y, p
 
-  def _ParseMtbEvent(self, line):
+  def _ParseMtEvent(self, line):
     """ How to parse out the ChromeOS-specific event format
 
     ChromeOS events look like this:
@@ -422,14 +464,14 @@ class ChromeOSTouchDevice(RemoteTouchDevice):
       return None
 
     if 'SYN_REPORT' in contents:
-      return MtbEvent(timestamp)
+      return mt.MtEvent(timestamp, linux_input.EV_SYN, linux_input.SYN_REPORT)
     pattern = '^.*type (\d+) .*, code (\d+) .*, value (-?\d+).*$'
     matches = re.match(pattern, contents)
     event_type = int(matches.group(1))
     event_code = int(matches.group(2))
     value = int(matches.group(3))
 
-    return MtbEvent(timestamp, event_type, event_code, value)
+    return mt.MtEvent(timestamp, event_type, event_code, value)
 
   def _RunRemoteCmd(self, cmd):
     """ Run a command on the shell of a remote ChromeOS DUT """

@@ -6,34 +6,42 @@ import optparse
 import os
 import sys
 
+import mt
+
 from report import Report
 from test_suite import TestSuite
 
 
 def parse_arguments():
   VALID_DUT_TYPES = ['chromeos', 'android', 'replay']
-
+  VALID_PROTOCOLS = [mt.MTA, mt.MTB, 'auto']
   parser = optparse.OptionParser()
 
   # DUT specification information
   parser.add_option('-a', '--addr', dest='addr', default=None,
-                    help=('The address of the DUT (ip for CrOS, Device ID ' +
+                    help=('The address of the DUT (ip for CrOS, Device ID '
                           'for Android, or a filename to replay old results).'))
   parser.add_option('-t', '--type', dest='dut_type', default=None,
                     help='The type of DUT (android, chromeos, or replay).')
   parser.add_option('--touchscreen', dest='is_touchscreen',
                     default=False, action='store_true',
-                    help=('Use the touchscreen (instead of touchpad) on ' +
+                    help=('Use the touchscreen (instead of touchpad) on '
                           'the device.'))
+
+  parser.add_option('--protocol', dest='protocol', default='auto',
+                    help=('Manually specify the multitouch protocol for the '
+                          'DUT.  This should be detected automatically, but '
+                          'in the event that fails, you may specify "mtb" or '
+                          '"mta" with this flag to over-ride it.'))
 
   # Lab equipment specification
   parser.add_option('-r', '--robot', dest='has_robot',
                     default=False, action='store_true',
-                    help=('Indicate that you have a Google Touchbot that ' +
+                    help=('Indicate that you have a Google Touchbot that '
                           'will perform your gestures for you.'))
   parser.add_option('-f', '--fn_gen', dest='has_fn_gen',
                     default=False, action='store_true',
-                    help=('Indicate that you have an HP 33120A function ' +
+                    help=('Indicate that you have an HP 33120A function '
                           'generator to automate the electric noise tests.'))
 
   # Test suite settings
@@ -48,6 +56,10 @@ def parse_arguments():
     sys.exit(1)
   if options.dut_type == 'chromeos' and not options.addr:
     print 'ERROR: You must supply an IP address for ChromeOS DUTs'
+    sys.exit(1)
+  if options.protocol not in VALID_PROTOCOLS:
+    print 'ERROR: invalid protocol "%s"' % options.protocol
+    print 'valid protocols are: %s' % str(VALID_PROTOCOLS)
     sys.exit(1)
 
   return options, args

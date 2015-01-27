@@ -4,8 +4,8 @@
 
 from input.linux_input import *
 
-class MtbEvent:
-  """ Class that holds the a single MTB event (Not a complete packet) """
+class MtEvent(object):
+  """ Class that holds the a single MT event """
   def __init__(self, timestamp, event_type=EV_SYN, event_code=None, value=None):
     self.timestamp = timestamp
     self.event_type = event_type
@@ -39,6 +39,10 @@ class MtbEvent:
   def is_ABS_MT_PRESSURE(self):
     """ Is this event ABS_MT_PRESSURE? """
     return self.event_type == EV_ABS and self.event_code == ABS_MT_PRESSURE
+
+  def is_ABS_MT_TOUCH_MAJOR(self):
+    """ Is this event ABS_MT_TOUCH_MAJOR? """
+    return self.event_type == EV_ABS and self.event_code == ABS_MT_TOUCH_MAJOR
 
   def is_finger_data(self):
     # TODO(charliemooney): This only lists the messages we've seen so far, it
@@ -83,9 +87,13 @@ class MtbEvent:
     """ Is this event BTN_TOUCH? """
     return self._is_EV_KEY() and self.event_code == BTN_TOUCH
 
+  def is_SYN_MT_REPORT(self):
+    """ is this event is SYN_REPORT? """
+    return self.event_type == EV_SYN and self.event_code == SYN_MT_REPORT
+
   def is_SYN_REPORT(self):
     """ is this event is SYN_REPORT? """
-    return self.event_type == EV_SYN
+    return self.event_type == EV_SYN and self.event_code == SYN_REPORT
 
   def __str__(self):
     if self.is_SYN_REPORT():

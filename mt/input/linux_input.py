@@ -1142,6 +1142,14 @@ EV_SIZES = {
 }
 
 EV_STRINGS = {
+    # Syn events
+    EV_SYN: {
+        SYN_REPORT      : 'REPORT',
+        SYN_CONFIG      : 'CONFIG',
+        SYN_MT_REPORT   : 'MT_REPORT',
+        SYN_DROPPED     : 'DROPPED',
+    },
+
     # Keys (only buttons, for now)
     EV_KEY: {
         BTN_0           : '0',

@@ -4,7 +4,7 @@
 
 import colorama as color
 
-import mtb
+import mt
 import tests
 from plotter import TouchPlotter
 from remote import ChromeOSTouchDevice, AndroidTouchDevice
@@ -33,6 +33,11 @@ class TestSuite:
                                            self.options.is_touchscreen)
     else:
       self.touch_dev = AndroidTouchDevice(self.options.addr, True)
+
+    # If the user specified the device's mt protocol override it now
+    if options.protocol != 'auto':
+      self.touch_dev.protocol = options.protocol
+
     tests.validator.BaseValidator._device = self.touch_dev
 
     # Compute the list of tests to run
@@ -74,22 +79,23 @@ class TestSuite:
     # timeout on subsequent incoming events
     events = []
     plotter = TouchPlotter(self.touch_dev.x_min, self.touch_dev.x_max,
-                           self.touch_dev.y_min, self.touch_dev.y_max)
+                           self.touch_dev.y_min, self.touch_dev.y_max,
+                           self.touch_dev.protocol)
     print 'Waiting for 1st event...',
     event = self.touch_dev.NextEvent(TestSuite.NO_EVENTS_DETECTED_TIMEOUT_S)
     if not event:
-      print ('\rNo MTB events collected before timeout (%d seconds)!' %
+      print ('\rNo MT events collected before timeout (%d seconds)!' %
              TestSuite.NO_EVENTS_DETECTED_TIMEOUT_S),
     while event:
       plotter.add_event(event)
-      print '\rCollected %d MTB events' % len(events),
+      print '\rCollected %d MT events' % len(events),
       events.append(event)
       event = self.touch_dev.NextEvent(test.timeout)
     print
     plot_image_png = plotter.end()
 
     # Run the validators on these events
-    snapshots = mtb.process(events)
+    snapshots = mt.process(events, protocol=self.touch_dev.protocol)
     results = test.RunAllValidators(snapshots)
 
     # Bundle the Validator results with some details of which gesture was used

@@ -10,7 +10,6 @@ import numpy as np
 import sys
 
 import fuzzy
-import mtb
 
 from inspect import isfunction
 from result import Result

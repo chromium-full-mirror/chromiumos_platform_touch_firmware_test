@@ -2,16 +2,20 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from event import MtbEvent
-from state_machine import MtbStateMachine, MtbFinger, MtbSnapshot
+from event import MtEvent
+from state_machine import MtbStateMachine, MtaStateMachine, MtFinger, MtSnapshot
 
 
-def process(events):
-  """ Given a list of raw MtbEvents, process them and return a list of
-  MtbSnapshots.
+MTA = 'mta'
+MTB = 'mtb'
 
-  When raw MtbEvents are collected from the device, they're hard to work with.
-  This function uses an MtbStateMachine to turn them into snapshot. This
+
+def process(events, protocol=MTB):
+  """ Given a list of raw MtEvents, process them and return a list of
+  MtSnapshots.
+
+  When raw MtEvents are collected from the device, they're hard to work with.
+  This function uses an state machine to turn them into snapshots. This
   works by tracking the fingers' tracking ids, slots, x, y, pressure and noting
   each finger's state at the time of a SYN.  Essentially it takes a snapshot
   of the state of the pad at the time of each SYN event.
@@ -19,7 +23,7 @@ def process(events):
   snapshots = []
 
   # initialize the state machine
-  sm = MtbStateMachine()
+  sm = MtaStateMachine() if protocol == MTA else MtbStateMachine()
 
   # Add the events as input to the state machine one after another
   for event in events:
@@ -40,8 +44,8 @@ class SnapshotStream(object):
   """ This class bundles events into a snapshot stream in a real-time manner.
   """
 
-  def __init__(self, device):
-    self.sm = MtbStateMachine()
+  def __init__(self, device, protocol=MTB):
+    self.sm = MtaStateMachine() if protocol == MTA else MtbStateMachine()
     self.device = device
 
   def Get(self):
