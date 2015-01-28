@@ -225,25 +225,60 @@ class RemoteTouchDevice:
     This is so when we try to start streaming events we can make sure we're
     connected to the right device on the DUT.
     """
-    # This file contains the mapping so we can determine which event file
-    output = self._RunRemoteCmd('cat /proc/bus/input/devices').stdout.read()
+    def GetAllDeviceNumberMappings():
+      # This file contains the mappings so we can determine which event file
+      output = self._RunRemoteCmd('cat /proc/bus/input/devices').stdout.read()
 
-    # Parse out the ID for the touchscreen/touchpad
+      # Build up a dictionary mapping device names -> device numbers
+      mappings = {}
+      current_name = None
+      for line in output.split('\n'):
+        line = str.replace(line, '\r', '')
+        matches = re.match('^N:\s+Name="(.+)"\s*$', line)
+        if matches:
+          current_name = matches.group(1)
+        matches = re.match('^H:\s+Handlers=.*event(\d+).*$', line, re.M)
+        if matches:
+          mappings[int(matches.group(1))] = current_name
+
+      return mappings
+
+    # First find all the device names/numbers on the DUT
+    device_names_by_number = GetAllDeviceNumberMappings()
+
+    # Determine the list of known names for touchpads/touchscreens
     name_strings = RemoteTouchDevice.touchpad_device_names
     if is_touchscreen:
       name_strings = RemoteTouchDevice.touchscreen_device_names
 
-    found = False
-    for line in output.split('\n'):
-      line = str.replace(line, '\r', '')
-      if any([re.match('^N: Name=".*%s.*"$' % name, line, re.I | re.M)
-              for name in name_strings]):
-        found = True
-      if found:
-        matches = re.match('^H: Handlers=.*event(\d+).*$', line, re.M)
-        if matches:
-          return int(matches.group(1))
-    return None
+    # If we found one that matches already just return it
+    for name_string in name_strings:
+      for device_number, device_name in device_names_by_number.items():
+        if name_string in device_name.lower():
+          return device_number
+
+    # If we haven't found it yet, we'll have to ask the user to pick it
+    # from the list for us, because we can't tell which device it is.
+    print ('Sorry, we were unable to autodetect the %s device.' %
+           'touchscreen' if is_touchscreen else 'touchpad')
+    print 'Please select the correct device from the list below'
+    sorted_devices = sorted(device_names_by_number.items(), key=lambda x:x[0])
+    for device_number, device_name in sorted_devices:
+      print '%d: "%s"' % (device_number, device_name)
+
+    # Loop until the user makes a valid device selection for us.
+    selection = None
+    while selection not in device_names_by_number:
+      if selection:
+        print 'Error: That is not a legal device number'
+
+      selection = raw_input('Enter the device number you wish to test: ')
+      try:
+        selection = int(selection)
+      except:
+        pass
+
+    return selection
 
 
 class AndroidTouchDevice(RemoteTouchDevice):
