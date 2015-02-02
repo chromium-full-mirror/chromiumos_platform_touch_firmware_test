@@ -25,9 +25,11 @@ qt_app = QtGui.QApplication([])
 
 class TouchPlotter:
   EXPORT_IMAGE_WIDTH = 500
+  MIN_POINT_SIZE = 3.0
+  MAX_POINT_SIZE = 25.0
   COLORS = ['F00', '0F0', '00F', 'FF0', 'F0F', '0FF', 'FFF']
 
-  def __init__(self, x_min, x_max, y_min, y_max, protocol=mt.MTB):
+  def __init__(self, x_min, x_max, y_min, y_max, p_min, p_max, protocol=mt.MTB):
     self.paths_by_tid = defaultdict(list)
     self.curves_by_tid = defaultdict(lambda:self.plot_window.plot())
     self.pens_by_tid = {}
@@ -36,6 +38,8 @@ class TouchPlotter:
     self.x_max = x_max
     self.y_min = y_min
     self.y_max = y_max
+    self.p_min = p_min
+    self.p_max = p_max
     width = x_max - x_min
     height = y_max - y_min
 
@@ -92,6 +96,13 @@ class TouchPlotter:
       xs = [p.x - self.x_min for p in self.paths_by_tid[tid]]
       ys = [p.y - self.y_min for p in self.paths_by_tid[tid]]
 
+      # Interpolate the size of each dot based on the range of pressures for
+      # this device so the dot sizes range from MIN_POINT_SIZE to MAX_POINT_SIZE
+      size_range = TouchPlotter.MAX_POINT_SIZE - TouchPlotter.MIN_POINT_SIZE
+      ps = [(TouchPlotter.MIN_POINT_SIZE + size_range *
+             (p.pressure - self.p_min) / float(self.p_max - self.p_min))
+            for p in self.paths_by_tid[tid]]
+
       # If we don't already have a pen set up for this TID, do so now
       if tid not in self.pens_by_tid:
         next_color_index = len(self.pens_by_tid) % len(TouchPlotter.COLORS)
@@ -100,7 +111,7 @@ class TouchPlotter:
 
       # Update the points for this TID's curve
       self.curves_by_tid[tid].setData(
-          x=xs, y=ys, pen=self.pens_by_tid[tid], symbol='o', symbolSize=5.0,
+          x=xs, y=ys, pen=self.pens_by_tid[tid], symbol='o', symbolSize=ps,
           symbolPen=self.pens_by_tid[tid], symbolBrush=None)
 
     # Update the display

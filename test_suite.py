@@ -80,6 +80,7 @@ class TestSuite:
     events = []
     plotter = TouchPlotter(self.touch_dev.x_min, self.touch_dev.x_max,
                            self.touch_dev.y_min, self.touch_dev.y_max,
+                           self.touch_dev.p_min, self.touch_dev.p_max,
                            self.touch_dev.protocol)
     print 'Waiting for 1st event...',
     event = self.touch_dev.NextEvent(TestSuite.NO_EVENTS_DETECTED_TIMEOUT_S)
