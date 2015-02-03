@@ -40,6 +40,15 @@ class TestSuite:
 
     tests.validator.BaseValidator._device = self.touch_dev
 
+    # Connect to the function generator if the operator says they have one
+    self.fn_generator = None
+    if options.has_fn_gen:
+      self.fn_generator = tests.noise.HP33120A()
+      if not self.fn_generator.IsValid():
+        self.fn_generator = None
+        options.has_fn_gen = False
+        print 'Error: Unable to connect to function generator!'
+
     # Compute the list of tests to run
     self.tests = tests.generate_test_list(options)
     self.curr_test = 0
@@ -69,6 +78,14 @@ class TestSuite:
     print color.Fore.WHITE + '-' * 80
     print color.Fore.BLUE + test.name
     print color.Fore.GREEN + prompt
+
+    # Start the function generator (if applicable)
+    if self.fn_generator:
+      waveform = test.WaveformForVariation(self.curr_variation)
+      if waveform:
+        self.fn_generator.GenerateFunction(*waveform)
+      else:
+        self.fn_generator.Off()
 
     # Start collecting data
     print 'Opening connection with DUT... ',

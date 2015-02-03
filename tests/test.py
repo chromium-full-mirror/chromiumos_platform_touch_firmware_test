@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from constants import GV
 
 class Test:
   """ This class defines all the characteristics of a test in the test suite
@@ -46,6 +47,30 @@ class Test:
         formatters += self.subprompt[v]
       prompt = self.prompt.format(*formatters)
     return prompt
+
+  def WaveformForVariation(self, variation_number):
+    """ Determine what kind of electrical noise (if any) this variation needs.
+    If this is a noise test, this function should return a tuple of the form:
+    (waveform, frequency, amplitude) otherwise it will return None.
+    """
+    # First check if this is even a test that needs a function generator at all
+    if 'noise' not in self.name:
+        return None
+
+    # Next try to take apart the variation to determine the wave's details
+    variation = self.variations[variation_number]
+    frequency = amplitude = form = None
+    for value in variation:
+      if value in GV.NOISE_WAVEFORMS:
+        form = value
+      elif value in GV.NOISE_FREQUENCIES:
+        frequency = int(value.replace('Hz', ''))
+      elif value in GV.NOISE_AMPLITUDES:
+        amplitude = int(value.replace('V', ''))
+    if not all([value is not None for value in (form, frequency, amplitude)]):
+      return None
+
+    return form, frequency, amplitude
 
   def _ExpandVariationTuples(self, tuples):
     """ Return a list of expanded tuples (one for each variation)
