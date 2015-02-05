@@ -15,6 +15,7 @@ import tempfile
 from collections import defaultdict
 
 import pyqtgraph as pg
+import pyqtgraph.exporters
 from pyqtgraph.Qt import QtGui, QtCore
 
 import mt
@@ -129,8 +130,7 @@ class TouchPlotter:
     # so this image is saved into a temp file and read back into ram before
     # the file on the hard drive is deleted.
     tmp_filename = tempfile.mktemp(suffix='.png')
-    exporter = pg.exporters.ImageExporter.ImageExporter(
-                                                    self.plot_window.plotItem)
+    exporter = pg.exporters.ImageExporter(self.plot_window.plotItem)
     exporter.parameters()['width'] = TouchPlotter.EXPORT_IMAGE_WIDTH
     exporter.export(tmp_filename)
     with open(tmp_filename, 'rb') as fo:
