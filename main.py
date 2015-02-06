@@ -14,6 +14,7 @@ from test_suite import TestSuite
 
 def parse_arguments():
   VALID_DUT_TYPES = ['chromeos', 'android', 'replay']
+  VALID_MODES = ['performance', 'noise', 'full']
   VALID_PROTOCOLS = [mt.MTA, mt.MTB, 'auto']
   parser = optparse.OptionParser()
 
@@ -43,6 +44,10 @@ def parse_arguments():
                     default=False, action='store_true',
                     help=('Indicate that you have an HP 33120A function '
                           'generator to automate the electric noise tests.'))
+  parser.add_option('-m', '--mode', dest='mode', default='performance',
+                    help=('Which mode to run the test suite in. Options are '
+                          '(performance, noise, or full) with performance as '
+                          'the default selection.'))
 
   # Test suite settings
   parser.add_option('-i', '--iterations', dest='num_iterations', default=1,
@@ -60,6 +65,10 @@ def parse_arguments():
   if options.protocol not in VALID_PROTOCOLS:
     print 'ERROR: invalid protocol "%s"' % options.protocol
     print 'valid protocols are: %s' % str(VALID_PROTOCOLS)
+    sys.exit(1)
+  if options.mode not in VALID_MODES:
+    print 'ERROR: invalid mode "%s"' % options.mode
+    print 'valid modes are: %s' % str(VALID_MODES)
     sys.exit(1)
 
   return options, args

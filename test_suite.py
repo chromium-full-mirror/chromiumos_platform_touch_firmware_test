@@ -51,6 +51,8 @@ class TestSuite:
 
     # Compute the list of tests to run
     self.tests = tests.generate_test_list(options)
+    if not self.tests:
+        print color.Fore.RED + 'Warning: No tests selected!'
     self.curr_test = 0
     self.curr_variation = 0
     self.curr_iteration = 1
@@ -70,7 +72,8 @@ class TestSuite:
     repeatedly until it returns False to go through all tests, variations,
     and iterations.
     """
-
+    if self.curr_test >= len(self.tests):
+        return False
     test = self.tests[self.curr_test]
 
     # Print the header for this new test and variation

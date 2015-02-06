@@ -72,12 +72,9 @@ GV.NORMAL = 'normal'
 GV.FAST = 'fast'
 GV.FULL_SPEED = 'full_speed'
 GV.GESTURE_SPEED = [GV.SLOW, GV.NORMAL, GV.FAST, GV.FULL_SPEED]
-# constants about noise frequency
-GV.LOW_FREQUENCY = '5000Hz'
-GV.MED_FREQUENCY = '500000Hz'
-GV.HIGH_FREQUENCY = '1000000Hz'
 # constants used in the extended frequency sweep.
-GV.NOISE_FREQUENCIES = [GV.LOW_FREQUENCY, GV.MED_FREQUENCY, GV.HIGH_FREQUENCY]
+GV.NOISE_SHORT_FREQUENCIES = ['%dHz' % f for f in range(0, 1000000, 100000)]
+GV.NOISE_EXTENDED_FREQUENCIES = ['%dHz' % f for f in range(0, 1000000, 400)]
 # constants about noise waveform
 GV.SQUARE_WAVE = FunctionGenerator.SQUARE_WAVE
 GV.SINE_WAVE = FunctionGenerator.SIN_WAVE

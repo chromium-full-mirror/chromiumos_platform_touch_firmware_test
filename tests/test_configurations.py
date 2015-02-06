@@ -10,6 +10,9 @@ all set up in this file.  If you want to add or modify a test, this is
 the place to do it.
 """
 
+import colorama as color
+import sys
+
 from constants import GV
 from test import Test
 from validator import *
@@ -46,11 +49,11 @@ RAPID_TAPS = 'rapid_taps_20'
 ONE_FINGER_TRACKING_FROM_CENTER = 'one_finger_tracking_from_center'
 
 # Basic tests are ones that require no special hardware to perform
-BASIC_TESTS = [ONE_FINGER_TRACKING, ONE_FINGER_TO_EDGE, TWO_FINGER_TRACKING,
-  FINGER_CROSSING, ONE_FINGER_SWIPE, TWO_FINGER_SWIPE, PINCH_TO_ZOOM,
-  ONE_FINGER_TAP, TWO_FINGER_TAP, THREE_FINGER_TAP, FOUR_FINGER_TAP,
-  FIVE_FINGER_TAP, ONE_FINGER_PHYSICAL_CLICK, TWO_FINGER_PHYSICAL_CLICK,
-  STATIONARY_FINGER_NOT_AFFECTED_BY_2ND_FINGER_TAPS,
+PERFORMANCE_TESTS = [ONE_FINGER_TRACKING, ONE_FINGER_TO_EDGE,
+  TWO_FINGER_TRACKING, FINGER_CROSSING, ONE_FINGER_SWIPE, TWO_FINGER_SWIPE,
+  PINCH_TO_ZOOM, ONE_FINGER_TAP, TWO_FINGER_TAP, THREE_FINGER_TAP,
+  FOUR_FINGER_TAP, FIVE_FINGER_TAP, ONE_FINGER_PHYSICAL_CLICK,
+  TWO_FINGER_PHYSICAL_CLICK, STATIONARY_FINGER_NOT_AFFECTED_BY_2ND_FINGER_TAPS,
   FAT_FINGER_MOVE_WITH_RESTING_FINGER, DRAG_EDGE_THUMB,
   TWO_CLOSE_FINGERS_TRACKING, RESTING_FINGER_PLUS_2ND_FINGER_MOVE,
   TWO_FAT_FINGERS_TRACKING, FIRST_FINGER_TRACKING_AND_SECOND_FINGER_TAPS,
@@ -58,7 +61,7 @@ BASIC_TESTS = [ONE_FINGER_TRACKING, ONE_FINGER_TO_EDGE, TWO_FINGER_TRACKING,
 ]
 # These tests require a function generator connected to a probe so the
 # test suite can simulate electrical noise conditions.
-FN_GEN_TESTS = [NOISE_LINE, NOISE_STATIONARY]
+NOISE_TESTS = [NOISE_LINE, NOISE_STATIONARY]
 
 
 # Define the pass/fail criteria for the various validators
@@ -81,27 +84,17 @@ tests_dict = {
   NOISE_STATIONARY:
   Test(
     name=NOISE_STATIONARY,
-    variations=((GV.LOW_FREQUENCY, GV.MED_FREQUENCY, GV.HIGH_FREQUENCY),
-                (GV.HALF_AMPLITUDE, GV.MAX_AMPLITUDE),
+    variations=(tuple(GV.NOISE_EXTENDED_FREQUENCIES),
+                (GV.MAX_AMPLITUDE,),
                 (GV.SQUARE_WAVE,),
-                (GV.TL, GV.TR, GV.BL, GV.BR, GV.TS, GV.BS, GV.LS, GV.RS,
-                 GV.CENTER),
+                (GV.TL, GV.BR, GV.CENTER),
     ),
     prompt='Hold one finger on the {3} of the touch surface with a '
            '{0} {1} {2} in noise.',
     subprompt={
         GV.TL: ('top left corner',),
-        GV.TR: ('top right corner',),
-        GV.BL: ('bottom left corner',),
         GV.BR: ('bottom right corner',),
-        GV.TS: ('top edge',),
-        GV.BS: ('bottom side',),
-        GV.LS: ('left hand side',),
-        GV.RS: ('right hand side',),
         GV.CENTER: ('center',),
-        GV.LOW_FREQUENCY: ('5kHz',),
-        GV.MED_FREQUENCY: ('500kHz',),
-        GV.HIGH_FREQUENCY: ('1MHz',),
         GV.HALF_AMPLITUDE: ('10Vpp',),
         GV.MAX_AMPLITUDE: ('20Vpp',),
         GV.SQUARE_WAVE: ('square wave',),
@@ -115,21 +108,15 @@ tests_dict = {
   NOISE_LINE:
   Test(
     name=NOISE_LINE,
-    variations=((GV.LOW_FREQUENCY, GV.MED_FREQUENCY, GV.HIGH_FREQUENCY),
-                (GV.HALF_AMPLITUDE, GV.MAX_AMPLITUDE),
+    variations=(tuple(GV.NOISE_SHORT_FREQUENCIES),
+                (GV.HALF_AMPLITUDE, GV.MAX_AMPLITUDE,),
                 (GV.SQUARE_WAVE,),
                 (GV.BLTR,),
-                (GV.NORMAL,),
     ),
     prompt='Draw a straight line from {3} with a {0} {1} {2} in noise.',
     subprompt={
-      GV.LOW_FREQUENCY: ('5kHz',),
-      GV.MED_FREQUENCY: ('500kHz',),
-      GV.HIGH_FREQUENCY: ('1MHz',),
-      GV.HALF_AMPLITUDE: ('10Vpp',),
       GV.MAX_AMPLITUDE: ('20Vpp',),
       GV.SQUARE_WAVE: ('square wave',),
-      GV.NORMAL: ('',),
       GV.BLTR: ('bottom left to top right',),
     },
     validators=(
@@ -639,8 +626,33 @@ tests_dict = {
 
 
 def generate_test_list(options):
-  """ Returns a list of all the legal Test objects, given the options """
-  test_names = BASIC_TESTS
-  if options.has_fn_gen:
-    test_names.extend(FN_GEN_TESTS)
+  """ Returns a list of all the legal Test objects, given the options. """
+  test_names = []
+
+  # Performance tests don't require any special equiptment, so for any mode
+  # that includes them, they should always be run.
+  if options.mode in ['full', 'performance']:
+    test_names.extend(PERFORMANCE_TESTS)
+
+  # Noise tests can only be run with a function generator, so we check that
+  # they are both selected and that the function generator is present.
+  if options.mode in ['full', 'noise']:
+    if not options.has_fn_gen:
+      print (color.Fore.RED + 'WARNING: To run noise tests, you need a '
+             'function generator. Use -f to tell the test suite to look for '
+             'one, otherwise all noise tests will be skipped!')
+    else:
+      if not options.has_robot:
+        print (color.Fore.RED + 'WARNING: You have selected to run a noise '
+               'test without a robot. This adds MANY HOURS of additional tests '
+               'that you will have to do by hand!')
+        choice = None
+        while not choice or choice[0] not in ['n', 'y']:
+          choice = raw_input('Do you REALLY want to do this? (y or n) ').lower()
+        if choice[0] == 'n':
+          sys.exit(1)
+
+      test_names.extend(NOISE_TESTS)
+
+  # Take that generated list of names and lookup the actual Test objects.
   return [tests_dict[test_name] for test_name in test_names]
