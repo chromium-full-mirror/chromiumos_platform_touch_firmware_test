@@ -66,7 +66,7 @@ class RemoteTouchDevice:
 
     # Probe to find out which device we want to connect to on the DUT
     self.device_num = self._GetDeviceNumber(self.is_touchscreen)
-    if not self.device_num:
+    if self.device_num is None:
       print 'ERROR: Unable to determind the device number!'
 
     # Determine the ranges/resolutions of the various attributes of fingers
