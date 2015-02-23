@@ -7,7 +7,9 @@ import os
 import sys
 
 import mt
+import plotter
 
+from remote import ChromeOSTouchDevice, AndroidTouchDevice
 from report import Report
 from test_suite import TestSuite
 
@@ -52,6 +54,9 @@ def parse_arguments():
   # Test suite settings
   parser.add_option('-i', '--iterations', dest='num_iterations', default=1,
                     type=int, help=('The number of test iterations to run.'))
+  parser.add_option('--plot_only', dest='plot_only', default=False,
+                    action='store_true',
+                    help=('Only plot touch evets.  Do not run any tests.'))
 
   (options, args) = parser.parse_args()
 
@@ -74,14 +79,38 @@ def parse_arguments():
   return options, args
 
 
+def initialize_touch_device(options):
+  """ Using the supplied options connect to the DUT """
+  # Open a connection to the device specified
+  if options.dut_type == 'chromeos':
+    touch_dev = ChromeOSTouchDevice(options.addr, options.is_touchscreen)
+  elif options.dut_type == 'android':
+    touch_dev = AndroidTouchDevice(options.addr, True)
+  else:
+    return None
+
+  # If the user specified the device's mt protocol override it now
+  if options.protocol != 'auto':
+    touch_dev.protocol = options.protocol
+
+  return touch_dev
 
 def main():
   # Parse and validate the command line arguments
   options, args = parse_arguments()
 
+  # Connect to the DUT
+  touch_dev = initialize_touch_device(options)
+
+  if options.plot_only:
+    # Show the live events as they come in instead of running any tests
+    print 'Displaying live touch events from your DUT.  Press Ctrl+C to stop.'
+    plotter.live_display(touch_dev)
+    return 0
+
   if options.dut_type != 'replay':
     # Create a test flow object that will run the test step by step
-    test_suite = TestSuite(options, args)
+    test_suite = TestSuite(touch_dev, options, args)
 
     # Run through the entire test suite in turn
     while test_suite.RunNextTestAndVariation():

@@ -7,7 +7,6 @@ import colorama as color
 import mt
 import tests
 from plotter import TouchPlotter
-from remote import ChromeOSTouchDevice, AndroidTouchDevice
 from report import Report
 
 
@@ -22,22 +21,11 @@ class TestSuite:
 
   NO_EVENTS_DETECTED_TIMEOUT_S = 5
 
-  def __init__(self, options, args):
+  def __init__(self, touch_dev, options, args):
     color.init(autoreset=True)
 
     self.options = options
-
-    # Open a connection to the device specified
-    if options.dut_type == 'chromeos':
-      self.touch_dev = ChromeOSTouchDevice(self.options.addr,
-                                           self.options.is_touchscreen)
-    else:
-      self.touch_dev = AndroidTouchDevice(self.options.addr, True)
-
-    # If the user specified the device's mt protocol override it now
-    if options.protocol != 'auto':
-      self.touch_dev.protocol = options.protocol
-
+    self.touch_dev = touch_dev
     tests.validator.BaseValidator._device = self.touch_dev
 
     # Connect to the function generator if the operator says they have one
@@ -98,10 +86,7 @@ class TestSuite:
     # Wait a long time for the first event, then have a much shorter
     # timeout on subsequent incoming events
     events = []
-    plotter = TouchPlotter(self.touch_dev.x_min, self.touch_dev.x_max,
-                           self.touch_dev.y_min, self.touch_dev.y_max,
-                           self.touch_dev.p_min, self.touch_dev.p_max,
-                           self.touch_dev.protocol)
+    plotter = TouchPlotter(self.touch_dev)
     print 'Waiting for 1st event...',
     event = self.touch_dev.NextEvent(TestSuite.NO_EVENTS_DETECTED_TIMEOUT_S)
     if not event:

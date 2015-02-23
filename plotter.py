@@ -26,27 +26,28 @@ qt_app = QtGui.QApplication([])
 
 class TouchPlotter:
   EXPORT_IMAGE_WIDTH = 500
+  EXPORT_IMAGE_FILENAME = 'plot.png'
   MIN_POINT_SIZE = 3.0
   MAX_POINT_SIZE = 25.0
   COLORS = ['F00', '0F0', '00F', 'FF0', 'F0F', '0FF', 'FFF']
 
-  def __init__(self, x_min, x_max, y_min, y_max, p_min, p_max, protocol=mt.MTB):
+  def __init__(self, touch_dev):
     self.paths_by_tid = defaultdict(list)
     self.curves_by_tid = defaultdict(lambda:self.plot_window.plot())
     self.pens_by_tid = {}
 
-    self.x_min = x_min
-    self.x_max = x_max
-    self.y_min = y_min
-    self.y_max = y_max
-    self.p_min = p_min
-    self.p_max = p_max
-    width = x_max - x_min
-    height = y_max - y_min
+    self.x_min = touch_dev.x_min
+    self.x_max = touch_dev.x_max
+    self.y_min = touch_dev.y_min
+    self.y_max = touch_dev.y_max
+    self.p_min = touch_dev.p_min
+    self.p_max = touch_dev.p_max
+    width = self.x_max - self.x_min
+    height = self.y_max - self.y_min
 
 
     # The MtStateMachine that makes sense of the incoming events
-    if protocol == mt.MTA:
+    if touch_dev.protocol == mt.MTA:
       self.sm = mt.MtaStateMachine()
     else:
       self.sm = mt.MtbStateMachine()
@@ -141,3 +142,29 @@ class TouchPlotter:
     self.plot_window.win.close()
 
     return image
+
+
+def live_display(touch_dev):
+  """ Simply initialize a plotter for this touch device and display the events
+
+  This will loop forever until you kill it with Ctrl+C but allows you to
+  quickly view the touch events on a DUT and will save a copy of the plot
+  to disk as a png image when you exit.
+  """
+  touch_dev.BeginEventStream()
+  plotter = TouchPlotter(touch_dev)
+
+  try:
+    event = touch_dev.NextEvent()
+    while event:
+      print event
+      plotter.add_event(event)
+      event = touch_dev.NextEvent()
+  except KeyboardInterrupt:
+    pass
+  except Exception as e:
+    print 'Exption caught (%s), exiting.' % str(e)
+  finally:
+    with open(TouchPlotter.EXPORT_IMAGE_FILENAME, 'wb') as fo:
+      fo.write(plotter.end())
+    touch_dev.EndEventStream()
