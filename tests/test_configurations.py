@@ -100,7 +100,7 @@ tests_dict = {
         GV.SQUARE_WAVE: ('square wave',),
     },
     validators=(
-      DiscardInitialSecondsValidatorWrapper(CountTrackingIDValidator('== 1')),
+      DiscardInitialSecondsValidatorWrapper(FingerCountValidator('== 1')),
       DiscardInitialSecondsValidatorWrapper(
                 StationaryFingerValidator(STATIONARY_FINGER_CRITERIA_MM)),
     ),
@@ -120,7 +120,7 @@ tests_dict = {
       GV.BLTR: ('bottom left to top right',),
     },
     validators=(
-      DiscardInitialSecondsValidatorWrapper(CountTrackingIDValidator('== 1')),
+      DiscardInitialSecondsValidatorWrapper(FingerCountValidator('== 1')),
       DiscardInitialSecondsValidatorWrapper(
               LinearityValidator(LINEARITY_CRITERIA_MM)),
       DiscardInitialSecondsValidatorWrapper(
@@ -151,7 +151,7 @@ tests_dict = {
       GV.NORMAL: ('1 second',),
     },
     validators=(
-      CountTrackingIDValidator('== 1'),
+      FingerCountValidator('== 1'),
       LinearityValidator(LINEARITY_CRITERIA_MM),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
@@ -175,7 +175,7 @@ tests_dict = {
       GV.SLOW: ('2 seconds',),
     },
     validators=(
-      CountTrackingIDValidator('== 1'),
+      FingerCountValidator('== 1'),
       LinearityValidator(LINEARITY_CRITERIA_MM),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
@@ -204,7 +204,7 @@ tests_dict = {
       GV.NORMAL: ('1 second',),
     },
     validators=(
-      CountTrackingIDValidator('== 2'),
+      FingerCountValidator('== 2'),
       LinearityValidator(LINEARITY_CRITERIA_MM, finger=0),
       LinearityValidator(LINEARITY_CRITERIA_MM, finger=1),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
@@ -239,7 +239,7 @@ tests_dict = {
       GV.NORMAL: ('1 second',),
     },
     validators=(
-      CountTrackingIDValidator('== 2'),
+      FingerCountValidator('== 2'),
       LinearityValidator(LINEARITY_CRITERIA_MM, finger=1),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=1),
@@ -260,7 +260,7 @@ tests_dict = {
     },
     validators=(
       CountPacketsValidator(COUNT_PACKETS_CRITERIA),
-      CountTrackingIDValidator('== 1'),
+      FingerCountValidator('== 1'),
       ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
     ),
   ),
@@ -275,7 +275,7 @@ tests_dict = {
     },
     validators=(
       CountPacketsValidator(COUNT_PACKETS_CRITERIA),
-      CountTrackingIDValidator('== 2'),
+      FingerCountValidator('== 2'),
       ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
     ),
   ),
@@ -291,7 +291,7 @@ tests_dict = {
       GV.ZOOM_OUT: ('zoom out', 'closer together'),
     },
     validators=(
-      CountTrackingIDValidator('== 2'),
+      FingerCountValidator('== 2'),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       PinchValidator(PINCH_CRITERIA_MM),
       ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
@@ -316,7 +316,7 @@ tests_dict = {
       GV.CENTER: ('center',),
     },
     validators=(
-      CountTrackingIDValidator('== 1'),
+      FingerCountValidator('== 1'),
       StationaryTapValidator(STATIONARY_FINGER_CRITERIA_MM),
     ),
   ),
@@ -333,7 +333,7 @@ tests_dict = {
       GV.DIAGONAL: ('diagonally',),
     },
     validators=(
-      CountTrackingIDValidator('== 2'),
+      FingerCountValidator('== 2'),
       StationaryTapValidator(STATIONARY_FINGER_CRITERIA_MM),
     ),
   ),
@@ -345,7 +345,7 @@ tests_dict = {
     prompt='Use three fingers to tap the center of the touch surface.',
     subprompt=None,
     validators=(
-      CountTrackingIDValidator('== 3'),
+      FingerCountValidator('== 3'),
       StationaryTapValidator(RELAXED_STATIONARY_FINGER_CRITERIA_MM),
     ),
   ),
@@ -357,7 +357,7 @@ tests_dict = {
     prompt='Use four fingers to tap the center of the touch surface.',
     subprompt=None,
     validators=(
-      CountTrackingIDValidator('== 4'),
+      FingerCountValidator('== 4'),
       StationaryTapValidator(RELAXED_STATIONARY_FINGER_CRITERIA_MM),
     ),
   ),
@@ -370,7 +370,7 @@ tests_dict = {
     prompt='Use five fingers to tap the center of the touch surface.',
     subprompt=None,
     validators=(
-      CountTrackingIDValidator('== 5'),
+      FingerCountValidator('== 5'),
       StationaryTapValidator(RELAXED_STATIONARY_FINGER_CRITERIA_MM),
     ),
   ),
@@ -388,7 +388,7 @@ tests_dict = {
       GV.BR: ('bottom right corner',),
     },
     validators=(
-      CountTrackingIDValidator('== 1'),
+      FingerCountValidator('== 1'),
       PhysicalClickValidator('== 1', fingers=1),
       StationaryFingerValidator(STATIONARY_FINGER_CRITERIA_MM),
     ),
@@ -402,7 +402,7 @@ tests_dict = {
            'touch surface.',
     subprompt=None,
     validators=(
-      CountTrackingIDValidator('== 2'),
+      FingerCountValidator('== 2'),
       PhysicalClickValidator('== 1', fingers=2),
       StationaryFingerValidator(STATIONARY_FINGER_CRITERIA_MM),
     ),
@@ -434,7 +434,7 @@ tests_dict = {
       GV.BT: ('center', 'from bottom to top', 'on the left to'),
     },
     validators=(
-      CountTrackingIDValidator('== 2'),
+      FingerCountValidator('== 2'),
       LinearityValidator(RELAXED_LINEARITY_CRITERIA_MM, finger=1),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=1),
@@ -457,7 +457,7 @@ tests_dict = {
       GV.BT: ('vertically from bottom to top',),
     },
     validators=(
-      CountTrackingIDValidator('== 1'),
+      FingerCountValidator('== 1'),
       LinearityValidator(RELAXED_LINEARITY_CRITERIA_MM),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
@@ -479,7 +479,7 @@ tests_dict = {
       GV.TLBR: ('diagonal', 'from the top left to the bottom right',),
     },
     validators=(
-      CountTrackingIDValidator('== 2'),
+      FingerCountValidator('== 2'),
       LinearityValidator(RELAXED_LINEARITY_CRITERIA_MM, finger=0),
       LinearityValidator(RELAXED_LINEARITY_CRITERIA_MM, finger=1),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
@@ -503,7 +503,7 @@ tests_dict = {
       GV.SLOW: ('3 seconds',),
     },
     validators=(
-      CountTrackingIDValidator('== 2'),
+      FingerCountValidator('== 2'),
       LinearityValidator(LINEARITY_CRITERIA_MM, finger=1),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=1),
@@ -524,7 +524,7 @@ tests_dict = {
       GV.RL: ('from right to left',),
     },
     validators=(
-      CountTrackingIDValidator('== 2'),
+      FingerCountValidator('== 2'),
       LinearityValidator(RELAXED_LINEARITY_CRITERIA_MM, finger=0),
       LinearityValidator(RELAXED_LINEARITY_CRITERIA_MM, finger=1),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
@@ -546,7 +546,7 @@ tests_dict = {
       GV.BRTL: ('from bottom right to top left',),
     },
     validators=(
-      CountTrackingIDValidator('== 4'),
+      FingerCountValidator('== 4'),
       LinearityValidator(LINEARITY_CRITERIA_MM, finger=0),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=0),
@@ -566,7 +566,7 @@ tests_dict = {
       GV.FAST: ('as fast as possible',),
     },
     validators=(
-      CountTrackingIDValidator('>= 10'),
+      FingerCountValidator('>= 10'),
       DrumrollValidator(DRUMROLL_CRITERIA_MM),
     ),
     timeout = 2,
@@ -589,7 +589,7 @@ tests_dict = {
       GV.BR: ('bottom right corner',),
     },
     validators=(
-      CountTrackingIDValidator('== 20'),
+      FingerCountValidator('== 20'),
       StationaryTapValidator(STATIONARY_FINGER_CRITERIA_MM),
     ),
     timeout = 2,
@@ -613,7 +613,7 @@ tests_dict = {
       GV.NORMAL: ('1 second',),
     },
     validators=(
-      CountTrackingIDValidator('== 1'),
+      FingerCountValidator('== 1'),
       HysteresisValidator(HYSTERESIS_CRITERIA_RATIO),
       LinearityValidator(LINEARITY_CRITERIA_MM),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),

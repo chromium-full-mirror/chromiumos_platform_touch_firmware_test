@@ -63,67 +63,67 @@ class BaseValidator(object):
 
     return path[:lo], path[lo:hi], path[hi:]
 
-  def _SeparateByTid(self, snapshots):
-    """ Given all the snapshots of some gesture, separate the fingers by tid
-    This takes in a list of MtbSnapshots and outputs a dictionary mapping tids
-    to a list of only their MtbFinger's (in order).
+  def _SeparatePaths(self, snapshots):
+    """ Given all the snapshots of some gesture, separate the fingers into
+    paths of contiguous events.  This takes in a list of MtbSnapshots and
+    outputs list of "paths" which are themselves a list of MtFingers (in order).
+
+    Note: Tracking IDs can be re-used if there is a gap between the events
+    so it is not valid to simply separate events based on TID.  You have to
+    check the order of events.
     """
-    # First find all the TIDs that are present in the snapshots
-    tids = set([])
-    for snapshot in snapshots:
-      tids = tids.union(set([(finger.tid) for finger in snapshot.fingers]))
-
-    # Then separate the fingers by TID
-    paths = {}
-    for tid in tids:
-      path = []
-      for snapshot in snapshots:
-        for finger in snapshot.fingers:
-          if finger.tid == tid:
-            path.append(finger)
-      paths[tid] = path
-
-    return paths
-
-  def _TidOfNthFinger(self, finger_num, snapshots):
-    """ Return the TID of the nth finger to touch the pad """
-    tids_seen = set([])
-    tids_to_check = []
-
+    paths = []
+    paths_in_progress = {}
     for snapshot in snapshots:
       for finger in snapshot.fingers:
-        if finger.tid not in tids_seen:
-          tids_seen.add(finger.tid)
-          if len(tids_seen) > finger_num:
-            return finger.tid
+        # Append this finger onto the right path and start a new path if needed
+        if finger.tid not in paths_in_progress:
+          paths_in_progress[finger.tid] = []
+        paths_in_progress[finger.tid].append(finger)
 
-    # If there weren't enough fingers, return None
-    return None
+      # Remove any terminated paths from the in-progress dicttionary
+      tids = set([(finger.tid) for finger in snapshot.fingers])
+      for tid, path in paths_in_progress.items():
+        if tid not in tids:
+          paths.append(path)
+          del paths_in_progress[tid]
+
+    # Make sure that the last finger(s) to leave the pad get counted, too
+    for path in paths_in_progress.values():
+      paths.append(path)
+    return paths
+
+  def _PathOfNthFinger(self, finger_num, paths):
+    """ Return the path of the nth finger to touch the pad """
+    if len(paths) <= finger_num:
+      return []
+    ordered_paths = sorted(paths, key=lambda path:path[0].syn_time)
+    return [ordered_paths[finger_num]]
 
   def Validate(self, snapshots):
     raise NotImplementedError('Not implemented in subclass.')
 
 
-class CountTrackingIDValidator(BaseValidator):
-  """ Validator to check the number of tracking IDs observed.
+class FingerCountValidator(BaseValidator):
+  """ Validator to check the number of fingers observed.
 
   Example:
       To verify if there is exactly one finger observed:
-        CountTrackingIDValidator('== 1')
+        FingerCountValidator('== 1')
   """
   def __init__(self, criteria_str, mf=None):
     name = self.__class__.__name__
-    super(CountTrackingIDValidator, self).__init__(criteria_str, mf, name)
+    super(FingerCountValidator, self).__init__(criteria_str, mf, name)
 
   def Validate(self, snapshots):
-    paths_by_tid = self._SeparateByTid(snapshots)
-    observed_num_tids = len(paths_by_tid)
+    paths = self._SeparatePaths(snapshots)
+    observed_fingers = len(paths)
 
     result = Result()
     result.name = self.name
     result.units = '#'
     result.criteria = self.criteria_str
-    result.observed = observed_num_tids
+    result.observed = observed_fingers
     result.score = self.fc.mf.grade(result.observed)
     return result
 
@@ -147,13 +147,13 @@ class ReportRateValidator(BaseValidator):
     enough report rate.
     """
     # First separate out each finger by itself.
-    paths_by_tid = self._SeparateByTid(snapshots)
+    paths = self._SeparatePaths(snapshots)
 
     # If a finger isn't moving, its report rate may drop due to the MTB delta
     # compression.  Any time the finger's x/y isn't changing much between two
     # fingers, we should ignore that time delta.
     moving_segments = []
-    for path in paths_by_tid.values():
+    for path in paths:
       start = 0
       for i, finger in enumerate(path):
         if i == 0:
@@ -286,10 +286,10 @@ class NoGapValidator(BaseValidator):
     RATIO_THRESHOLD_CURR_GAP_TO_NEXT_GAP = 1.2
     GAP_LOWER_BOUND = 10
 
-    paths_by_tid = self._SeparateByTid(snapshots)
+    paths = self._SeparatePaths(snapshots)
     largest_gap_ratio = float('-inf')
 
-    for path in paths_by_tid.values():
+    for path in paths:
       gaps = [self._Distance(path[i], path[i + 1])
               for i in range(len(path) - 1)]
 
@@ -407,15 +407,13 @@ class LinearityValidator(BaseValidator):
 
   def Validate(self, snapshots):
     """ Check if the fingers conform to specified criteria. """
-    paths_by_tid = self._SeparateByTid(snapshots)
-    tids_to_check = paths_by_tid.keys()
+    paths = self._SeparatePaths(snapshots)
     if self.finger is not None:
-      tid = self._TidOfNthFinger(self.finger, snapshots)
-      tids_to_check = [tid] if tid is not None else []
+      paths = self._PathOfNthFinger(self.finger, paths)
 
     max_err_mm = float('-inf')
-    for tid in tids_to_check:
-      start, middle, end = self._SegmentPath(paths_by_tid[tid])
+    for path in paths:
+      start, middle, end = self._SegmentPath(path)
       path = middle
 
       xs_mm = [BaseValidator._device.PxToMm_X(finger.x) for finger in path]
@@ -434,7 +432,7 @@ class LinearityValidator(BaseValidator):
     result.criteria = self.criteria_str
     if max_err_mm < 0:
       max_err_mm = float('inf')
-      if not tids_to_check and self.finger is not None:
+      if not paths and self.finger is not None:
         result.error = ('There was no finger #%d as far as we can tell.' %
                         self.finger)
       else:
@@ -458,16 +456,14 @@ class StationaryValidator(BaseValidator):
 
   def Validate(self, snapshots):
     """ Check the moving distance of the specified finger. """
-    paths_by_tid = self._SeparateByTid(snapshots)
-    tids_to_check = paths_by_tid.keys()
+    paths = self._SeparatePaths(snapshots)
     if self.finger is not None:
-      tid = self._TidOfNthFinger(self.finger, snapshots)
-      tids_to_check = [tid] if tid is not None else []
+      paths = self._PathOfNthFinger(self.finger, paths)
 
     max_distance = float('-inf')
-    for tid in tids_to_check:
-      for p1 in paths_by_tid[tid]:
-        for p2 in paths_by_tid[tid]:
+    for path in paths:
+      for p1 in path:
+        for p2 in path:
           max_distance = max(max_distance, self._DistanceMm(p1, p2))
 
     result = Result()
@@ -476,7 +472,7 @@ class StationaryValidator(BaseValidator):
     result.criteria = self.criteria_str
     if max_distance < 0:
       max_distance = float('inf')
-      if not tids_to_check:
+      if not paths:
         if self.finger is None:
           result.error = ('There were not enough events recorded.')
         else:
@@ -576,25 +572,23 @@ class NoReversedMotionValidator(BaseValidator):
   def Validate(self, snapshots):
     """ All X/Y values should be monotonic in the selected section of line. """
     # First, find the paths for each of the fingers we are supposed to check
-    paths_by_tid = self._SeparateByTid(snapshots)
-    tids_to_check = paths_by_tid.keys()
+    paths = self._SeparatePaths(snapshots)
     if self.finger is not None:
-      tid = self._TidOfNthFinger(self.finger, snapshots)
-      tids_to_check = [tid] if tid is not None else []
+      paths = self._PathOfNthFinger(self.finger, paths)
 
     # For each finger, compute the total reversed distance and sum them
     reversed_total = 0
-    for tid in tids_to_check:
-      paths = [paths_by_tid[tid]]
+    for path in paths:
+      sections_to_process = [path]
       if self.section:
-        start, middle, end = self._SegmentPath(paths_by_tid[tid])
+        start, middle, end = self._SegmentPath(path)
         if self.section == self.MIDDLE:
-          paths = [middle]
+          sections_to_process = [middle]
         elif self.section == self.ENDS:
-          paths = [start, end]
+          sections_to_process = [start, end]
 
-      for path in paths:
-        reversed_gaps = self._GetReversedGaps(path)
+      for section_to_process in sections_to_process:
+        reversed_gaps = self._GetReversedGaps(section_to_process)
         reversed_total += sum([abs(gap) for gap in reversed_gaps])
 
     # Build a result object and return the results of the validator
@@ -602,7 +596,7 @@ class NoReversedMotionValidator(BaseValidator):
     result.name = self.name
     result.units = 'mm'
     result.criteria = self.criteria_str
-    if not tids_to_check:
+    if not paths:
       reversed_total = float('inf')
       if len(snapshots) == 0 or not self.finger:
         result.error = 'No events were collected, unable to validate'
@@ -639,8 +633,8 @@ class CountPacketsValidator(BaseValidator):
   def Validate(self, snapshots):
     """ Check the number of readings for each finger """
     # Find how many readings arrived for each tracking ID
-    paths_by_tid = self._SeparateByTid(snapshots)
-    reading_counts = [len(path) for path in paths_by_tid.values()]
+    paths = self._SeparatePaths(snapshots)
+    reading_counts = [len(path) for path in paths]
 
     # Build a result object and return the results of the validator
     # Use whichever finger had the *least* readings as the result
@@ -672,18 +666,14 @@ class PinchValidator(BaseValidator):
 
   def Validate(self, snapshots):
     """ Check the relative direction of two fingers """
-    paths_by_tid = self._SeparateByTid(snapshots)
-    if len(paths_by_tid) > 2:
+    paths = self._SeparatePaths(snapshots)
+    if len(paths) > 2:
       # If more than 2 fingers are observed, use the two with the most readings.
       # It's likely that the extras are stray touches
-      longest_two_tids = sorted(paths_by_tid.keys(),
-                                key=lambda x:len(paths_by_tid[x]))[-2:]
-      paths_by_tid = dict([(tid, paths_by_tid[tid])
-                           for tid in longest_two_tids])
+      paths = sorted(paths, key=lambda x:len(x))[-2:]
 
     relative_motion = 0
-    if len(paths_by_tid) == 2:
-      paths = paths_by_tid.values()
+    if len(paths) == 2:
       starting_distance = self._DistanceMm(paths[0][0], paths[1][0])
       ending_distance = self._DistanceMm(paths[0][-1], paths[1][-1])
       relative_motion = ending_distance - starting_distance
@@ -694,9 +684,9 @@ class PinchValidator(BaseValidator):
     result.criteria = self.criteria_str
     result.observed = abs(relative_motion)
     result.score = self.fc.mf.grade(result.observed)
-    if len(paths_by_tid) < 2:
+    if len(paths) < 2:
       result.error = 'Not enough fingers seen.  Must have 2 for a pinch/zoom.'
-    elif len(paths_by_tid) > 2:
+    elif len(paths) > 2:
       result.error = 'Too many fingers seen.  Must have 2 for a pinch/zoom.'
     return result
 
@@ -767,10 +757,10 @@ class DrumrollValidator(BaseValidator):
     """ For each tracking ID, the events should all be able to be enclosed in
     a circle with a radius which is scored by this validator.
     """
-    paths_by_tid = self._SeparateByTid(snapshots)
+    paths = self._SeparatePaths(snapshots)
     radii = []
     # for each finger, see how big the two radii are and store them all
-    for path in paths_by_tid.values():
+    for path in paths:
       clusters = self._FindTwoFarthestClusters(path)
       radii += [self._MinimumEnclosingRadius(cluster) for cluster in clusters]
 
@@ -884,8 +874,8 @@ class HysteresisValidator(BaseValidator):
     try:
      # First find the finger to test.  This will be whichever tracking id
      # has the most events, so it's easy to tell.
-     paths_by_tid = self._SeparateByTid(snapshots)
-     path = sorted(paths_by_tid.values(), key=lambda x: -len(x))[0]
+     paths = self._SeparatePaths(snapshots)
+     path = sorted(paths, key=lambda x: -len(x))[0]
 
      # Find the first packet and the next two that moved.  they may not be the
      # adjacent packets if the x/y locations stayed the same, but pressure or

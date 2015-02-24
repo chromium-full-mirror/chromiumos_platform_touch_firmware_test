@@ -34,7 +34,9 @@ class TouchPlotter:
   def __init__(self, touch_dev):
     self.paths_by_tid = defaultdict(list)
     self.curves_by_tid = defaultdict(lambda:self.plot_window.plot())
+    self.retired_curves = []
     self.pens_by_tid = {}
+    self.next_color_index = 0
 
     self.x_min = touch_dev.x_min
     self.x_max = touch_dev.x_max
@@ -93,6 +95,14 @@ class TouchPlotter:
         self.paths_by_tid[finger.tid].append(finger)
         tids_to_draw.add(finger.tid)
 
+    # Retire any curves that have had their fingers leave.
+    for tid, curve in self.curves_by_tid.items():
+      if tid not in tids_to_draw:
+        self.retired_curves.append(curve)
+        del self.paths_by_tid[tid]
+        del self.curves_by_tid[tid]
+        del self.pens_by_tid[tid]
+
     # Go through and draw all the contacts
     for tid in tids_to_draw:
       xs = [p.x - self.x_min for p in self.paths_by_tid[tid]]
@@ -107,8 +117,9 @@ class TouchPlotter:
 
       # If we don't already have a pen set up for this TID, do so now
       if tid not in self.pens_by_tid:
-        next_color_index = len(self.pens_by_tid) % len(TouchPlotter.COLORS)
-        next_color = TouchPlotter.COLORS[next_color_index]
+        next_color = TouchPlotter.COLORS[self.next_color_index]
+        self.next_color_index = ((self.next_color_index + 1) %
+                                 len(TouchPlotter.COLORS))
         self.pens_by_tid[tid] = pg.mkPen({'color': next_color, 'width': 2})
 
       # Update the points for this TID's curve
