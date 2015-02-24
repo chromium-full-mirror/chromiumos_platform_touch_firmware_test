@@ -19,7 +19,8 @@ class TestSuite:
   the entire suite.
   """
 
-  NO_EVENTS_DETECTED_TIMEOUT_S = 5
+  NO_EVENTS_DETECTED_TIMEOUT_MANUAL_S = 60
+  NO_EVENTS_DETECTED_TIMEOUT_ROBOT_S = 5
 
   def __init__(self, touch_dev, options, args):
     color.init(autoreset=True)
@@ -44,6 +45,10 @@ class TestSuite:
     self.curr_test = 0
     self.curr_variation = 0
     self.curr_iteration = 1
+
+    self.no_events_timeout = TestSuite.NO_EVENTS_DETECTED_TIMEOUT_MANUAL_S
+    if options.has_robot:
+      self.no_events_timeout = TestSuite.NO_EVENTS_DETECTED_TIMEOUT_ROBOT_S
 
     # Create a new Report that will store all the test Results
     self.report = Report()
@@ -88,10 +93,10 @@ class TestSuite:
     events = []
     plotter = TouchPlotter(self.touch_dev)
     print 'Waiting for 1st event...',
-    event = self.touch_dev.NextEvent(TestSuite.NO_EVENTS_DETECTED_TIMEOUT_S)
+    event = self.touch_dev.NextEvent(self.no_events_timeout)
     if not event:
       print ('\rNo MT events collected before timeout (%d seconds)!' %
-             TestSuite.NO_EVENTS_DETECTED_TIMEOUT_S),
+             self.no_events_timeout),
     while event:
       plotter.add_event(event)
       print '\rCollected %d MT events' % len(events),
