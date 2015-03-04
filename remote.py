@@ -32,6 +32,7 @@ exactly the same way:
   touch_dev.EndEventStream()
 """
 
+import os
 import re
 import select
 import time
@@ -510,8 +511,11 @@ class ChromeOSTouchDevice(RemoteTouchDevice):
 
   def _RunRemoteCmd(self, cmd):
     """ Run a command on the shell of a remote ChromeOS DUT """
+    RSA_KEY_PATH = './data/testing_rsa'
+    os.chmod(RSA_KEY_PATH, 0664)
+
     args = ['ssh', 'root@%s' % self.addr,
-            '-i', './data/testing_rsa',
+            '-i', RSA_KEY_PATH,
             '-o', 'UserKnownHostsFile=/dev/null',
             '-o', 'StrictHostKeyChecking=no',
             cmd]
