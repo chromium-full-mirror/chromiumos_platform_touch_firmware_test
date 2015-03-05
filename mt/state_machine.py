@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 from collections import namedtuple
+from event import MtEvent
 
 MtFinger = namedtuple('MtFinger', ['tid', 'syn_time', 'x', 'y', 'pressure'])
 MtSnapshot = namedtuple('MtSnapshot', ['syn_time', 'button_pressed',
@@ -133,60 +134,52 @@ class MtbStateMachine(MtStateMachine):
     # the golden samples with this problem.
     #   tests/data/stationary_finger_shift_with_2nd_finger_tap.dat
     self.slot = 0
-    self.tid = {self.slot: None}
-    self.x = {self.slot: None}
-    self.y = {self.slot: None}
-    self.pressure = {self.slot: None}
+    self.slots_in_use = set()
+    self.tid = {}
+    self.x = {}
+    self.y = {}
+    self.pressure = {}
     self.syn_time = None
-    self.number_fingers = 0
     self.leaving_slots = []
     self.button_pressed = False
 
   def add_event(self, event):
     """ Update the internal states with the input MtEvent  """
-    # Switch the slot.
-    if event.is_ABS_MT_SLOT():
-      self.slot = event.value
-
-    # Get a new tracking ID.
-    elif event.is_new_contact():
-      self.tid[self.slot] = event.value
-      self.number_fingers += 1
-
-    # A slot is leaving.
-    # Do not delete this slot until this last packet is reported.
-    elif event.is_finger_leaving():
-      self.tid[self.slot] = None
-      self.number_fingers -= 1
-
-    # The physical click button is not associated with any finger/slot so
-    # it should also be handled independently here but updating the state
-    elif event.is_BTN_LEFT():
+    # Note: The physical click button is not associated with any finger/slot
+    if event.is_BTN_LEFT():
       self.button_pressed = (event.value == 1)
 
-    else:
-      # Update x value.
-      if event.is_ABS_MT_POSITION_X():
-        self.x[self.slot] = event.value
+    # Handle all the finger-related updates below here
+    # Switch the slot.
+    elif event.is_ABS_MT_SLOT():
+      self.slot = event.value
 
-      # Update y value.
-      elif event.is_ABS_MT_POSITION_Y():
-        self.y[self.slot] = event.value
+    # Update tracking ID, noting if the slot is no longer used
+    elif event.is_ABS_MT_TRACKING_ID():
+      self.tid[self.slot] = event.value
+      if event.value == MtEvent.LEAVING_TRACKING_ID:
+        self.slots_in_use.discard(self.slot)
+      else:
+        self.slots_in_use.add(self.slot)
 
-      # Update z value (pressure)
-      elif event.is_ABS_MT_PRESSURE():
-        self.pressure[self.slot] = event.value
+    # Update the x, y, and pressure values for a given slot
+    elif event.is_ABS_MT_POSITION_X():
+      self.x[self.slot] = event.value
+    elif event.is_ABS_MT_POSITION_Y():
+      self.y[self.slot] = event.value
+    elif event.is_ABS_MT_PRESSURE():
+      self.pressure[self.slot] = event.value
 
-      # Use the SYN_REPORT time as the packet time
-      elif event.is_SYN_REPORT():
-        self.syn_time = event.timestamp
+    # Use the SYN_REPORT time as the snapshot time
+    elif event.is_SYN_REPORT():
+      self.syn_time = event.timestamp
 
   def get_current_snapshot(self):
     """Get current packet's data including x, y, pressure, and
     the syn_time for all tids.
     """
     current_fingers = []
-    for slot in self.tid:
+    for slot in self.slots_in_use:
       tid = self.tid.get(slot, None)
       x = self.x.get(slot, None)
       y = self.y.get(slot, None)

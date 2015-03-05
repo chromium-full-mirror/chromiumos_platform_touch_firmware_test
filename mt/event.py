@@ -6,6 +6,9 @@ from input.linux_input import *
 
 class MtEvent(object):
   """ Class that holds the a single MT event """
+
+  LEAVING_TRACKING_ID = -1
+
   def __init__(self, timestamp, event_type=EV_SYN, event_code=None, value=None):
     self.timestamp = timestamp
     self.event_type = event_type
@@ -15,14 +18,6 @@ class MtEvent(object):
   def is_ABS_MT_TRACKING_ID(self):
     """ Is this event ABS_MT_TRACKING_ID? """
     return self.event_type == EV_ABS and self.event_code == ABS_MT_TRACKING_ID
-
-  def is_new_contact(self):
-    """ Is this event generating new contact (Tracking ID)? """
-    return self.is_ABS_MT_TRACKING_ID() and self.value != -1
-
-  def is_finger_leaving(self):
-    """ Is the finger is leaving in this event? """
-    return self.is_ABS_MT_TRACKING_ID() and self.value == -1
 
   def is_ABS_MT_SLOT(self):
     """ Is this event ABS_MT_SLOT? """
@@ -44,13 +39,6 @@ class MtEvent(object):
     """ Is this event ABS_MT_TOUCH_MAJOR? """
     return self.event_type == EV_ABS and self.event_code == ABS_MT_TOUCH_MAJOR
 
-  def is_finger_data(self):
-    # TODO(charliemooney): This only lists the messages we've seen so far, it
-    # would probably be good to include *all* the finger messages too for any
-    # future platforms that might use things like ABS_MT_ORIENTATION, etc...
-    return (self.is_ABS_MT_POSITION_X() or self.is_ABS_MT_POSITION_Y() or
-            self.is_ABS_MT_PRESSURE())
-
   def _is_EV_KEY(self):
     """ Is this an EV_KEY event? """
     return self.event_type == EV_KEY
@@ -58,34 +46,6 @@ class MtEvent(object):
   def is_BTN_LEFT(self):
     """ Is this event BTN_LEFT? """
     return self._is_EV_KEY() and self.event_code == BTN_LEFT
-
-  def is_BTN_LEFT_value(self, value):
-    """ Is this event BTN_LEFT with value equal to the specified value? """
-    return self.is_BTN_LEFT() and self.value == value
-
-  def is_BTN_TOOL_FINGER(self):
-    """ Is this event BTN_TOOL_FINGER? """
-    return self._is_EV_KEY() and self.event_code == BTN_TOOL_FINGER
-
-  def is_BTN_TOOL_DOUBLETAP(self):
-    """ Is this event BTN_TOOL_DOUBLETAP? """
-    return self._is_EV_KEY() and self.event_code == BTN_TOOL_DOUBLETAP
-
-  def is_BTN_TOOL_TRIPLETAP(self):
-    """ Is this event BTN_TOOL_TRIPLETAP? """
-    return self._is_EV_KEY() and self.event_code == BTN_TOOL_TRIPLETAP
-
-  def is_BTN_TOOL_QUADTAP(self):
-    """ Is this event BTN_TOOL_QUADTAP? """
-    return self._is_EV_KEY() and self.event_code == BTN_TOOL_QUADTAP
-
-  def is_BTN_TOOL_QUINTTAP(self):
-    """ Is this event BTN_TOOL_QUINTTAP? """
-    return self._is_EV_KEY() and self.event_code == BTN_TOOL_QUINTTAP
-
-  def is_BTN_TOUCH(self):
-    """ Is this event BTN_TOUCH? """
-    return self._is_EV_KEY() and self.event_code == BTN_TOUCH
 
   def is_SYN_MT_REPORT(self):
     """ is this event is SYN_REPORT? """
