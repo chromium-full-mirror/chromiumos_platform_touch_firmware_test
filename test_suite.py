@@ -105,6 +105,9 @@ class TestSuite:
     print
     plot_image_png = plotter.end()
 
+    print 'Closing connection with DUT... ',
+    self.touch_dev.EndEventStream()
+
     # Run the validators on these events
     snapshots = mt.process(events, protocol=self.touch_dev.protocol)
     results = test.RunAllValidators(snapshots)

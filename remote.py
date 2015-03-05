@@ -203,8 +203,8 @@ class RemoteTouchDevice:
             with the DUT and returns its return code.
     """
     # Step 1: kill the remote process; otherwise, it becomes a zombie process.
-    self._RunRemoteCmd(self.kill_remote_process_cmd)
-    time.sleep(0.2)
+    killing_process = self._RunRemoteCmd(self.kill_remote_process_cmd)
+    killing_process.wait()
 
     # Step 2: Kill the local ssh/adb subprocess.
     # If self.event_stream_process has been terminated, its value is None.
