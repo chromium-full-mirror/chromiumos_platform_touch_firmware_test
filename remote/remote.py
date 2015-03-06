@@ -11,25 +11,30 @@ common code.
 
 The basic work flow for a RemoteTouchDevice is this:
  1. Create the device with an address (may vary depending on DUT type) and
-  a boolean to indicate if you want a touchscreen or touchpad.
- 2. Call the device's BeginEventStream() method to initiate a connection
-  and do any setup work that platform might require.
- 3. Repeatedly call NextEvent(), which will block until another MT event
-  arrives.  Note: These are raw MTB events, it does not wait for SYN events
-  but instead returns each event as they arrive.
- 4. Close/cleanup the connection by running EndEventStream()
+  a boolean to indicate if you want a touchscreen or touchpad.  This will
+  automatically connect to the DUT and start the stream of snapshots.
+ 2. Call the device's FlushSnapshotBuffer() method to consume any events
+  that occurred since the last time you called NextSnapshot() or created
+  the connection.  This needs only to get called if you want to flush the
+  buffer of events.
+ 3. Repeatedly call NextSnapshot(), which will block until another MtSnapshot
+  arrives.  These are little structures defined in mt/state_machine.py and
+  contain finger data from one SYN event.
 
 For example, you can instantiate objects for various DUT types then use them
 exactly the same way:
 
+  # Initialize your remote touch devices depending on what the DUT is
   touch_dev = ChromeOSTouchDevice(addr='192.168.0.3', is_touchscreen=False)
   touch_dev = ChromeOSTouchDevice(addr='192.168.0.3', is_touchscreen=True)
   touch_dev = AndroidTouchDevice(addr=None, is_touchscreen=True)
 
-  touch_dev.BeginEventStream()
+  # Do some work here...
+
+  # Flush any events that are buffered and print the next 100 snapshots
+  touch_dev.FlushSnapshotBuffer()()
   for i in range(100):
-    print touch_dev.NextEvent()
-  touch_dev.EndEventStream()
+    print touch_dev.NextSnapshot()
 """
 
 import inspect
@@ -45,6 +50,7 @@ from mt.input import linux_input
 
 class RemoteTouchDevice:
   not_implemented_msg = 'Must be implemented by a subclass.'
+  FLUSH_TIMEOUT = 0.1
 
   # Unfortunately the device names are not very standardized on Android.
   # For android devices you may need to check /proc/bus/input/devices
@@ -60,16 +66,20 @@ class RemoteTouchDevice:
     'trackpad',
   ]
 
-  def __init__(self, addr, is_touchscreen=False):
+  def __init__(self, addr, is_touchscreen=False, protocol='auto'):
     self.addr = addr
     self.is_touchscreen = is_touchscreen
     self.event_stream_process = None
     self.begin_event_stream_cmd = self.begin_event_stream_cmd or ''
+    self.most_recent_snapshot = None
 
     # Probe to find out which device we want to connect to on the DUT
     self.device_num = self._GetDeviceNumber(self.is_touchscreen)
     if self.device_num is None:
       print 'ERROR: Unable to determind the device number!'
+
+    # Spawn the event gathering subprocess
+    self._InitializeEventGatheringSubprocess()
 
     # Determine the ranges/resolutions of the various attributes of fingers
     x, y, p = self._GetDimensions()
@@ -77,10 +87,12 @@ class RemoteTouchDevice:
     self.y_min, self.y_max, self.y_res = y['min'], y['max'], y['resolution']
     self.p_min, self.p_max = p['min'], p['max']
 
-    # Determine with protocol the device uses: MTA or MTB
-    self.protocol = self._GetMtProtocol()
+    # Determine which kind of state machine should be used with this device
+    self.protocol = self._GetMtProtocol() if protocol == 'auto' else protocol
+    self.state_machine = (mt.MtaStateMachine() if self.protocol == mt.MTA
+                          else mt.MtbStateMachine())
 
-  def BeginEventStream(self):
+  def _InitializeEventGatheringSubprocess(self):
     """ Initiate a stream of MTB events from the DUT
     This function starts up an ongoing connection over which we can
     receive MTB events on stdout.  After calling this, repeated calls to
@@ -100,6 +112,25 @@ class RemoteTouchDevice:
     # Block until there's *something* to read, indicating everything is ready
     readable, _, _, = select.select([self.event_stream_process.stdout], [], [])
     return self.event_stream_process.stdout in readable
+
+  def FlushSnapshotBuffer(self, wait_until_no_fingers_present=False):
+    """ Churn through any built up events until you have used them all up
+    This essentially clears out the buffer and gets you ready to start
+    processing new events.
+
+    If wait_until_no_fingers_present is set to True, then this won't return
+    until there are no contacts reported on the touch device anymore.
+    """
+    while True:
+      snapshot = self.NextSnapshot(timeout=self.FLUSH_TIMEOUT)
+      while snapshot:
+        snapshot = self.NextSnapshot(timeout=self.FLUSH_TIMEOUT)
+
+      if not wait_until_no_fingers_present:
+        return
+      elif (not self.most_recent_snapshot or
+            len(self.most_recent_snapshot.fingers) == 0):
+        return
 
   def _GetMtProtocol(self):
     """ This function determines the Multitouch protocol used by this device.
@@ -157,7 +188,26 @@ class RemoteTouchDevice:
     """
     raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
 
-  def NextEvent(self, timeout=None):
+  def NextSnapshot(self, timeout=None):
+    """ Consume MtEvents from the touch device until a complete snapshot has
+    come in.  This maintains the state machine and returns the next MtSnapshot
+    or None in the case that connection is lost.
+
+    If it ever has to wait more than the specified timeout (in seconds) for
+    the next MtEvent it will return None instead of a MtSnapshot.  The default
+    timeout value of None indicates that it should wait forever.
+    """
+    event = self._NextEvent(timeout)
+    while event:
+      self.state_machine.add_event(event)
+      if event.is_SYN_REPORT():
+        self.most_recent_snapshot = self.state_machine.get_current_snapshot()
+        return self.most_recent_snapshot
+      event = self._NextEvent(timeout)
+
+    return None
+
+  def _NextEvent(self, timeout=None):
     """ Wait for and capture the next MT event
     Once a connection has been initiated with BeginEventStream() this
     function can be called to block until another MT event arrives
@@ -194,7 +244,7 @@ class RemoteTouchDevice:
       return None
     return line
 
-  def EndEventStream(self):
+  def __del__(self):
     """ Stops the stream of events
 
     There are two steps.
@@ -284,7 +334,7 @@ class RemoteTouchDevice:
 
 
 class AndroidTouchDevice(RemoteTouchDevice):
-  def __init__(self, addr, is_touchscreen=False):
+  def __init__(self, addr, is_touchscreen=False, protocol='auto'):
     self.begin_event_stream_cmd = 'getevent -tv /dev/input/event%d'
     self.kill_remote_process_cmd = (
         'for f in `ls /proc/`; do'
@@ -293,7 +343,7 @@ class AndroidTouchDevice(RemoteTouchDevice):
         '    kill $f;'
         '  fi;'
         'done')
-    RemoteTouchDevice.__init__(self, addr, is_touchscreen)
+    RemoteTouchDevice.__init__(self, addr, is_touchscreen, protocol)
 
   def _GetMtProtocol(self):
     """ Android devices usually use mtb, but for some devices they still use
@@ -428,10 +478,10 @@ class AndroidTouchDevice(RemoteTouchDevice):
 
 
 class ChromeOSTouchDevice(RemoteTouchDevice):
-  def __init__(self, addr, is_touchscreen=False):
+  def __init__(self, addr, is_touchscreen=False, protocol='auto'):
     self.begin_event_stream_cmd = 'evtest --grab /dev/input/event%d'
     self.kill_remote_process_cmd = 'killall evtest'
-    RemoteTouchDevice.__init__(self, addr, is_touchscreen)
+    RemoteTouchDevice.__init__(self, addr, is_touchscreen, protocol)
 
   def _GetMtProtocol(self):
     """ ChromeOS devices always use mtb, so we can simply return that. """
@@ -470,9 +520,6 @@ class ChromeOSTouchDevice(RemoteTouchDevice):
             dim[attribute] = value
       return dim
 
-    # Compute the dimensions by reading the first few lines
-    self.BeginEventStream()
-
     x = y = p = None
     while not all([x, y, p]):
       line = self._GetNextLine()
@@ -483,7 +530,6 @@ class ChromeOSTouchDevice(RemoteTouchDevice):
       elif 'Event code 58 (ABS_MT_PRESSURE)' in line:
         p = _GetDimensions_Aux(['min', 'max'])
 
-    self.EndEventStream()
     return x, y, p
 
   def _ParseMtEvent(self, line):

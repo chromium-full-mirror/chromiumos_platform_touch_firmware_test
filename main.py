@@ -6,10 +6,10 @@ import optparse
 import os
 import sys
 
-import mt
-import plotter
+import colorama as color
 
-from remote import ChromeOSTouchDevice, AndroidTouchDevice
+import plotter
+from remote import ChromeOSTouchDevice, AndroidTouchDevice, mt
 from report import Report
 from test_suite import TestSuite
 
@@ -82,20 +82,22 @@ def parse_arguments():
 def initialize_touch_device(options):
   """ Using the supplied options connect to the DUT """
   # Open a connection to the device specified
+  print (color.Style.DIM + color.Fore.RED +
+         'Please do not touch the device until the test starts!')
+  print 'Connecting to remote touch device...'
   if options.dut_type == 'chromeos':
-    touch_dev = ChromeOSTouchDevice(options.addr, options.is_touchscreen)
+    touch_dev = ChromeOSTouchDevice(options.addr, options.is_touchscreen,
+                                    options.protocol)
   elif options.dut_type == 'android':
-    touch_dev = AndroidTouchDevice(options.addr, True)
+    touch_dev = AndroidTouchDevice(options.addr, True, options.protocol)
   else:
     return None
-
-  # If the user specified the device's mt protocol override it now
-  if options.protocol != 'auto':
-    touch_dev.protocol = options.protocol
 
   return touch_dev
 
 def main():
+  color.init(autoreset=True)
+
   # Parse and validate the command line arguments
   options, args = parse_arguments()
 
@@ -104,7 +106,6 @@ def main():
 
   if options.plot_only:
     # Show the live events as they come in instead of running any tests
-    print 'Displaying live touch events from your DUT.  Press Ctrl+C to stop.'
     plotter.live_display(touch_dev)
     return 0
 
@@ -124,7 +125,7 @@ def main():
     # to replay it later.
     report.SaveToDisk('last_report.p')
   else:
-    # We are trying to replay an old report from a file on disk.  Load the Report
+    # We are trying to replay an old report from a file on disk.  Load it
     # directly from the specified file instead of running the test over again.
     report = Report.FromFile(options.addr)
 

@@ -18,8 +18,6 @@ import pyqtgraph as pg
 import pyqtgraph.exporters
 from pyqtgraph.Qt import QtGui, QtCore
 
-import mt
-
 
 # Initialize Qt display here only once
 qt_app = QtGui.QApplication([])
@@ -47,13 +45,6 @@ class TouchPlotter:
     width = self.x_max - self.x_min
     height = self.y_max - self.y_min
 
-
-    # The MtStateMachine that makes sense of the incoming events
-    if touch_dev.protocol == mt.MTA:
-      self.sm = mt.MtaStateMachine()
-    else:
-      self.sm = mt.MtbStateMachine()
-
     # Configure the main window
     pg.setConfigOptions(background='b')
     pg.setConfigOptions(foreground='w')
@@ -75,21 +66,14 @@ class TouchPlotter:
     self.plot_window.plotItem.vb.state['background'] = 'k'
     self.plot_window.plotItem.vb.updateBackground()
 
-  def add_event(self, event):
-    """ Take an MtEvent and update the plot if required.
+  def add_snapshot(self, snapshot):
+    """ Take in an MtSnapshot and update the plot
 
-    A TouchPlotter maintains a visual plot of the events "so far", and this
-    funtion just adds an additional event to the internal state.
+    A TouchPlotter maintains a visual plot of the snapshots "so far", and this
+    funtion just adds an additional snapshot's data to the plot.
     """
-
-    # Update the state machine
-    self.sm.add_event(event)
-    if not event.is_SYN_REPORT():
-      return
-
     # Any TID with a finger currently on the pad should get a new finger
     tids_to_draw = set([])
-    snapshot = self.sm.get_current_snapshot()
     for finger in snapshot.fingers:
       if finger:
         self.paths_by_tid[finger.tid].append(finger)
@@ -156,26 +140,26 @@ class TouchPlotter:
 
 
 def live_display(touch_dev):
-  """ Simply initialize a plotter for this touch device and display the events
+  """ Simply initialize a plotter for this touch device and plot the touches
 
   This will loop forever until you kill it with Ctrl+C but allows you to
-  quickly view the touch events on a DUT and will save a copy of the plot
+  quickly view the touch information on a DUT and will save a copy of the plot
   to disk as a png image when you exit.
   """
-  touch_dev.BeginEventStream()
+  touch_dev.FlushSnapshotBuffer()
   plotter = TouchPlotter(touch_dev)
 
+  print 'Displaying live touch events from your DUT.  Press Ctrl+C to stop.'
   try:
-    event = touch_dev.NextEvent()
-    while event:
-      print event
-      plotter.add_event(event)
-      event = touch_dev.NextEvent()
+    snapshot = touch_dev.NextSnapshot()
+    while snapshot:
+      plotter.add_snapshot(snapshot)
+      snapshot = touch_dev.NextSnapshot()
   except KeyboardInterrupt:
-    pass
+    print 'Ctrl+C caught.  Exiting...'
   except Exception as e:
     print 'Exption caught (%s), exiting.' % str(e)
   finally:
+    print 'Saving plot to disk as "%s"...' % TouchPlotter.EXPORT_IMAGE_FILENAME
     with open(TouchPlotter.EXPORT_IMAGE_FILENAME, 'wb') as fo:
       fo.write(plotter.end())
-    touch_dev.EndEventStream()
