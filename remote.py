@@ -32,6 +32,7 @@ exactly the same way:
   touch_dev.EndEventStream()
 """
 
+import inspect
 import os
 import re
 import select
@@ -511,7 +512,9 @@ class ChromeOSTouchDevice(RemoteTouchDevice):
 
   def _RunRemoteCmd(self, cmd):
     """ Run a command on the shell of a remote ChromeOS DUT """
-    RSA_KEY_PATH = './data/testing_rsa'
+    RSA_KEY_PATH = os.path.dirname(
+        os.path.realpath(inspect.getfile(
+        inspect.currentframe()))) + '/data/testing_rsa'
     os.chmod(RSA_KEY_PATH, 0600)
 
     args = ['ssh', 'root@%s' % self.addr,
