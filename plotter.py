@@ -29,7 +29,9 @@ class TouchPlotter:
   MAX_POINT_SIZE = 25.0
   COLORS = ['F00', '0F0', '00F', 'FF0', 'F0F', '0FF', 'FFF']
 
-  def __init__(self, touch_dev):
+  def __init__(self, touch_dev, window_title='Live Touch Events'):
+    self.window_title = window_title
+
     self.paths_by_tid = defaultdict(list)
     self.curves_by_tid = defaultdict(lambda:self.plot_window.plot())
     self.retired_curves = []
@@ -54,7 +56,7 @@ class TouchPlotter:
     self.plot_window.invertY()
     self.plot_window.setAspectLocked()
     self.plot_window.setRange(QtCore.QRectF(0, 0, width, height))
-    self.plot_window.setTitle('Live Touch Events')
+    self.plot_window.setTitle(self.window_title)
     self.plot_window.hideAxis('bottom')
     self.plot_window.hideAxis('left')
 

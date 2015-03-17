@@ -89,7 +89,7 @@ class TestSuite:
     # Wait a long time for the first event, then have a much shorter
     # timeout on subsequent incoming events
     snapshots = []
-    plotter = TouchPlotter(self.touch_dev)
+    plotter = TouchPlotter(self.touch_dev, window_title=prompt)
     print 'Waiting for 1st snapshot...',
     snapshot = self.touch_dev.NextSnapshot(self.no_snapshot_timeout)
     if not snapshot:
