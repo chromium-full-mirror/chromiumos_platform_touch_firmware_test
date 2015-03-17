@@ -7,7 +7,7 @@ from event import MtEvent
 
 MtFinger = namedtuple('MtFinger', ['tid', 'syn_time', 'x', 'y', 'pressure'])
 MtSnapshot = namedtuple('MtSnapshot', ['syn_time', 'button_pressed',
-                                       'fingers'])
+                                       'fingers', 'raw_events'])
 
 class MtStateMachine(object):
   """ This is an abstract base class that defines the interface of a multitouch
@@ -57,9 +57,12 @@ class MtaStateMachine(MtStateMachine):
   def _clear(self):
     # Clear out the state for the current fingers
     self.fingers_data = []
+    self.raw_events_since_last_syn = []
     self.tid = self.x = self.y = self.pressure = self.touch_major = None
 
   def add_event(self, event):
+    self.raw_events_since_last_syn.append(event)
+
     # If this is the end of the information for all the fingers for this report
     if event.is_SYN_REPORT():
       # First build up the snapshot
@@ -68,7 +71,7 @@ class MtaStateMachine(MtStateMachine):
         mapped_tid = self.tid_mappings[tid]
         fingers.append(MtFinger(mapped_tid, event.timestamp, x, y, touch_major))
       self.last_snapshot = MtSnapshot(event.timestamp, self.button_pressed,
-                                      fingers)
+                                      fingers, self.raw_events_since_last_syn)
 
       # Delete the tid mappings for any leaving fingers
       # Find all the raw tids that have currently been reported
@@ -142,9 +145,13 @@ class MtbStateMachine(MtStateMachine):
     self.syn_time = None
     self.leaving_slots = []
     self.button_pressed = False
+    self.raw_events_since_last_syn = []
+    self.last_snapshot = None
 
   def add_event(self, event):
     """ Update the internal states with the input MtEvent  """
+    self.raw_events_since_last_syn.append(event)
+
     # Note: The physical click button is not associated with any finger/slot
     if event.is_BTN_LEFT():
       self.button_pressed = (event.value == 1)
@@ -173,9 +180,11 @@ class MtbStateMachine(MtStateMachine):
     # Use the SYN_REPORT time as the snapshot time
     elif event.is_SYN_REPORT():
       self.syn_time = event.timestamp
+      self.last_snapshot = self._build_current_snapshot()
+      self.raw_events_since_last_syn = []
 
-  def get_current_snapshot(self):
-    """Get current packet's data including x, y, pressure, and
+  def _build_current_snapshot(self):
+    """Build current packet's data including x, y, pressure, and
     the syn_time for all tids.
     """
     current_fingers = []
@@ -192,5 +201,9 @@ class MtbStateMachine(MtStateMachine):
         current_fingers.append(finger)
 
     current_snapshot = MtSnapshot(self.syn_time, self.button_pressed,
-                                   current_fingers)
+                                  current_fingers,
+                                  self.raw_events_since_last_syn)
     return current_snapshot
+
+  def get_current_snapshot(self):
+    return self.last_snapshot
