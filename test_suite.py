@@ -101,7 +101,22 @@ class TestSuite:
       print '\rCollected %d MT snapshots' % len(snapshots),
       snapshot = self.touch_dev.NextSnapshot(test.timeout)
     print
-    plot_image_png = plotter.end()
+
+    # Prompt to see if the gesture was performed acceptibly by the user before
+    # continuing.  If the user is unsatisfied abort before advancing on to the
+    # next test/variation, allowing the test suite to retry this variation.
+    if not self.options.has_robot:
+      CONFIRMATION_PROMPT = 'Accept Gesture? ([y]/n) '
+      yorn = raw_input(CONFIRMATION_PROMPT).lower()
+      while yorn not in ['y', 'n', 'yes', 'no', '']:
+        print color.Fore.RED + 'Error: please enter "y" or "n" only'
+        yorn = raw_input(CONFIRMATION_PROMPT).lower()
+      plot_image_png = plotter.end()
+      if yorn in ['n', 'no']:
+        print color.Fore.RED + 'Operator rejected the gesture.  Please retry...'
+        return True
+    else:
+      plot_image_png = plotter.end()
 
     # Run the validators on these events
     results = test.RunAllValidators(snapshots)
