@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 from collections import namedtuple
-from event import MtEvent
+from event import MtEvent, EV_ABS, ABS_MT_TRACKING_ID
 
 MtFinger = namedtuple('MtFinger', ['tid', 'syn_time', 'x', 'y', 'pressure'])
 MtSnapshot = namedtuple('MtSnapshot', ['syn_time', 'button_pressed',
@@ -126,6 +126,8 @@ class MtbStateMachine(MtStateMachine):
   internal state machine, it is possible that either x or y in
   self.point[tid] is None initially even though the instance has been created.
   """
+  DUMMY_TRACKING_ID = 999999
+
   def __init__(self):
     # Set the default slot to 0 as it may not be displayed in the MT events
     #
@@ -147,9 +149,17 @@ class MtbStateMachine(MtStateMachine):
     self.button_pressed = False
     self.raw_events_since_last_syn = []
     self.last_snapshot = None
+    self.is_first_event = True
 
   def add_event(self, event):
     """ Update the internal states with the input MtEvent  """
+    if self.is_first_event and not event.is_ABS_MT_TRACKING_ID():
+      self.add_event(MtEvent(event.timestamp,
+                             EV_ABS, ABS_MT_TRACKING_ID,
+                             MtbStateMachine.DUMMY_TRACKING_ID))
+    self.is_first_event = False
+
+
     self.raw_events_since_last_syn.append(event)
 
     # Note: The physical click button is not associated with any finger/slot
