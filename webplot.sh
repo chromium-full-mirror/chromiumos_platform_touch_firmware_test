@@ -1,0 +1,80 @@
+#!/bin/sh
+
+# Copyright 2015 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# This script may or may not come with a suffix.
+# If this script is installed with emerge, the suffix has been removed.
+# If this script is installed with scp, there still exists the suffix.
+# Try to remove the suffix any way.
+PROG="$(basename $0 .sh)"
+
+# A local die function to print the message and then exit
+die() {
+  echo -e "$@"
+  exit 1
+}
+
+# Read command flags
+. /usr/share/misc/shflags
+DEFINE_boolean kill false 'kill the existing webplot process' 'k'
+
+FLAGS_HELP="USAGE: $PROG [flags]"
+
+FLAGS "$@" || exit 1
+eval set -- "${FLAGS_ARGV}"
+set -e
+
+get_webplot_process_status() {
+  echo $(ps a | egrep "python\s.+${PROG}" | grep -v grep)
+}
+
+if [ "$FLAGS_kill" = "$FLAGS_TRUE" ]; then
+  process=$(get_webplot_process_status)
+  if [ -z "$process" ]; then
+    echo 'No existing webplot process.'
+  else
+    for p in "$process"; do
+      echo killing $p
+      kill $(echo $p | awk '{print $1}')
+    done
+  fi
+  exit 0
+fi
+
+# Search the webplot directory.
+# Stop at the first found webplot directory. Priority is given to /usr/lib*.
+DIRS="/usr/lib* /usr/local/lib*"
+for d in $DIRS; do
+  PROG_DIR="$(find $d -name $PROG -type d -print -quit)"
+  if [ -n "$PROG_DIR" ]; then
+    echo "Found webplot path in $PROG_DIR"
+    break
+  fi
+done
+
+if [ -z "$PROG_DIR" ]; then
+  die "Fail to find the path of $PROG."
+fi
+
+# Start webplot if not yet.
+if [ -n "$(get_webplot_process_status)" ]; then
+  echo "$PROG server has been started."
+else
+  # Must run webplot as root as it needs to access system device nodes.
+  if [ $USER != root ]; then
+    die "Please run $PROG as root."
+  fi
+
+  echo "Start $PROG server..."
+  python "${PROG_DIR}"/"${PROG}".py &
+
+  # Wait a while for the webplot server to get ready before launching
+  # a chrome tab to connect to it.
+  sleep 1
+
+  # Tell the user to type URL in chrome as there is no reliable way to
+  # launch a chrome tab from command line in chrome os.
+  echo "Please type \"localhost\" in the browser."
+fi

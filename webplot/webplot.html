@@ -1,0 +1,28 @@
+<!--
+Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<html>
+<head>
+  <script src="webplot.js"></script>
+</head>
+
+<body style="margin:0; padding:0; background-color:black"
+  onbeforeunload="quit()"
+  onload="createWS()"
+  onkeyup="keyupHandler()"
+  onresize="resizeCanvas()">
+
+  <div id="websocketUrl" hidden>%(websocketUrl)s</div>
+  <div id="touchMinX" hidden>%(touchMinX)s</div>
+  <div id="touchMaxX" hidden>%(touchMaxX)s</div>
+  <div id="touchMinY" hidden>%(touchMinY)s</div>
+  <div id="touchMaxY" hidden>%(touchMaxY)s</div>
+  <div id="touchMinPressure" hidden>%(touchMinPressure)s</div>
+  <div id="touchMaxPressure" hidden>%(touchMaxPressure)s</div>
+  <canvas id="canvasWebplot"></canvas>
+
+</body>
+</html>
