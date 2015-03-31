@@ -38,12 +38,9 @@ class TouchPlotter:
     self.pens_by_tid = {}
     self.next_color_index = 0
 
-    self.x_min = touch_dev.x_min
-    self.x_max = touch_dev.x_max
-    self.y_min = touch_dev.y_min
-    self.y_max = touch_dev.y_max
-    self.p_min = touch_dev.p_min
-    self.p_max = touch_dev.p_max
+    self.x_min, self.x_max = touch_dev.RangeX()
+    self.y_min, self.y_max = touch_dev.RangeY()
+    self.p_min, self.p_max = touch_dev.RangeP()
     width = self.x_max - self.x_min
     height = self.y_max - self.y_min
 

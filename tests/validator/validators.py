@@ -227,10 +227,12 @@ class RangeValidator(BaseValidator):
     min_y_mm = BaseValidator._device.PxToMm_Y(min_y)
 
     # Also convert the touch sensors dimensions to mm
-    dev_max_x_mm = BaseValidator._device.PxToMm_X(BaseValidator._device.x_max)
-    dev_min_x_mm = BaseValidator._device.PxToMm_X(BaseValidator._device.x_min)
-    dev_max_y_mm = BaseValidator._device.PxToMm_Y(BaseValidator._device.y_max)
-    dev_min_y_mm = BaseValidator._device.PxToMm_Y(BaseValidator._device.y_min)
+    dev_min_x, dev_max_x = BaseValidator._device.RangeX()
+    dev_min_y, dev_max_y = BaseValidator._device.RangeY()
+    dev_min_x_mm = BaseValidator._device.PxToMm_X(dev_min_x)
+    dev_max_x_mm = BaseValidator._device.PxToMm_X(dev_max_x)
+    dev_min_y_mm = BaseValidator._device.PxToMm_Y(dev_min_y)
+    dev_max_y_mm = BaseValidator._device.PxToMm_Y(dev_max_y)
 
     # We should be able to guess the direction based on which edge was close
     right_gap = dev_max_x_mm - max_x_mm

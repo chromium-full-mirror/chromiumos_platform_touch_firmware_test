@@ -2,5 +2,5 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from remote import *
+from remote_in_system import AndroidTouchDevice, ChromeOSTouchDevice
 import mt
