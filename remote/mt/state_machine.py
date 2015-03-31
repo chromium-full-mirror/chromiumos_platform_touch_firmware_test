@@ -89,9 +89,10 @@ class MtaStateMachine(MtStateMachine):
     # If this is the end of a finger's information stash all the data about it
     # until the end of the data for all the fingers
     elif event.is_SYN_MT_REPORT():
-      if all([v is not None for v in
-              (self.tid, self.x, self.y, self.touch_major)]):
-        self.fingers_data.append((self.tid, self.x, self.y, self.touch_major))
+      if all([v is not None for v in (self.tid, self.x, self.y)]):
+        pressure = self.pressure if self.pressure is not None else self.touch_major
+        if pressure is not None:
+          self.fingers_data.append((self.tid, self.x, self.y, pressure))
 
     # Otherwise, check what information it's giving us and store it
     elif event.is_ABS_MT_TRACKING_ID():
@@ -103,8 +104,6 @@ class MtaStateMachine(MtStateMachine):
       self.x = event.value
     elif event.is_ABS_MT_POSITION_Y():
       self.y = event.value
-    elif event.is_ABS_MT_PRESSURE():
-      self.pressure = event.value
     elif event.is_ABS_MT_PRESSURE():
       self.pressure = event.value
     elif event.is_ABS_MT_TOUCH_MAJOR():
@@ -144,6 +143,7 @@ class MtbStateMachine(MtStateMachine):
     self.x = {}
     self.y = {}
     self.pressure = {}
+    self.touch_major = {}
     self.syn_time = None
     self.leaving_slots = []
     self.button_pressed = False
@@ -179,13 +179,15 @@ class MtbStateMachine(MtStateMachine):
       else:
         self.slots_in_use.add(self.slot)
 
-    # Update the x, y, and pressure values for a given slot
+    # Update the x, y, pressure, etc values for a given slot
     elif event.is_ABS_MT_POSITION_X():
       self.x[self.slot] = event.value
     elif event.is_ABS_MT_POSITION_Y():
       self.y[self.slot] = event.value
     elif event.is_ABS_MT_PRESSURE():
       self.pressure[self.slot] = event.value
+    elif event.is_ABS_MT_TOUCH_MAJOR():
+      self.touch_major[self.slot] = event.value
 
     # Use the SYN_REPORT time as the snapshot time
     elif event.is_SYN_REPORT():
@@ -203,6 +205,9 @@ class MtbStateMachine(MtStateMachine):
       x = self.x.get(slot, None)
       y = self.y.get(slot, None)
       pressure = self.pressure.get(slot, None)
+
+      if pressure is None and self.touch_major.get(slot, None) is not None:
+        pressure = self.touch_major.get(slot, None)
 
       data_ready = all([v is not None for v in
                         (x, y, pressure, tid, self.syn_time)])

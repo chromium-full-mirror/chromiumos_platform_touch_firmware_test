@@ -315,23 +315,28 @@ class AndroidTouchDevice(RemoteInSystemTouchDevice):
   def _GetMtProtocol(self):
     """ Android devices usually use mtb, but for some devices they still use
     mta.  You can tell the difference by looking at the events that the touch
-    device will emit.  If they use the BTN_TOUCH key, you know it is mta, as
-    that is the event that is used to indicate a finger touching the pad for
-    mta only, whereas mtb uses tracking ids to do this.
-
-    Devices that use mta will have an entry when querying the touch device
-    with "getevent" like the line below.
-
-      KEY (0001): 014a
-
-    Note that 014a is the code for BTN_TOUCH.  If we see that we know it's an
-    mta Android device.  If not, then it's mtb.
+    device emits.  MTA devices use SYN_MT_REPORT events to delimit finger data
+    but that event isn't used at all in MTB.  By reading events from the device
+    until a full frame has been read, we should be able to reliably determine
+    which protocol is being used by the presence of these events.
     """
-    cmd = 'getevent -p /dev/input/event%d' % self.device_num
-    output = self._RunRemoteCmd(cmd).stdout.read()
-    for line in output.split('\n'):
-      if re.match('^.*KEY\s+\(\d+\):.*\s+014a.*$', line):
+    print ('\033[1;32mPlease touch the screen so we may determine which '
+           'protocol this Android device uses.\033[0m')
+
+    # Discard events until the start of the next snapshot in case we started
+    # in the middle of one
+    while not self._NextEvent().is_SYN_REPORT:
+      pass
+
+    # Now check all the events of this next snapshot for the signs of MTA
+    event = self._NextEvent()
+    while not event.is_SYN_REPORT():
+      if event.is_SYN_MT_REPORT():
+        print 'MTA selected by the presence of SYN_MT_REPORT events'
         return mt.MTA
+      event = self._NextEvent()
+
+    print 'MTB selected by the absence of SYN_MT_REPORT events'
     return mt.MTB
 
   def _GetResolution(self):
@@ -386,6 +391,7 @@ class AndroidTouchDevice(RemoteInSystemTouchDevice):
     information for Android, look in that function.
     """
     x = y = p = None
+    pressure_found = False
     cmd = 'getevent -p /dev/input/event%d' % self.device_num
     output = self._RunRemoteCmd(cmd).stdout.read()
     for line in output.split('\n'):
@@ -402,6 +408,13 @@ class AndroidTouchDevice(RemoteInSystemTouchDevice):
         y = {'min': min_value, 'max': max_value}
       elif code in [linux_input.ABS_MT_PRESSURE, linux_input.ABS_PRESSURE]:
         p = {'min': min_value, 'max': max_value}
+        pressure_found = True
+      elif p is None and code is linux_input.ABS_MT_TOUCH_MAJOR:
+        p = {'min': min_value, 'max': max_value}
+
+    if not pressure_found and p is not None:
+      print ('\033[1;31mWARNING! This device does NOT report "pressure". Using '
+             'the contact size instead (TOUCH_MAJOR)\033[0m\n')
 
     resolution = self._GetResolution()
     x['resolution'] = resolution
