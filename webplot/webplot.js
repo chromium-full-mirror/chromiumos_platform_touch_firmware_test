@@ -298,7 +298,7 @@ function quit(closed_by_server) {
   // and notify the server that this client quits.
   window.ws.send('quit');
 
-  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  clear(false);
   if (closed_by_server) {
     webplot.fillText('The python server has quit.', startX, startY, font);
     startY += 100;
@@ -316,15 +316,13 @@ function save() {
  */
 function keyupHandler() {
   var webplot = window.webplot;
-  var canvas = document.getElementById('canvasWebplot');
   var key = String.fromCharCode(event.which).toLowerCase();
   var ESC = String.fromCharCode(27);
 
   switch(String.fromCharCode(event.which).toLowerCase()) {
     // ESC: clearing the canvas
     case ESC:
-      canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-      webplot.updateCanvasDimension();
+      clear(true);
       break;
 
     // 'b': toggle the background color between black and white
@@ -370,6 +368,14 @@ function keyupHandler() {
 }
 
 
+function clear(should_redraw_border) {
+  var canvas = document.getElementById('canvasWebplot');
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  if (should_redraw_border) {
+    window.webplot.updateCanvasDimension();
+  }
+}
+
 /**
  * Create a web socket and a new webplot object.
  */
@@ -387,6 +393,8 @@ function createWS() {
       if (event.data == 'quit') {
         save();
         quit(true);
+      } else if (event.data == 'clear') {
+        clear(true);
       } else {
         var snapshot = JSON.parse(event.data);
         webplot.processSnapshot(snapshot);
