@@ -296,7 +296,7 @@ function quit(closed_by_server) {
 
   // Capture the image before clearing the canvas and send it to the server,
   // and notify the server that this client quits.
-  window.ws.send('quit:' + webplot.captureCanvasImage());
+  window.ws.send('quit');
 
   canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
   if (closed_by_server) {
@@ -307,6 +307,9 @@ function quit(closed_by_server) {
                    startX, startY, font);
 }
 
+function save() {
+  window.ws.send('save:' + webplot.captureCanvasImage());
+}
 
 /**
  * A handler for keyup events to handle user hot keys.
@@ -353,15 +356,15 @@ function keyupHandler() {
       webplot.updateCanvasDimension();
       break;
 
-    // 'q': Quit the server
+    // 'q': Quit the server (and save the plot and logs first)
     case 'q':
+      save();
       quit(false);
       break;
 
-    // 's': save the touch events in a specified file name.
-    //      default: /tmp/webplot.dat
+    // 's': Tell the server to save the touch events and a png of the plot
     case 's':
-      window.ws.send('save:' + webplot.saved_file);
+      save();
       break;
   }
 }
@@ -382,6 +385,7 @@ function createWS() {
     ws = new WebSocket(websocket);
     ws.addEventListener("message", function(event) {
       if (event.data == 'quit') {
+        save();
         quit(true);
       } else {
         var snapshot = JSON.parse(event.data);

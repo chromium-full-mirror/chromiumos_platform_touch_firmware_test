@@ -62,12 +62,12 @@ class WebplotWSHandler(WebSocket):
     content = data[1] if len(data) == 2 else None
     if mtype == 'quit':
       # A shutdown message requested by the user.
-      cherrypy.log('Save the image to %s' % SAVED_IMAGE)
-      self.SaveImage(content, SAVED_IMAGE)
       cherrypy.log('The user requests to shutdown the cherrypy server....')
       state.DecCount()
     elif mtype == 'save':
-      cherrypy.log('Save data to %s' % content)
+      cherrypy.log('All data saved to "%s"' % SAVED_FILE)
+      self.SaveImage(content, SAVED_IMAGE)
+      cherrypy.log('Plot image saved to "%s"' % SAVED_IMAGE)
     else:
       cherrypy.log('Unknown message type: %s' % mtype)
 
