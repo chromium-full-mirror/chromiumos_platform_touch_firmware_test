@@ -92,6 +92,8 @@ class TouchDeviceWrapper(object):
 
   def __init__(self, dut_type, addr, is_touchscreen):
     if dut_type == 'chromeos':
+      if addr is None:
+        addr = '127.0.0.1'
       self.device = ChromeOSTouchDevice(addr, is_touchscreen)
     else:
       self.device = AndroidTouchDevice(addr, True)
@@ -305,7 +307,7 @@ def EnableDestinationPort(port):
 def _ParseArguments():
   """Parse the command line options."""
   parser = argparse.ArgumentParser(description='Webplot Server')
-  parser.add_argument('-d', '--dut_addr', default='localhost',
+  parser.add_argument('-d', '--dut_addr', default=None,
                       help='the address of the dut')
   parser.add_argument('-s', '--server_addr', default='localhost',
                       help='the address the webplot http server listens to')
