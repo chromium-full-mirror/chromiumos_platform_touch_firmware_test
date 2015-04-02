@@ -17,14 +17,12 @@ import threading
 
 import cherrypy
 
-import remote
-
 from ws4py import configure_logger
 from ws4py.messaging import TextMessage
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
 from ws4py.websocket import WebSocket
 
-from remote.remote import ChromeOSTouchDevice, AndroidTouchDevice
+from remote import ChromeOSTouchDevice, AndroidTouchDevice
 
 
 # The WebSocket connection state object.
@@ -383,11 +381,13 @@ def Main():
   cherrypy.engine.signal_handler.handlers['SIGINT'] = InterruptHandler
   cherrypy.engine.signal_handler.handlers['SIGTERM'] = InterruptHandler
 
+  x_min, x_max = device.device.RangeX()
+  y_min, y_max = device.device.RangeY()
+  p_min, p_max = device.device.RangeP()
+
   cherrypy.quickstart(
     Root(args.server_addr, args.server_port,
-         device.device.x_min, device.device.x_max,
-         device.device.y_min, device.device.y_max,
-         device.device.p_min, device.device.p_max), '',
+         x_min, x_max, y_min, y_max, p_min, p_max), '',
          config={
            '/': {
              'tools.staticdir.root': os.path.abspath(os.path.dirname(__file__)),
