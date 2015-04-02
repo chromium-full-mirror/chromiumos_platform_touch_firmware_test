@@ -395,6 +395,8 @@ function createWS() {
         quit(true);
       } else if (event.data == 'clear') {
         clear(true);
+      } else if (event.data == 'save') {
+        save();
       } else {
         var snapshot = JSON.parse(event.data);
         webplot.processSnapshot(snapshot);
