@@ -8,7 +8,7 @@ from distutils.core import setup
 setup(name='touch_firmware_test',
       version='1.0',
       description='Touch Firmware Testing Suite',
-      long_description='This contains tools for testing touch devices.'
+      long_description='This contains tools for testing touch devices.',
       license='BSD-Google',
       packages=['webplot',
                 'webplot.remote',
