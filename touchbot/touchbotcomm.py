@@ -52,6 +52,15 @@ class TouchbotComm:
     self.soc.send(cmd_string)
     return self.GetResponse()
 
+  def SendFingerCmd(self, cmd):
+    """ Send a command throught the robot to the fingers """
+    cmd_string = 'CustomSerial ' + cmd + MESSAGE_TERMINATOR
+    self.soc.send(cmd_string)
+    response = self.soc.recv(RECV_CHUNK_SIZE)
+    while response[-1] != MESSAGE_TERMINATOR:
+      response += self.soc.recv(RECV_CHUNK_SIZE)
+    return response
+
   def GetResponse(self):
     """ Listen on the socket for a response from the TouchbotII
     parse the response and return it.  Responses are of the format:
@@ -62,7 +71,6 @@ class TouchbotComm:
     response = self.soc.recv(RECV_CHUNK_SIZE)
     while response[-1] != MESSAGE_TERMINATOR:
       response += self.soc.recv(RECV_CHUNK_SIZE)
-    print 'TTT: "%s"' % response
 
     split_results = response.split(' ', 1)
     raw_error_code = split_results[0]

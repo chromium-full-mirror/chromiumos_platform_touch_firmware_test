@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import time
 import copy
 
 from device_spec import DeviceSpec
@@ -38,9 +39,89 @@ class Touchbot:
   MIN_FINGER_DISTANCE = 0.5
   MAX_FINGER_DISTANCE = 140
 
+  FINGER_NUMBERS = [1, 2]
+  FINGER_CURRENT_LIMIT_MA = 550
+  FINGER_HOME_OFFSET = 2500
+  FINGER_EXTENDED = FINGER_HOME_OFFSET / 2
+
   def __init__(self, ip_address=TOUCHBOT_IP_ADDR, port=TOUCHBOT_PORT):
     self.speed_stack = []
     self.comm = TouchbotComm(ip_address, port)
+
+    for finger_number in Touchbot.FINGER_NUMBERS:
+      self._InitializeFinger(finger_number)
+
+  def __del__(self):
+    for finger_number in Touchbot.FINGER_NUMBERS:
+      self._DisableFinger(finger_number)
+
+  def _InitializeFinger(self, finger_number):
+    """ Do all the setup for a finger
+    This function sets the current limit for the finger controller and sets
+    the Zero point for the fingers
+    """
+    self._SetFingerCurrentLimit_mA(finger_number,
+                                   Touchbot.FINGER_CURRENT_LIMIT_MA)
+
+    # Track to roughly the middle of the range and call that Zero
+    # TODO(charliemooney): Use velocity commands (V) to make this more reliable
+    #                      since currently it assumes the finger is fully down.
+    self.comm.SendFingerCmd('%dAPL0' % finger_number) # Disable range limiting
+    self._EnableFinger(finger_number)
+    self._MoveFingerRelative(finger_number, -Touchbot.FINGER_HOME_OFFSET)
+    self._SetFingerZeroPoint(finger_number)
+
+  def _SetFingerStates(self, finger1_extended, finger2_extended):
+    self._MoveFingerAbsolute(1, (0 if not finger1_extended
+                                 else Touchbot.FINGER_EXTENDED))
+    self._MoveFingerAbsolute(2, (0 if not finger2_extended
+                                 else Touchbot.FINGER_EXTENDED))
+
+  def _SetFingerZeroPoint(self, finger_number):
+    """ Set Home (position 0) for the given finger to where it is right now """
+    self.comm.SendFingerCmd('%dHO' % finger_number)
+
+  def _SetFingerCurrentLimit_mA(self, finger_number, current):
+    """ Set the maximum current that this finger can draw in mA """
+    self.comm.SendFingerCmd('%dLCC%d' % (finger_number, current))
+
+  def _EnableFinger(self, finger_number):
+    """ Enable the finger, it can now move when given movement commands """
+    self.comm.SendFingerCmd('%dEN' % finger_number)
+
+  def _GetFingerPos(self, finger_number):
+    """ Get the current position of the finger """
+    return int(self.comm.SendFingerCmd('%dPOS' % finger_number))
+
+  def _GetFingerTargetPos(self, finger_number):
+    """ Get the position that this finger is currently trying to go to """
+    return int(self.comm.SendFingerCmd('%dTPOS' % finger_number))
+
+  def _ExecuteFingerMove(self, finger_number, blocking):
+    """ Tell the finger to execute a pending move.
+    If blocking is set to True then this will poll the finger until the
+    true location of the finger and the target location are sufficiently
+    close together.
+    """
+    CORRIDOR = 1
+    self.comm.SendFingerCmd('%dM' % finger_number)
+    if blocking:
+      while abs(self._GetFingerTargetPos(finger_number) -
+                self._GetFingerPos(finger_number)) >= CORRIDOR:
+        pass
+
+  def _MoveFingerRelative(self, finger_number, distance, blocking=True):
+    """ Move the finger a certain amount relative to its current position. """
+    self.comm.SendFingerCmd('%dLR%d' % (finger_number, distance))
+    self._ExecuteFingerMove(finger_number, blocking)
+
+  def _MoveFingerAbsolute(self, finger_number, position, blocking=True):
+    """ Move the finger to an absolute position. """
+    self.comm.SendFingerCmd('%dLA%d' % (finger_number, position))
+    self._ExecuteFingerMove(finger_number, blocking)
+
+  def _DisableFinger(self, finger_number):
+    self.comm.SendFingerCmd('%dDI' % finger_number)
 
   def _CalibratePosition(self):
     """ Make the robot go limp and record its position after the operator
@@ -149,6 +230,8 @@ class Touchbot:
     pos = self._AddSafetyClearance(pos)
     self._SetCartesian(pos, finger_distance=0, blocking=True)
 
+    self._SetFingerStates(True, True)
+
     # Prompt the user to calibrate each corner of the device
     CORNER_NAMES = ['top right', 'top left', 'bottom left', 'bottom right']
     corners = []
@@ -157,9 +240,11 @@ class Touchbot:
         print 'and keep the hand as aligned with the touchpad as possible'
         corners.append(self._CalibratePosition())
 
+    self._SetFingerStates(False, False)
+    self._PopSpeed()
+
     # Build a DeviceSpec and save to disk if a filename was specified
     device_spec = DeviceSpec(*corners)
     if filename:
       device_spec.SaveToDisk(filename)
 
-    self._PopSpeed()
