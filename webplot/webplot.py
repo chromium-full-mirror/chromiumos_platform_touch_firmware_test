@@ -33,6 +33,52 @@ SAVED_FILE = '/tmp/webplot.dat'
 SAVED_IMAGE = '/tmp/webplot.png'
 
 
+def SimpleSystem(cmd):
+  """Execute a system command."""
+  ret = subprocess.call(cmd, shell=True)
+  if ret:
+    logging.warning('Command (%s) failed (ret=%s).', cmd, ret)
+  return ret
+
+
+def SimpleSystemOutput(cmd):
+  """Execute a system command and get its output."""
+  try:
+    proc = subprocess.Popen(
+        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    stdout, _ = proc.communicate()
+  except Exception, e:
+    logging.warning('Command (%s) failed (%s).', cmd, e)
+  else:
+    return None if proc.returncode else stdout.strip()
+
+
+def IsDestinationPortEnabled(port):
+  """Check if the destination port is enabled in iptables.
+
+  If port 8000 is enabled, it looks like
+    ACCEPT  tcp  --  0.0.0.0/0  0.0.0.0/0  ctstate NEW tcp dpt:8000
+  """
+  pattern = re.compile('ACCEPT\s+tcp.+\s+ctstate\s+NEW\s+tcp\s+dpt:%d' % port)
+  rules = SimpleSystemOutput('sudo iptables -L INPUT -n --line-number')
+  for rule in rules.splitlines():
+    if pattern.search(rule):
+      return True
+  return False
+
+
+def EnableDestinationPort(port):
+  """Enable the destination port for input traffic in iptables."""
+  if IsDestinationPortEnabled(port):
+    cherrypy.log('Port %d has been already enabled in iptables.' % port)
+  else:
+    cherrypy.log('To enable port %d in iptables.' % port)
+    cmd = ('sudo iptables -A INPUT -p tcp -m conntrack --ctstate NEW '
+           '--dport %d -j ACCEPT' % port)
+    if SimpleSystem(cmd) != 0:
+      raise Error('Failed to enable port in iptables: %d.' % port)
+
+
 def InterruptHandler():
   """An interrupt handler for both SIGINT and SIGTERM
 
@@ -105,69 +151,6 @@ class TouchDeviceWrapper(object):
 
   def __str__(self):
     return '\n  '.join(sorted([str(slot) for slot in self.slots.values()]))
-
-
-def ThreadedGetLiveStreamSnapshots(device, saved_file):
-  """A thread to poll and get live stream snapshots continuously."""
-
-  def _ConvertNamedtupleToDict(snapshot, prev_tids):
-    """Convert namedtuples to ordinary dictionaries and add leaving slots.
-
-    This is to make a snapshot json serializable. Otherwise, the namedtuples
-    would be transmitted as arrays which is less readable.
-
-    A snapshot looks like
-      MtSnapshot(
-          syn_time=1420524008.368854,
-          button_pressed=False,
-          fingers=[
-              MtFinger(tid=162, slot=0, syn_time=1420524008.368854, x=524,
-                        y=231, pressure=45),
-              MtFinger(tid=163, slot=1, syn_time=1420524008.368854, x=677,
-                        y=135, pressure=57)
-          ]
-      )
-
-    Note:
-    1. that there are two levels of namedtuples to convert.
-    2. The leaving slots are used to notify javascript that a finger is leaving
-       so that the corresponding finger color could be released for reuse.
-    """
-    # Convert MtSnapshot.
-    converted = dict(snapshot.__dict__.items())
-
-    # Convert MtFinger.
-    converted['fingers'] = [dict(finger.__dict__.items())
-                            for finger in converted['fingers']]
-    converted['raw_events'] = [str(event) for event in converted['raw_events']]
-
-    # Add leaving fingers to notify js for reclaiming the finger colors.
-    curr_tids = [finger['tid'] for finger in converted['fingers']]
-    for tid in set(prev_tids) - set(curr_tids):
-      leaving_finger = {'tid': tid, 'leaving': True}
-      converted['fingers'].append(leaving_finger)
-
-    return converted, curr_tids
-
-  def _GetSnapshots():
-    """Get live stream snapshots."""
-    cherrypy.log('Start getting the live stream snapshots....')
-    prev_tids = []
-    with open(saved_file, 'w') as f:
-      while True:
-        snapshot = device.device.NextSnapshot()
-        # TODO: remove the next line when NextSnapshot returns the raw events.
-        events = []
-        if snapshot:
-          f.write('\n'.join(events) + '\n')
-          f.flush()
-          snapshot, prev_tids = _ConvertNamedtupleToDict(snapshot, prev_tids)
-          cherrypy.engine.publish('websocket-broadcast', json.dumps(snapshot))
-
-  get_snapshot_thread = threading.Thread(target=_GetSnapshots,
-                                         name='_GetSnapshots')
-  get_snapshot_thread.daemon = True
-  get_snapshot_thread.start()
 
 
 class ConnectionState(object):
@@ -258,50 +241,188 @@ class Root(object):
     state.IncCount()
 
 
-def SimpleSystem(cmd):
-  """Execute a system command."""
-  ret = subprocess.call(cmd, shell=True)
-  if ret:
-    logging.warning('Command (%s) failed (ret=%s).', cmd, ret)
-  return ret
+class Webplot(threading.Thread):
+  """The server handling the Plotting of finger traces.
+
+  Use case 1: embedding Webplot as a plotter in an application
+
+    # Instantiate a webplot server and starts the daemon.
+    plot = Webplot(server_addr, server_port, device)
+    plot.start()
+
+    # Repeatedly get a snapshot and add it for plotting.
+    while True:
+      # GetSnapshot() is essentially device.NextSnapshot()
+      snapshot = plot.GetSnapshot()
+      if not snapshot:
+        break
+      # Add the snapshot to the plotter for plotting.
+      plot.AddSnapshot(snapshot)
+
+    # Save a screen dump
+    plot.Save()
+
+    # Notify the browser to clear the screen.
+    plot.Clear()
+
+    # Notify both the browser and the cherrypy engine to quit.
+    plot.Quit()
 
 
-def SimpleSystemOutput(cmd):
-  """Execute a system command and get its output."""
-  try:
-    proc = subprocess.Popen(
-        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    stdout, _ = proc.communicate()
-  except Exception, e:
-    logging.warning('Command (%s) failed (%s).', cmd, e)
-  else:
-    return None if proc.returncode else stdout.strip()
+  Use case 2: using webplot standalone
 
+    # Instantiate a webplot server and starts the daemon.
+    plot = Webplot(server_addr, server_port, device)
+    plot.start()
 
-def IsDestinationPortEnabled(port):
-  """Check if the destination port is enabled in iptables.
-
-  If port 8000 is enabled, it looks like
-    ACCEPT  tcp  --  0.0.0.0/0  0.0.0.0/0  ctstate NEW tcp dpt:8000
+    # Get touch snapshots from the touch device and have clients plot them.
+    webplot.GetAndPlotSnapshots()
   """
-  pattern = re.compile('ACCEPT\s+tcp.+\s+ctstate\s+NEW\s+tcp\s+dpt:%d' % port)
-  rules = SimpleSystemOutput('sudo iptables -L INPUT -n --line-number')
-  for rule in rules.splitlines():
-    if pattern.search(rule):
-      return True
-  return False
 
+  def __init__(self, server_addr, server_port, device, saved_file=SAVED_FILE):
+    self._server_addr = server_addr
+    self._server_port = server_port
+    self._device = device
+    self._saved_file = saved_file
+    super(Webplot, self).__init__(name='webplot thread')
 
-def EnableDestinationPort(port):
-  """Enable the destination port for input traffic in iptables."""
-  if IsDestinationPortEnabled(port):
-    cherrypy.log('Port %d has been already enabled in iptables.' % port)
-  else:
-    cherrypy.log('To enable port %d in iptables.' % port)
-    cmd = ('sudo iptables -A INPUT -p tcp -m conntrack --ctstate NEW '
-           '--dport %d -j ACCEPT' % port)
-    if SimpleSystem(cmd) != 0:
-      raise Error('Failed to enable port in iptables: %d.' % port)
+    self.daemon = True
+    self._prev_tids = []
+
+    # Allow input traffic in iptables.
+    EnableDestinationPort(self._server_port)
+
+    # Create a ws connection state object to wait for the condition to
+    # shutdown the whole process.
+    global state
+    state = ConnectionState()
+
+    cherrypy.config.update({
+      'server.socket_host': self._server_addr,
+      'server.socket_port': self._server_port,
+    })
+
+    WebSocketPlugin(cherrypy.engine).subscribe()
+    cherrypy.tools.websocket = WebSocketTool()
+
+    # If the cherrypy server exits for whatever reason, close the device
+    # for required cleanup. Otherwise, there might exist local/remote
+    # zombie processes.
+    cherrypy.engine.subscribe('exit',  self._device.close)
+
+    cherrypy.engine.signal_handler.handlers['SIGINT'] = InterruptHandler
+    cherrypy.engine.signal_handler.handlers['SIGTERM'] = InterruptHandler
+
+  def run(self):
+    """Start the cherrypy engine."""
+    x_min, x_max = self._device.device.RangeX()
+    y_min, y_max = self._device.device.RangeY()
+    p_min, p_max = self._device.device.RangeP()
+
+    cherrypy.quickstart(
+        Root(self._server_addr, self._server_port,
+             x_min, x_max, y_min, y_max, p_min, p_max),
+        '',
+        config={
+            '/': {
+                'tools.staticdir.root':
+                    os.path.abspath(os.path.dirname(__file__)),
+                'tools.staticdir.on': True,
+                'tools.staticdir.dir': '',
+            },
+            '/ws': {
+                'tools.websocket.on': True,
+                'tools.websocket.handler_cls': WebplotWSHandler,
+            },
+        }
+    )
+
+  def _ConvertNamedtupleToDict(self, snapshot):
+    """Convert namedtuples to ordinary dictionaries and add leaving slots.
+
+    This is to make a snapshot json serializable. Otherwise, the namedtuples
+    would be transmitted as arrays which is less readable.
+
+    A snapshot looks like
+      MtSnapshot(
+          syn_time=1420524008.368854,
+          button_pressed=False,
+          fingers=[
+              MtFinger(tid=162, slot=0, syn_time=1420524008.368854, x=524,
+                        y=231, pressure=45),
+              MtFinger(tid=163, slot=1, syn_time=1420524008.368854, x=677,
+                        y=135, pressure=57)
+          ]
+      )
+
+    Note:
+    1. that there are two levels of namedtuples to convert.
+    2. The leaving slots are used to notify javascript that a finger is leaving
+       so that the corresponding finger color could be released for reuse.
+    """
+    # Convert MtSnapshot.
+    converted = dict(snapshot.__dict__.items())
+
+    # Convert MtFinger.
+    converted['fingers'] = [dict(finger.__dict__.items())
+                            for finger in converted['fingers']]
+    converted['raw_events'] = [str(event) for event in converted['raw_events']]
+
+    # Add leaving fingers to notify js for reclaiming the finger colors.
+    curr_tids = [finger['tid'] for finger in converted['fingers']]
+    for tid in set(self._prev_tids) - set(curr_tids):
+      leaving_finger = {'tid': tid, 'leaving': True}
+      converted['fingers'].append(leaving_finger)
+    self._prev_tids = curr_tids
+
+    return converted
+
+  def GetSnapshot(self):
+    """Get a snapshot from the touch device."""
+    return self._device.device.NextSnapshot()
+
+  def AddSnapshot(self, snapshot):
+    """Convert the snapshot to a proper format and publish it to clients."""
+    snapshot = self._ConvertNamedtupleToDict(snapshot)
+    cherrypy.engine.publish('websocket-broadcast', json.dumps(snapshot))
+
+  def GetAndPlotSnapshots(self):
+    """Get and plot snapshots."""
+    cherrypy.log('Start getting the live stream snapshots....')
+    with open(self._saved_file, 'w') as f:
+      while True:
+        snapshot = self.GetSnapshot()
+        if not snapshot:
+          cherrypy.log('webplot is terminated.')
+          break
+        # TODO: get the raw events from the sanpshot
+        events = []
+        f.write('\n'.join(events) + '\n')
+        f.flush()
+        self.AddSnapshot(snapshot)
+
+  def Publish(self, msg):
+    """Publish a message to clients."""
+    cherrypy.engine.publish('websocket-broadcast', TextMessage(msg))
+
+  def Clear(self):
+    """Notify clients to clear the display."""
+    self.Publish('clear')
+
+  def Quit(self):
+    """Notify clients to quit.
+
+    Note that the cherrypy engine would quit accordingly.
+    """
+    self.Publish('quit')
+
+  def Save(self):
+    """Notify clients to save the screen."""
+    self.Publish('save')
+
+  def Url(self):
+    """The url the server is serving at."""
+    return 'http://%s:%d' % (self._server_addr, self._server_port)
 
 
 def _ParseArguments():
@@ -323,8 +444,6 @@ def _ParseArguments():
 
 def Main():
   """The main function to launch webplot service."""
-  global state
-
   configure_logger(level=logging.DEBUG)
   args = _ParseArguments()
 
@@ -354,54 +473,15 @@ def Main():
   print 'Press \'q\' on the browser to quit.'
   print '*' * 70 + '\n\n'
 
-  # Allow input traffic in iptables.
-  EnableDestinationPort(args.server_port)
-
   # Instantiate a touch device.
   device = TouchDeviceWrapper(args.dut_type, args.dut_addr, args.is_touchscreen)
 
-  # Start to get touch snapshots from the specified touch device.
-  ThreadedGetLiveStreamSnapshots(device, SAVED_FILE)
+  # Instantiate a webplot server daemon and start it.
+  webplot = Webplot(args.server_addr, args.server_port, device)
+  webplot.start()
 
-  # Create a ws connection state object to wait for the condition to
-  # shutdown the whole process.
-  state = ConnectionState()
-
-  cherrypy.config.update({
-    'server.socket_host': args.server_addr,
-    'server.socket_port': args.server_port,
-  })
-
-  WebSocketPlugin(cherrypy.engine).subscribe()
-  cherrypy.tools.websocket = WebSocketTool()
-
-  # If the cherrypy server exits for whatever reason, close the device
-  # for required cleanup. Otherwise, there might exist local/remote
-  # zombie processes.
-  cherrypy.engine.subscribe('exit',  device.close)
-
-  cherrypy.engine.signal_handler.handlers['SIGINT'] = InterruptHandler
-  cherrypy.engine.signal_handler.handlers['SIGTERM'] = InterruptHandler
-
-  x_min, x_max = device.device.RangeX()
-  y_min, y_max = device.device.RangeY()
-  p_min, p_max = device.device.RangeP()
-
-  cherrypy.quickstart(
-    Root(args.server_addr, args.server_port,
-         x_min, x_max, y_min, y_max, p_min, p_max), '',
-         config={
-           '/': {
-             'tools.staticdir.root': os.path.abspath(os.path.dirname(__file__)),
-             'tools.staticdir.on': True,
-             'tools.staticdir.dir': '',
-           },
-           '/ws': {
-             'tools.websocket.on': True,
-             'tools.websocket.handler_cls': WebplotWSHandler,
-           },
-         }
-  )
+  # Get touch snapshots from the touch device and have clients plot them.
+  webplot.GetAndPlotSnapshots()
 
 
 if __name__ == '__main__':
