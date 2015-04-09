@@ -102,10 +102,14 @@ class WebplotWSHandler(WebSocket):
 
   def received_message(self, msg):
     """A callback for received message."""
-    cherrypy.log('Received message: %s' % str(msg.data))
     data = msg.data.split(':', 1)
     mtype = data[0].lower()
     content = data[1] if len(data) == 2 else None
+
+    # Do not print the image data since it is too large.
+    if mtype != 'save':
+      cherrypy.log('Received message: %s' % str(msg.data))
+
     if mtype == 'quit':
       # A shutdown message requested by the user.
       cherrypy.log('The user requests to shutdown the cherrypy server....')
