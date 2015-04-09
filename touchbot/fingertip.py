@@ -1,0 +1,44 @@
+# Copyright 2015 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import glob
+import os
+import pickle
+import position
+
+class Fingertip:
+  """ This is a class that describes a single fingertip used by the robot. """
+  def __init__(self, fingertip_name, finger_number):
+    self.name = fingertip_name
+    self.finger_number = finger_number
+    self.above_pos = self.slide_pos = None
+    self.extension1 = self.extension2 = 0
+
+  def SaveToPickledFile(self, filename):
+    with open(filename, 'wb') as fo:
+      pickle.dump(self, fo)
+
+  @staticmethod
+  def FromPickledFile(filename):
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    filename = os.path.join(this_dir, filename)
+    with open(filename, 'rb') as fo:
+      return pickle.load(fo)
+
+  def IsHeavy(self):
+    """ Returns True if the fingertip is especially heavy.  In this case
+    the robot needs to move more slowly to prevent knocking it off the magnets.
+    """
+    return 'fingers' in self.name
+
+
+def LoadFingertips(directory):
+  fingertips = {}
+  pattern = os.path.join(directory, '*.p')
+  for filename in glob.glob(pattern):
+    fingertip = Fingertip.FromPickledFile(filename)
+    fingertip_name, extension = os.path.splitext(os.path.basename(filename))
+    fingertips[fingertip_name] = fingertip
+  return fingertips
+

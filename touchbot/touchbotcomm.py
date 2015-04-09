@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import select
 import socket
 
 
@@ -56,10 +57,10 @@ class TouchbotComm:
     """ Send a command throught the robot to the fingers """
     cmd_string = 'CustomSerial ' + cmd + MESSAGE_TERMINATOR
     self.soc.send(cmd_string)
-    response = self.soc.recv(RECV_CHUNK_SIZE)
-    while response[-1] != MESSAGE_TERMINATOR:
-      response += self.soc.recv(RECV_CHUNK_SIZE)
-    return response
+    ready_to_read, _, _ = select.select([self.soc], [], [], 2000)
+    if self.soc in ready_to_read:
+      return self.soc.recv(RECV_CHUNK_SIZE)
+    return None
 
   def GetResponse(self):
     """ Listen on the socket for a response from the TouchbotII

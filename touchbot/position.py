@@ -41,16 +41,6 @@ class Position:
     ax_1, ax_2, ax_3, ax_4, ax_5 = values[6:]
     return Position(x, y, z, yaw, pitch, roll, ax_1, ax_2, ax_3, ax_4, ax_5)
 
-  @staticmethod
-  def FromPickledFile(filename):
-    this_dir = os.path.dirname(os.path.abspath(__file__))
-    filename = os.path.join(this_dir, filename)
-    try:
-      with open(filename, 'rb') as fo:
-        return pickle.load(fo)
-    except:
-      return None
-
   def __str__(self):
     """ Print the position in the format the robot expects """
     return '%f %f %f %f %f %f %f %f %f %f %f' % (self.x, self.y, self.z,
