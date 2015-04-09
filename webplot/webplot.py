@@ -197,6 +197,13 @@ class ConnectionState(object):
       self.shutdown_timer.start()
     self.lock.release()
 
+  def ShutdownWhenNoConnections(self):
+    """Shutdown cherrypy server when there is no client connection."""
+    self.lock.acquire()
+    if self.count == 0 and self.shutdown_timer is None:
+      self.Shutdown()
+    self.lock.release()
+
   def Shutdown(self):
     """Shutdown the cherrypy server."""
     cherrypy.log('Shutdown timer expires. Cherrypy server for Webplot exits.')
@@ -395,15 +402,23 @@ class Webplot(threading.Thread):
     cherrypy.log('Start getting the live stream snapshots....')
     with open(self._saved_file, 'w') as f:
       while True:
-        snapshot = self.GetSnapshot()
-        if not snapshot:
-          cherrypy.log('webplot is terminated.')
-          break
-        # TODO: get the raw events from the sanpshot
-        events = []
-        f.write('\n'.join(events) + '\n')
-        f.flush()
-        self.AddSnapshot(snapshot)
+        try:
+          snapshot = self.GetSnapshot()
+          if not snapshot:
+            cherrypy.log('webplot is terminated.')
+            break
+          # TODO: get the raw events from the sanpshot
+          events = []
+          f.write('\n'.join(events) + '\n')
+          f.flush()
+          self.AddSnapshot(snapshot)
+        except KeyboardInterrupt:
+          cherrypy.log('Keyboard Interrupt accepted')
+          cherrypy.log('webplot is being terminated...')
+          # Notify the clients to quit.
+          self.Publish('quit')
+          # If there is no client connection, the cherrypy server just exits.
+          state.ShutdownWhenNoConnections()
 
   def Publish(self, msg):
     """Publish a message to clients."""
