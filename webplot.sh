@@ -18,6 +18,7 @@ die() {
 
 # Read command flags
 . /usr/share/misc/shflags
+DEFINE_boolean grab true 'grab the touch device exclusively' 'g'
 DEFINE_boolean kill false 'kill the existing webplot process' 'k'
 
 FLAGS_HELP="USAGE: $PROG [flags]"
@@ -60,7 +61,7 @@ fi
 
 # Start webplot if not yet.
 if [ -n "$(get_webplot_process_status)" ]; then
-  echo "$PROG server has been started."
+  echo "$PROG server has been started already."
 else
   # Must run webplot as root as it needs to access system device nodes.
   if [ $USER != root ]; then
@@ -68,11 +69,8 @@ else
   fi
 
   echo "Start $PROG server..."
-  python "${PROG_DIR}"/"${PROG}".py &
-
-  # Wait a while for the webplot server to get ready before launching
-  # a chrome tab to connect to it.
-  sleep 1
+  [ "$FLAGS_grab" = "$FLAGS_FALSE" ] && grab_option="--nograb"
+  python "${PROG_DIR}/${PROG}".py $grab_option &
 
   # Tell the user to type URL in chrome as there is no reliable way to
   # launch a chrome tab from command line in chrome os.

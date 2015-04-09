@@ -136,11 +136,11 @@ class TouchDeviceWrapper(object):
   and ending of the event stream.
   """
 
-  def __init__(self, dut_type, addr, is_touchscreen):
+  def __init__(self, dut_type, addr, is_touchscreen, grab):
     if dut_type == 'chromeos':
       if addr is None:
         addr = '127.0.0.1'
-      self.device = ChromeOSTouchDevice(addr, is_touchscreen)
+      self.device = ChromeOSTouchDevice(addr, is_touchscreen, grab=grab)
     else:
       self.device = AndroidTouchDevice(addr, True)
 
@@ -430,15 +430,31 @@ def _ParseArguments():
   parser = argparse.ArgumentParser(description='Webplot Server')
   parser.add_argument('-d', '--dut_addr', default=None,
                       help='the address of the dut')
-  parser.add_argument('-s', '--server_addr', default='localhost',
-                      help='the address the webplot http server listens to')
-  parser.add_argument('-p', '--server_port', default=80, type=int,
-                      help='the port the web server to listen to (default: 80)')
+
+  # Make an exclusive group to make the webplot.py command option
+  # consistent with the webplot.sh script command option.
+  # What is desired:
+  #   When no command option specified in webplot.sh/webplot.py: grab is True
+  #   When '--grab'   option specified in webplot.sh/webplot.py: grab is True
+  #   When '--nograb' option specified in webplot.sh/webplot.py: grab is False
+  grab_group = parser.add_mutually_exclusive_group()
+  grab_group.add_argument('--grab', help='grab the device exclusively',
+                          action='store_true')
+  grab_group.add_argument('--nograb', help='do not grab the device',
+                          action='store_true')
+
   parser.add_argument('--is_touchscreen', help='the DUT is touchscreen',
                       action='store_true')
-  parser.add_argument('-t', '--dut_type', default='chromeos',
+  parser.add_argument('-p', '--server_port', default=80, type=int,
+                      help='the port the web server to listen to (default: 80)')
+  parser.add_argument('-s', '--server_addr', default='localhost',
+                      help='the address the webplot http server listens to')
+  parser.add_argument('-t', '--dut_type', default='chromeos', type=str.lower,
                       help='dut type: chromeos, android')
   args = parser.parse_args()
+
+  args.grab = not args.nograb
+
   return args
 
 
@@ -454,6 +470,10 @@ def Main():
   cherrypy.log('dut address: %s' % args.dut_addr)
   cherrypy.log('web server address: %s' % args.server_addr)
   cherrypy.log('web server port: %s' % args.server_port)
+  cherrypy.log('grab the touch device: %s' % args.grab)
+  if args.dut_type == 'android' and args.grab:
+    cherrypy.log('Warning: the grab option is not supported on Android devices'
+                 ' yet.')
   cherrypy.log('touch events are saved in %s' % SAVED_FILE)
   print '-' * 70 + '\n\n'
 
@@ -474,7 +494,8 @@ def Main():
   print '*' * 70 + '\n\n'
 
   # Instantiate a touch device.
-  device = TouchDeviceWrapper(args.dut_type, args.dut_addr, args.is_touchscreen)
+  device = TouchDeviceWrapper(args.dut_type, args.dut_addr, args.is_touchscreen,
+                              args.grab)
 
   # Instantiate a webplot server daemon and start it.
   webplot = Webplot(args.server_addr, args.server_port, device)
