@@ -53,6 +53,7 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
     self.event_stream_process = None
     self.begin_event_stream_cmd = self.begin_event_stream_cmd or ''
     self.most_recent_snapshot = None
+    self.flush_timeout = self.FLUSH_TIMEOUT
 
     # Probe to find out which device we want to connect to on the DUT
     self.device_num = self._GetDeviceNumber(self.is_touchscreen)
@@ -72,21 +73,6 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
     self.protocol = self._GetMtProtocol() if protocol == 'auto' else protocol
     self.state_machine = (mt.MtaStateMachine() if self.protocol == mt.MTA
                           else mt.MtbStateMachine())
-
-  def ResolutionX(self):
-    return self._x_res
-
-  def ResolutionY(self):
-    return self._y_res
-
-  def RangeX(self):
-    return self._x_min, self._x_max
-
-  def RangeY(self):
-    return self._y_min, self._y_max
-
-  def RangeP(self):
-    return self._p_min, self._p_max
 
   def _InitializeEventGatheringSubprocess(self):
     """ Initiate a stream of MTB events from the DUT
@@ -109,18 +95,6 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
     readable, _, _, = select.select([self.event_stream_process.stdout], [], [])
     return self.event_stream_process.stdout in readable
 
-  def FlushSnapshotBuffer(self, wait_until_no_fingers_present=False):
-    while True:
-      snapshot = self.NextSnapshot(timeout=self.FLUSH_TIMEOUT)
-      while snapshot:
-        snapshot = self.NextSnapshot(timeout=self.FLUSH_TIMEOUT)
-
-      if not wait_until_no_fingers_present:
-        return
-      elif (not self.most_recent_snapshot or
-            len(self.most_recent_snapshot.fingers) == 0):
-        return
-
   def _GetMtProtocol(self):
     """ This function determines the Multitouch protocol used by this device.
     For most devices mtb is used, but for a few devices mta has been
@@ -130,20 +104,6 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
     be implimented by the subclass.  If a particular class of devices will
     always use one protocol this function can simply return that value without
     contacting the device at all
-    """
-    raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
-
-  def _GetDimensions(self):
-    """ Reach out to the DUT and determine the dimensions of the sensor, the
-    x/y resolution, and the range of pressure values it reports.
-
-    This function should return three dictionaries of the following form:
-      (x, y, p)
-    where x and why have 'min' 'max' and 'resolution' defined, and p has only
-    'min' and 'max.
-
-    This is called automatically in the constructor to set the ranges for all
-    of the various dimensions of the device.
     """
     raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
 

@@ -38,14 +38,16 @@ class RemoteTouchDevice:
   not_implemented_msg = 'Must be implemented by a subclass.'
 
   def FlushSnapshotBuffer(self, wait_until_no_fingers_present=False):
-    """ Churn through any built up events until you have used them all up
-    This essentially clears out the buffer and gets you ready to start
-    processing new events.
+    while True:
+      snapshot = self.NextSnapshot(timeout=self.flush_timeout)
+      while snapshot:
+        snapshot = self.NextSnapshot(timeout=self.flush_timeout)
 
-    If wait_until_no_fingers_present is set to True, then this won't return
-    until there are no contacts reported on the touch device anymore.
-    """
-    raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
+      if not wait_until_no_fingers_present:
+        return
+      elif (not self.most_recent_snapshot or
+            len(self.most_recent_snapshot.fingers) == 0):
+        return
 
   def NextSnapshot(self, timeout=None):
     """ Consume MtEvents from the touch device until a complete snapshot has
@@ -59,23 +61,34 @@ class RemoteTouchDevice:
     raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
 
   def ResolutionX(self):
-    """ Return the resolution of the screen in the X direction (dpi) """
-    raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
+    return self._x_res
 
   def ResolutionY(self):
-    """ Return the resolution of the screen in the Y direction (dpi) """
-    raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
+    return self._y_res
 
   def RangeX(self):
-    """ Return a tuple with the range of X values (x_min, x_max) """
-    raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
+    return self._x_min, self._x_max
 
   def RangeY(self):
-    """ Return a tuple with the range of Y values (y_min, y_max) """
-    raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
+    return self._y_min, self._y_max
 
   def RangeP(self):
-    """ Return a tuple with the range of pressure values (p_min, p_max) """
+    return self._p_min, self._p_max
+
+  def _GetDimensions(self):
+    """ Ask the device for the dimensions, the x/y resolution, and the range
+    of pressure values should be reported.
+    if the device doesn't report the lower bound, the lower bound zero should
+    be reported.
+
+    This function should return three dictionaries of the following form:
+      (x, y, p)
+    where x and why have 'min' 'max' and 'resolution' defined, and p has only
+    'min' and 'max.
+
+    This is called automatically in the constructor to set the ranges for all
+    of the various dimensions of the device.
+    """
     raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
 
   # Below are functions common to all RemoteTouchDevices and do not need to

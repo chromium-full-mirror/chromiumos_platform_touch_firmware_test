@@ -3,4 +3,5 @@
 # found in the LICENSE file.
 
 from remote_in_system import AndroidTouchDevice, ChromeOSTouchDevice
+from remote_aardvark import ElanTouchDevice
 import mt
