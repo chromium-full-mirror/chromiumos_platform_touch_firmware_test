@@ -386,6 +386,10 @@ class Webplot(threading.Thread):
       converted['fingers'].append(leaving_finger)
     self._prev_tids = curr_tids
 
+    # Convert raw events from a list of classes to a list of its strings
+    # so that the raw_events is serializable.
+    converted['raw_events'] = [str(event) for event in converted['raw_events']]
+
     return converted
 
   def GetSnapshot(self):
@@ -396,6 +400,7 @@ class Webplot(threading.Thread):
     """Convert the snapshot to a proper format and publish it to clients."""
     snapshot = self._ConvertNamedtupleToDict(snapshot)
     cherrypy.engine.publish('websocket-broadcast', json.dumps(snapshot))
+    return snapshot
 
   def GetAndPlotSnapshots(self):
     """Get and plot snapshots."""
@@ -407,11 +412,9 @@ class Webplot(threading.Thread):
           if not snapshot:
             cherrypy.log('webplot is terminated.')
             break
-          # TODO: get the raw events from the sanpshot
-          events = []
-          f.write('\n'.join(events) + '\n')
+          converted_snapshot = self.AddSnapshot(snapshot)
+          f.write('\n'.join(converted_snapshot['raw_events']) + '\n')
           f.flush()
-          self.AddSnapshot(snapshot)
         except KeyboardInterrupt:
           cherrypy.log('Keyboard Interrupt accepted')
           cherrypy.log('webplot is being terminated...')
