@@ -28,7 +28,8 @@ eval set -- "${FLAGS_ARGV}"
 set -e
 
 get_webplot_process_status() {
-  echo $(ps a | egrep "python\s.+${PROG}" | grep -v grep)
+  echo $(ps a | egrep "(ssh|python)\s.+${PROG}" | grep -v grep |\
+         awk '{print $1}')
 }
 
 if [ "$FLAGS_kill" = "$FLAGS_TRUE" ]; then
@@ -36,9 +37,9 @@ if [ "$FLAGS_kill" = "$FLAGS_TRUE" ]; then
   if [ -z "$process" ]; then
     echo 'No existing webplot process.'
   else
-    for p in "$process"; do
+    for p in $process; do
       echo killing $p
-      kill $(echo $p | awk '{print $1}')
+      kill $p
     done
   fi
   exit 0
