@@ -447,6 +447,16 @@ class Webplot(threading.Thread):
     return 'http://%s:%d' % (self._server_addr, self._server_port)
 
 
+def _CheckLegalUser():
+  """If this program is run in chroot, it should not be run as root for security
+  reason.
+  """
+  if os.path.exists('/etc/cros_chroot_version') and os.getuid() == 0:
+    print ('You should run webplot in chroot as a regular user '
+           'instead of as root.\n')
+    exit(1)
+
+
 def _ParseArguments():
   """Parse the command line options."""
   parser = argparse.ArgumentParser(description='Webplot Server')
@@ -482,6 +492,8 @@ def _ParseArguments():
 
 def Main():
   """The main function to launch webplot service."""
+  _CheckLegalUser()
+
   configure_logger(level=logging.DEBUG)
   args = _ParseArguments()
 
