@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import copy
+import math
 import os
 import sys
 import time
@@ -42,10 +43,15 @@ class Touchbot:
   MIN_FINGER_DISTANCE = 0.5
   MAX_FINGER_DISTANCE = 140
 
+  # Constants for the finger actuators
   FINGER_NUMBERS = [1, 2]
   FINGER_CURRENT_LIMIT_MA = 550
   FINGER_HOME_OFFSET = 2500
   FINGER_CONTACT_CURRENT = 250
+  DEFAULT_MAX_EXTENSION = 1500
+  MIN_FINGER_SPACING = 12
+  FINGER_ACCEL_MM_S_S = 1000
+  FINGER_DECEL_MM_S_S = 3000
 
   def __init__(self, ip_address=TOUCHBOT_IP_ADDR, port=TOUCHBOT_PORT):
     self.speed_stack = []
@@ -58,19 +64,20 @@ class Touchbot:
     # Center the wrist to prevent it starting twisted
     self._CenterWrist()
 
-    # Set everything to a sane speed
-    self._PushSpeed(Touchbot.SPEED_MEDIUM)
-    self._PushFingerSpeed_mm_per_s(25)
-
     # Initialize the fingers
     for finger_number in Touchbot.FINGER_NUMBERS:
       self._InitializeFinger(finger_number)
 
+    # Set everything to a sane speed
+    self._PushSpeed(Touchbot.SPEED_MEDIUM)
+    self._PushFingerSpeed_mm_per_s(1000)
+
   def __del__(self):
     """ Move the robot arm up and disable the fingers before quitting. """
-    self._SetCartesian(self._AddSafetyClearance(self._GetCurrentPosition()))
-    for finger_number in Touchbot.FINGER_NUMBERS:
-      self._DisableFinger(finger_number)
+    if self.comm:
+      self._SetCartesian(self._AddSafetyClearance(self._GetCurrentPosition()))
+      for finger_number in Touchbot.FINGER_NUMBERS:
+        self._DisableFinger(finger_number)
 
   def _CenterWrist(self):
     """ Rotate the wrist (axis 4) to it's middle point.
@@ -91,13 +98,18 @@ class Touchbot:
     This function sets the current limit for the finger controller and sets
     the Zero point for the fingers
     """
+    self.comm.SendFingerCmd('%dDI' % finger_number)
+    time.sleep(0.5)
     self._SetFingerCurrentLimit_mA(finger_number,
                                    Touchbot.FINGER_CURRENT_LIMIT_MA)
+    self._SetFingerAcceleration(Touchbot.FINGER_ACCEL_MM_S_S)
+    self._SetFingerDeceleration(Touchbot.FINGER_DECEL_MM_S_S)
 
     # Track to roughly the middle of the range and call that Zero
     self.comm.SendFingerCmd('%dAPL0' % finger_number) # Disable range limiting
     self._EnableFinger(finger_number)
     self._ExtendFingerUntilContact(finger_number)
+    self._SetFingerZeroPoint(finger_number)
     self._MoveFingerRelative(finger_number, -Touchbot.FINGER_HOME_OFFSET)
     self._SetFingerZeroPoint(finger_number)
 
@@ -115,6 +127,12 @@ class Touchbot:
   def _SetFingerSpeed(self, speed):
     self.comm.SendFingerCmd('SP%d' % speed)
 
+  def _SetFingerAcceleration(self, speed):
+    self.comm.SendFingerCmd('AC%d' % speed)
+
+  def _SetFingerDeceleration(self, speed):
+    self.comm.SendFingerCmd('DEC%d' % speed)
+
   def _SetFingerStates(self, finger1_extended, finger2_extended):
     """ Extend or retract the fingers.
     Note this code looks a bit funny since it doesn't use else at all.  This is
@@ -130,11 +148,11 @@ class Touchbot:
     if not finger1_extended:
       self._MoveFingerAbsolute(1, 0)
     if finger1_extended:
-      self._ExtendFingerUntilContact(1)
+      self._ExtendFingerUntilContact(1, Touchbot.DEFAULT_MAX_EXTENSION)
     if finger2_extended:
-      self._ExtendFingerUntilContact(2)
+      self._ExtendFingerUntilContact(2, Touchbot.DEFAULT_MAX_EXTENSION)
 
-  def _ExtendFingerUntilContact(self, finger_number):
+  def _ExtendFingerUntilContact(self, finger_number, speed=1, cutoff=None):
     """ Extend the specified finger slowly until it touches something.
     This is done by telling the finger to extend slowly and polling the
     amount of current the actuator is drawing.  As soon as it meets some
@@ -144,13 +162,23 @@ class Touchbot:
       print 'ERROR: illegal finger_number (%d)' % finger_number
       return None
 
-    self.comm.SendFingerCmd('%dV1' % finger_number)
+    # Start the finger moving at the specified velocity
+    self.comm.SendFingerCmd('%dV%d' % (finger_number, speed))
+
+    # Now poll the finger's position and current to know when to stop
     while True:
       pos = self._GetFingerPos(finger_number)
+
+      # If we've passed a cutoff point, stop
+      if cutoff is not None and pos >= cutoff:
+        break
+
+      # If the current is spiking, stop
       current = self._GetFingerCurrent_mA(finger_number)
       if current >= Touchbot.FINGER_CONTACT_CURRENT:
         break
-    self._MoveFingerAbsolute(finger_number, pos)
+
+    self._ExecuteFingerMove(finger_number, blocking=False)
     return pos
 
   def _GetFingerCurrent_mA(self, finger_number):
@@ -187,7 +215,8 @@ class Touchbot:
     if finger_number is not None:
       self.comm.SendFingerCmd('%dM' % finger_number)
     else:
-      self.comm.SendFingerCmd('M')
+      self.comm.SendFingerCmd('1M')
+      self.comm.SendFingerCmd('2M')
 
     if blocking:
       required_fingers = [1, 2] if finger_number is None else [finger_number]
@@ -219,6 +248,7 @@ class Touchbot:
     self._ExecuteFingerMove(None, blocking)
 
   def _DisableFinger(self, finger_number):
+    self._MoveFingerAbsolute(finger_number, 0.9 * Touchbot.FINGER_HOME_OFFSET)
     self.comm.SendFingerCmd('%dDI' % finger_number)
 
   def _CalibratePosition(self):
@@ -372,6 +402,16 @@ class Touchbot:
     self._PopFingerSpeed()
     self._SetFingerStates(False, False)
 
+  def _CenterAroundSingleFinger(self, finger_number, pos):
+    """ Offset the coordinates so that finger 1 is centered at the point given,
+    not the point directly between the two fingers.
+    """
+    # Shift the x and y accordingly for both points in the line
+    angle = math.radians(pos.yaw - 90)
+    pos.x += math.cos(angle) * (pos.ax_5 + Touchbot.MIN_FINGER_SPACING) / 2.0
+    pos.y += math.sin(angle) * (pos.ax_5 + Touchbot.MIN_FINGER_SPACING) / 2.0
+    return pos
+
 ################################################################################
 #                    Actual gestures after this point                          #
 ################################################################################
@@ -404,3 +444,16 @@ class Touchbot:
       device_spec.SaveToDisk(filename)
 
     return device_spec
+
+  def Tap(self, device_spec, tap_location):
+    abs_pos = device_spec.RelativePosToAbsolutePos(tap_location)
+    abs_pos = self._CenterAroundSingleFinger(1, abs_pos)
+
+    # Get into position
+    self._SetFingerStates(False, False)
+    self._SetCartesian(abs_pos, finger_distance=abs_pos.ax_5)
+
+    # Touch the pad then lift the finger back up to tap
+    self._ExtendFingerUntilContact(1, speed=1000,
+                                   cutoff=Touchbot.DEFAULT_MAX_EXTENSION)
+    self._MoveFingerAbsolute(1, 0)

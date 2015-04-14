@@ -57,7 +57,7 @@ class TouchbotComm:
     """ Send a command throught the robot to the fingers """
     cmd_string = 'CustomSerial ' + cmd + MESSAGE_TERMINATOR
     self.soc.send(cmd_string)
-    ready_to_read, _, _ = select.select([self.soc], [], [], 2000)
+    ready_to_read, _, _ = select.select([self.soc], [], [], 5)
     if self.soc in ready_to_read:
       return self.soc.recv(RECV_CHUNK_SIZE)
     return None
