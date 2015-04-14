@@ -69,11 +69,12 @@ else
     die "Please run $PROG as root."
   fi
 
-  echo "Start $PROG server..."
-  [ "$FLAGS_grab" = "$FLAGS_FALSE" ] && grab_option="--nograb"
-  python "${PROG_DIR}/${PROG}".py $grab_option &
-
   # Tell the user to type URL in chrome as there is no reliable way to
   # launch a chrome tab from command line in chrome os.
   echo "Please type \"localhost\" in the browser."
+  echo "Please Press ctrl-c to terminate the webplot server."
+
+  echo "Start $PROG server..."
+  [ "$FLAGS_grab" = "$FLAGS_FALSE" ] && grab_option="--nograb"
+  exec python "${PROG_DIR}/${PROG}".py $grab_option
 fi
