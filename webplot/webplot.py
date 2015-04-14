@@ -90,7 +90,15 @@ def InterruptHandler():
      The cherrypy engine exits if this is the last client.
   """
   cherrypy.log('Cherrypy engine is sending quit message to clients.')
-  cherrypy.engine.publish('websocket-broadcast', TextMessage('quit'))
+  state.QuitAndShutdown()
+
+
+def _IOError(e, filename):
+  err_msg = ['\n', '!' * 60, str(e),
+             'It is likely that %s is owned by root.' % filename,
+             'Please remove the file and then run webplot again.',
+             '!' * 60, '\n']
+  cherrypy.log('\n'.join(err_msg))
 
 
 class WebplotWSHandler(WebSocket):
@@ -129,8 +137,12 @@ class WebplotWSHandler(WebSocket):
   @staticmethod
   def SaveImage(image_data, image_file):
     """Decoded the base64 image data and save it in the file."""
-    with open(image_file, 'w') as f:
-      f.write(base64.b64decode(image_data))
+    try:
+      with open(image_file, 'w') as f:
+        f.write(base64.b64decode(image_data))
+    except IOError as e:
+      _IOError(e, image_file)
+      state.QuitAndShutdown()
 
 
 class TouchDeviceWrapper(object):
@@ -173,6 +185,7 @@ class ConnectionState(object):
     self.count = 0;
     self.lock = threading.Lock()
     self.shutdown_timer = None
+    self.quit_flag = False
 
   def IncCount(self):
     """Increase the connection count, and cancel the shutdown timer if exists.
@@ -208,6 +221,13 @@ class ConnectionState(object):
     """Shutdown the cherrypy server."""
     cherrypy.log('Shutdown timer expires. Cherrypy server for Webplot exits.')
     cherrypy.engine.exit()
+
+  def QuitAndShutdown(self):
+    """The server notifies clients to quit and then shuts down."""
+    if not self.quit_flag:
+      self.quit_flag = True
+      cherrypy.engine.publish('websocket-broadcast', TextMessage('quit'))
+      self.ShutdownWhenNoConnections()
 
 
 class Root(object):
@@ -405,23 +425,24 @@ class Webplot(threading.Thread):
   def GetAndPlotSnapshots(self):
     """Get and plot snapshots."""
     cherrypy.log('Start getting the live stream snapshots....')
-    with open(self._saved_file, 'w') as f:
-      while True:
-        try:
-          snapshot = self.GetSnapshot()
-          if not snapshot:
-            cherrypy.log('webplot is terminated.')
-            break
-          converted_snapshot = self.AddSnapshot(snapshot)
-          f.write('\n'.join(converted_snapshot['raw_events']) + '\n')
-          f.flush()
-        except KeyboardInterrupt:
-          cherrypy.log('Keyboard Interrupt accepted')
-          cherrypy.log('webplot is being terminated...')
-          # Notify the clients to quit.
-          self.Publish('quit')
-          # If there is no client connection, the cherrypy server just exits.
-          state.ShutdownWhenNoConnections()
+    try:
+      with open(self._saved_file, 'w') as f:
+        while True:
+          try:
+            snapshot = self.GetSnapshot()
+            if not snapshot:
+              cherrypy.log('webplot is terminated.')
+              break
+            converted_snapshot = self.AddSnapshot(snapshot)
+            f.write('\n'.join(converted_snapshot['raw_events']) + '\n')
+            f.flush()
+          except KeyboardInterrupt:
+            cherrypy.log('Keyboard Interrupt accepted')
+            cherrypy.log('webplot is being terminated...')
+            state.QuitAndShutdown()
+    except IOError as e:
+      _IOError(e, self._saved_file)
+      state.QuitAndShutdown()
 
   def Publish(self, msg):
     """Publish a message to clients."""
@@ -436,7 +457,7 @@ class Webplot(threading.Thread):
 
     Note that the cherrypy engine would quit accordingly.
     """
-    self.Publish('quit')
+    state.QuitAndShutdown()
 
   def Save(self):
     """Notify clients to save the screen."""

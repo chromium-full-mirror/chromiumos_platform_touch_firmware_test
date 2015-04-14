@@ -102,7 +102,8 @@ function Webplot(canvas, touchMinX, touchMaxX, touchMinY, touchMaxY,
   this.clickDown = false;
   this.pressureMode = true;
   this.pointRadius = 2;
-  this.saved_file = '/tmp/webplot.dat';
+  this.saved_events = '/tmp/webplot.dat';
+  this.saved_image = '/tmp/webplot.png';
 }
 
 
@@ -274,6 +275,9 @@ Webplot.prototype.processSnapshot = function(snapshot) {
 }
 
 
+Webplot.quitFlag = false;
+
+
 /**
  * An handler for onresize event to update the canvas dimensions.
  */
@@ -296,15 +300,19 @@ function quit(closed_by_server) {
 
   // Capture the image before clearing the canvas and send it to the server,
   // and notify the server that this client quits.
-  window.ws.send('quit');
+  if (!Webplot.quitFlag) {
+    Webplot.quitFlag = true;
+    window.ws.send('quit');
 
-  clear(false);
-  if (closed_by_server) {
-    webplot.fillText('The python server has quit.', startX, startY, font);
-    startY += 100;
+    clear(false);
+    if (closed_by_server) {
+      webplot.fillText('The python server has quit.', startX, startY, font);
+    }
+    webplot.fillText('Events are saved in "' + webplot.saved_events + '"',
+                     startX, startY + 100, font);
+    webplot.fillText('The image is saved in "' + webplot.saved_image + '"',
+                     startX, startY + 200, font);
   }
-  webplot.fillText('Events are saved in "' + webplot.saved_file + '"',
-                   startX, startY, font);
 }
 
 function save() {
