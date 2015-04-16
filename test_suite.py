@@ -2,11 +2,16 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import os
+import sys
+
 import colorama as color
 
+import gesture_interpreter
 import tests
 from plotter import TouchPlotter
 from report import Report
+from touchbot import Touchbot, DeviceSpec
 
 
 class TestSuite:
@@ -35,7 +40,25 @@ class TestSuite:
       if not self.fn_generator.IsValid():
         self.fn_generator = None
         options.has_fn_gen = False
-        print 'Error: Unable to connect to function generator!'
+        print color.Fore.RED + 'Error: Unable to connect to function generator!'
+        sys.exit(1)
+
+    # Connect to the robot if the operator says they have it
+    self.robot = self.device_spec = None
+    if options.has_robot:
+      self.robot = Touchbot()
+      if not self.robot.comm:
+        print color.Fore.RED + 'Error: Unable to connect to robot!'
+        sys.exit(1)
+      # Load a copy of the device spec if it already exists or calibrate now
+      device_spec_filename = './%s.p' % options.name
+      if os.path.isfile(device_spec_filename):
+        self.device_spec = DeviceSpec.LoadFromDisk(device_spec_filename)
+      else:
+        print color.Fore.YELLOW + 'No spec found (%s)' % device_spec_filename
+        print (color.Fore.YELLOW + 'Please follow these instructions to '
+               'calibrate for your "%s" device' % options.name)
+        self.device_spec = self.robot.CalibrateDevice(device_spec_filename)
 
     # Compute the list of tests to run
     self.tests = tests.generate_test_list(options)
@@ -82,6 +105,15 @@ class TestSuite:
       else:
         self.fn_generator.Off()
 
+    # Start a new thread to perform the robot gesture (if applicable)
+    robot_thread = None
+    if self.robot:
+      robot_thread = gesture_interpreter.PerformCorrespondingGesture(
+                          test, self.curr_variation,
+                          self.robot, self.device_spec)
+      if robot_thread:
+        robot_thread.start()
+
     # Consume any stray events that happened since the last gesture
     print 'Waiting for all contacts to leave before recording the gesture...'
     self.touch_dev.FlushSnapshotBuffer()
@@ -95,12 +127,17 @@ class TestSuite:
     if not snapshot:
       print ('\rNo MT snapshots collected before timeout (%d seconds)!' %
              self.no_snapshot_timeout),
-    while snapshot:
-      plotter.add_snapshot(snapshot)
-      snapshots.append(snapshot)
-      print '\rCollected %d MT snapshots' % len(snapshots),
+    while snapshot or (robot_thread and robot_thread.isAlive()):
+      if snapshot:
+        plotter.add_snapshot(snapshot)
+        snapshots.append(snapshot)
+        print '\rCollected %d MT snapshots' % len(snapshots),
       snapshot = self.touch_dev.NextSnapshot(test.timeout)
     print
+
+    # Cleanup the robot gesture thread, if it existed
+    if robot_thread:
+      robot_thread.join()
 
     # Prompt to see if the gesture was performed acceptibly by the user before
     # continuing.  If the user is unsatisfied abort before advancing on to the

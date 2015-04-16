@@ -49,6 +49,7 @@ class Touchbot:
   FINGER_HOME_OFFSET = 2500
   FINGER_CONTACT_CURRENT = 250
   DEFAULT_MAX_EXTENSION = 1500
+  DEFAULT_CALIBRATION_EXTENSION = DEFAULT_MAX_EXTENSION * 0.95
   MIN_FINGER_SPACING = 12
   FINGER_ACCEL_MM_S_S = 1000
   FINGER_DECEL_MM_S_S = 3000
@@ -163,7 +164,7 @@ class Touchbot:
       return None
 
     # Start the finger moving at the specified velocity
-    self.comm.SendFingerCmd('%dV%d' % (finger_number, speed))
+    self._SetFingerVelocity_mm_s(finger_number, speed)
 
     # Now poll the finger's position and current to know when to stop
     while True:
@@ -178,8 +179,12 @@ class Touchbot:
       if current >= Touchbot.FINGER_CONTACT_CURRENT:
         break
 
-    self._ExecuteFingerMove(finger_number, blocking=False)
+    self._SetFingerVelocity_mm_s(finger_number, 0)
     return pos
+
+  def _SetFingerVelocity_mm_s(self, finger_number, speed):
+    """ Set the specified finger's velocity (as opposed to position) """
+    self.comm.SendFingerCmd('%dV%d' % (finger_number, speed))
 
   def _GetFingerCurrent_mA(self, finger_number):
     """ Get the current for a specified finger in mA """
@@ -416,7 +421,7 @@ class Touchbot:
 #                    Actual gestures after this point                          #
 ################################################################################
 
-  def _CalibrateDevice(self, filename=None):
+  def CalibrateDevice(self, filename=None):
     self._PushSpeed(Touchbot.SPEED_FAST)
 
     # First, lift the arm up and clear of any obstructions with the fingers as
@@ -425,7 +430,8 @@ class Touchbot:
     pos = self._AddSafetyClearance(pos)
     self._SetCartesian(pos, finger_distance=0, blocking=True)
 
-    self._SetFingerStates(True, True)
+    self._ExtendFingerUntilContact(1, Touchbot.DEFAULT_CALIBRATION_EXTENSION)
+    self._ExtendFingerUntilContact(2, Touchbot.DEFAULT_CALIBRATION_EXTENSION)
 
     # Prompt the user to calibrate each corner of the device
     CORNER_NAMES = ['top right', 'top left', 'bottom left', 'bottom right']
@@ -445,7 +451,13 @@ class Touchbot:
 
     return device_spec
 
-  def Tap(self, device_spec, tap_location):
+  def Tap(self, device_spec, tap_location, touch_time_s=None):
+    """ This tells the robot to perform a tap gesture at the specified
+    location on the device.
+    If a touch_time_s is specified (in seconds) the robot will leave
+    its finger in contact with the touch sensor for that long, otherwise it
+    will simply perform a quick tap.
+    """
     abs_pos = device_spec.RelativePosToAbsolutePos(tap_location)
     abs_pos = self._CenterAroundSingleFinger(1, abs_pos)
 
@@ -456,4 +468,6 @@ class Touchbot:
     # Touch the pad then lift the finger back up to tap
     self._ExtendFingerUntilContact(1, speed=1000,
                                    cutoff=Touchbot.DEFAULT_MAX_EXTENSION)
+    if touch_time_s:
+      time.sleep(touch_time_s)
     self._MoveFingerAbsolute(1, 0)

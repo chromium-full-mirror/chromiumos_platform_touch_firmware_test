@@ -61,7 +61,7 @@ PERFORMANCE_TESTS = [ONE_FINGER_TRACKING, ONE_FINGER_TO_EDGE,
 ]
 # These tests require a function generator connected to a probe so the
 # test suite can simulate electrical noise conditions.
-NOISE_TESTS = [NOISE_LINE, NOISE_STATIONARY]
+NOISE_TESTS = [NOISE_STATIONARY]
 
 
 # Define the pass/fail criteria for the various validators

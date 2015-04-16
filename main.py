@@ -36,6 +36,12 @@ def parse_arguments():
                           'DUT.  This should be detected automatically, but '
                           'in the event that fails, you may specify "mtb" or '
                           '"mta" with this flag to over-ride it.'))
+  parser.add_option('-n', '--name', dest='name', default='unknown_device',
+                    help='The name of this DUT.  This is used by the robot to '
+                         'store calibration data and is only needed if you are '
+                         'using the touchbot.  Simply keep the name consistent '
+                         'across multiple tests on the same DUT to avoid '
+                         'having to recalibrate the robot each time.')
 
   # Lab equipment specification
   parser.add_option('-r', '--robot', dest='has_robot',

@@ -6,3 +6,4 @@ import noise
 from test import Test
 from test_configurations import *
 from test_result import TestResult
+from constants import *

@@ -6,6 +6,7 @@ import select
 import socket
 
 
+TOUCHBOT_DEBUG = False
 RECV_CHUNK_SIZE = 1024
 MESSAGE_TERMINATOR = '\n'
 
@@ -84,10 +85,12 @@ class TouchbotComm:
 
   def DisplayCmd(self, cmd_string):
     """ Print the name of a command to the console before sending it """
-    print '[COMMAND]\t"%s"' % cmd_string[:-1]
+    if TOUCHBOT_DEBUG:
+      print '[COMMAND]\t"%s"' % cmd_string[:-1]
 
   def DisplayResponse(self, error_code, data):
     """ Display the message the robot returned and indicate any errors """
-    success = (error_code == 0)
-    formatter = '[SUCCESS (%d)]\t%s' if success else '[ERROR(%d)]\t%s'
-    print formatter % (error_code, data)
+    if TOUCHBOT_DEBUG:
+      success = (error_code == 0)
+      formatter = '[SUCCESS (%d)]\t%s' if success else '[ERROR(%d)]\t%s'
+      print formatter % (error_code, data)
