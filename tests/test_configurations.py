@@ -95,8 +95,8 @@ tests_dict = {
         GV.TL: ('top left corner',),
         GV.BR: ('bottom right corner',),
         GV.CENTER: ('center',),
-        GV.HALF_AMPLITUDE: ('10Vpp',),
-        GV.MAX_AMPLITUDE: ('20Vpp',),
+        GV.HALF_AMPLITUDE: ('%spp' % GV.HALF_AMPLITUDE,),
+        GV.MAX_AMPLITUDE: ('%spp' % GV.MAX_AMPLITUDE,),
         GV.SQUARE_WAVE: ('square wave',),
     },
     validators=(
@@ -115,7 +115,7 @@ tests_dict = {
     ),
     prompt='Draw a straight line from {3} with a {0} {1} {2} in noise.',
     subprompt={
-      GV.MAX_AMPLITUDE: ('20Vpp',),
+      GV.MAX_AMPLITUDE: ('%spp' % GV.MAX_AMPLITUDE,),
       GV.SQUARE_WAVE: ('square wave',),
       GV.BLTR: ('bottom left to top right',),
     },

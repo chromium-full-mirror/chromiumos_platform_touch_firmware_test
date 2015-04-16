@@ -80,9 +80,9 @@ class FuzzySingletonMemberFunction(FuzzyMemberFunctions):
   def grade(self, x):
     """The grading method of the fuzzy membership function."""
     if x == self.middle:
-      return 1
+      return 1.0
     elif x <= self.left or x >= self.right:
-      return 0
+      return 0.0
     elif x > self.middle:
       return (0.5 + 0.5 * math.cos((x - self.middle) / self.width_right *
               math.pi))

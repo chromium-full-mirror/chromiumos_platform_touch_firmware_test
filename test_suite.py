@@ -160,7 +160,8 @@ class TestSuite:
 
     # Bundle the Validator results with some details of which gesture was used
     # during the test for easier debugging.
-    test_result = tests.TestResult(results, prompt, plot_image_png)
+    test_result = tests.TestResult(test.variations[self.curr_variation],
+                                   results, prompt, plot_image_png)
 
     # Add the results into our report (And have it print them to stdout, too)
     self.report.AddTestResult(test_result, verbose=True)

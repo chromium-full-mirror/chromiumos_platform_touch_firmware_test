@@ -3,8 +3,11 @@
 # found in the LICENSE file.
 
 import base64
+import io
 import os
 import pickle
+
+import matplotlib.pyplot as plt
 
 
 class Report:
@@ -197,13 +200,13 @@ class Report:
     b = (pass_color['b'] * alpha) + (fail_color['b'] * (1.0 - alpha))
     return "#%02x%02x%02x" % (int(r), int(g), int(b))
 
-  def _GenerateInlinePngTag(self, image):
+  def _GenerateInlinePngTag(self, image, css_class='plot'):
     """ Convert the png image passed in into an embedded image tag.
     This allows us to include images within the HTML but not need to include
     any data files so it's easier to pass around just the single file.
     """
-    return ('<img class="plot" src="data:image/png;base64,%s" />' %
-             base64.b64encode(image))
+    return ('<img class="%s" src="data:image/png;base64,%s" />' %
+             (css_class, base64.b64encode(image)))
 
   def _GenerateValidatorDetails(self, validator_result):
     """ This generates a little table with the details of a single Valifator's
@@ -246,6 +249,57 @@ class Report:
                                            img_html, validators_html)
     return '<li>%s</li>' % content
 
+  def _GenerateNoiseTestResults(self):
+    def IsNoiseValidator(validator_result):
+      return 'noisy' in validator_result.name.lower()
+
+    def IsNoiseTest(test_result):
+      return any([IsNoiseValidator(validator_result)
+                  for validator_result in test_result.validator_results])
+
+    # Filter out only results for noise testing
+    noise_results = [result for result in self.results if IsNoiseTest(result)]
+    if len(noise_results) == 0:
+      return ''
+
+    # Sort the results' scores by frequency
+    scores_by_frequency = {}
+    for noise_result in noise_results:
+      freq, amp, waveform, location = noise_result.variation
+      scores_by_frequency[freq] = scores_by_frequency.get(freq, [])
+
+      for validator_result in noise_result.validator_results:
+        if not IsNoiseValidator(validator_result):
+          continue
+        scores_by_frequency[freq].append(validator_result.score)
+
+    # Compute the average score for each frequency
+    avg_score_by_frequency = {}
+    for freq in scores_by_frequency:
+      for score in scores_by_frequency[freq]:
+        avg = sum(scores_by_frequency[freq]) / len(scores_by_frequency[freq])
+        avg_score_by_frequency[freq] = avg
+
+    # Generate the graphic
+    freqs = sorted(int(f.replace('Hz', '')) for f in scores_by_frequency)
+    scores = [avg_score_by_frequency['%dHz' % freq] for freq in freqs]
+    plt.plot(freqs, scores)
+    plt.title('Touch Noise Test Results')
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Score')
+    plt.ylim([0.0, 1.1])
+
+    image_buffer = io.BytesIO()
+    plt.savefig(image_buffer, format='png', transparent=True)
+    image_buffer.seek(0)
+    image = image_buffer.getvalue()
+    image_buffer.close()
+    image_html = self._GenerateInlinePngTag(image, css_class='noise_results')
+
+    #Finally wrap it in some formatting HTML to make it fit nicely
+    image_header = '<h2>Noise Test Results</h2>'
+    return '%s%s' % (image_header, image_html)
+
   def _GenerateHtmlBody(self):
     """ Generate the html for the <body> tag of the Report.
     This includes the actual results and anything else that will go within the
@@ -265,6 +319,9 @@ class Report:
     validator_list = ('%s<ul class="validators">%s</ul>' %
                       (validator_list_title, validator_list_inner))
 
+    # If there was a noise test, generate a graph to show the results
+    noise_test_results = self._GenerateNoiseTestResults()
+
     # Generate the detailed view of each gesture
     test_details_list_heading = '<h2>Test Details</h2>'
     test_details_list_inner = ''.join([self._GenerateTestDetailsHtml(tr)
@@ -273,5 +330,6 @@ class Report:
                          (test_details_list_heading, test_details_list_inner))
 
     # Wrap everything in <body> tags and return that string
-    return '<body>%s%s%s</body>' % (title, validator_list, test_details_list)
+    return '<body>%s%s%s%s</body>' % (title, validator_list, noise_test_results,
+                                      test_details_list)
 
