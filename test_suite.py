@@ -22,9 +22,7 @@ class TestSuite:
   RunNextTestAndVariation() can be run repeatedly to work your way through
   the entire suite.
   """
-
-  NO_SNAPSHOT_DETECTED_TIMEOUT_MANUAL_S = 60
-  NO_SNAPSHOT_DETECTED_TIMEOUT_ROBOT_S = 5
+  FIRST_SNAPSHOT_TIMEOUT_S = 60
 
   def __init__(self, touch_dev, options, args):
     color.init(autoreset=True)
@@ -67,10 +65,6 @@ class TestSuite:
     self.curr_test = 0
     self.curr_variation = 0
     self.curr_iteration = 1
-
-    self.no_snapshot_timeout = TestSuite.NO_SNAPSHOT_DETECTED_TIMEOUT_MANUAL_S
-    if options.has_robot:
-      self.no_snapshot_timeout = TestSuite.NO_SNAPSHOT_DETECTED_TIMEOUT_ROBOT_S
 
     # Create a new Report that will store all the test Results
     self.report = Report()
@@ -123,10 +117,11 @@ class TestSuite:
     snapshots = []
     plotter = TouchPlotter(self.touch_dev, window_title=prompt)
     print 'Waiting for 1st snapshot...',
-    snapshot = self.touch_dev.NextSnapshot(self.no_snapshot_timeout)
-    if not snapshot:
-      print ('\rNo MT snapshots collected before timeout (%d seconds)!' %
-             self.no_snapshot_timeout),
+    snapshot = None
+    if not robot_thread or not robot_thread.isAlive():
+      snapshot = self.touch_dev.NextSnapshot(TestSuite.FIRST_SNAPSHOT_TIMEOUT_S)
+      if not snapshot:
+        print '\rNo MT snapshots collected before timeout!'
     while snapshot or (robot_thread and robot_thread.isAlive()):
       if snapshot:
         plotter.add_snapshot(snapshot)
