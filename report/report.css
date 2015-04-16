@@ -166,4 +166,5 @@ ul.test_details > li div.validator_details tr.value:hover {
 img.plot {
   float: left;
   width: 48%;
+  background: black;
 }

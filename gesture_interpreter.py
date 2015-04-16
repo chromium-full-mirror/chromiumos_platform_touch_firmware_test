@@ -50,4 +50,4 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
 
 def _PerformStationaryNoiseTest(variation, robot, device_spec):
   frequency, amplitude, waveform, location = variation
-  robot.Tap(device_spec, LOCATION_COORDINATES[location], touch_time_s=5)
+  robot.Tap(device_spec, LOCATION_COORDINATES[location], touch_time_s=4)

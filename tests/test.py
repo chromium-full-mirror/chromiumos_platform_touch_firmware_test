@@ -70,6 +70,8 @@ class Test:
     if not all([value is not None for value in (form, frequency, amplitude)]):
       return None
 
+    if frequency <= 0:
+      return None
     return form, frequency, amplitude
 
   def _ExpandVariationTuples(self, tuples):

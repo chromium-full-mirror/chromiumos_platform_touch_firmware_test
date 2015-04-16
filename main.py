@@ -8,7 +8,6 @@ import sys
 
 import colorama as color
 
-import plotter
 from remote import ChromeOSTouchDevice, AndroidTouchDevice, mt
 from report import Report
 from test_suite import TestSuite
@@ -60,9 +59,6 @@ def parse_arguments():
   # Test suite settings
   parser.add_option('-i', '--iterations', dest='num_iterations', default=1,
                     type=int, help=('The number of test iterations to run.'))
-  parser.add_option('--plot_only', dest='plot_only', default=False,
-                    action='store_true',
-                    help=('Only plot touch evets.  Do not run any tests.'))
 
   (options, args) = parser.parse_args()
 
@@ -110,11 +106,6 @@ def main():
   # Connect to the DUT
   touch_dev = initialize_touch_device(options)
 
-  if options.plot_only:
-    # Show the live events as they come in instead of running any tests
-    plotter.live_display(touch_dev)
-    return 0
-
   if options.dut_type != 'replay':
     # Create a test flow object that will run the test step by step
     test_suite = TestSuite(touch_dev, options, args)
@@ -122,6 +113,7 @@ def main():
     # Run through the entire test suite in turn
     while test_suite.RunNextTestAndVariation():
       pass
+    test_suite.StopPlotter()
 
     # The test suite should have a fully populated Report object now, filled
     # with the results of all the test runs.

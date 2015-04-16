@@ -4,12 +4,13 @@
 
 import os
 import sys
+import webbrowser
 
 import colorama as color
 
 import gesture_interpreter
 import tests
-from plotter import TouchPlotter
+from webplot import Webplot
 from report import Report
 from touchbot import Touchbot, DeviceSpec
 
@@ -23,6 +24,8 @@ class TestSuite:
   the entire suite.
   """
   FIRST_SNAPSHOT_TIMEOUT_S = 60
+  WEBPLOT_ADDR = '127.0.0.1'
+  WEBPLOT_PORT = 8080
 
   def __init__(self, touch_dev, options, args):
     color.init(autoreset=True)
@@ -57,6 +60,13 @@ class TestSuite:
         print (color.Fore.YELLOW + 'Please follow these instructions to '
                'calibrate for your "%s" device' % options.name)
         self.device_spec = self.robot.CalibrateDevice(device_spec_filename)
+
+    # Start up the plotter
+    self.plotter = Webplot(TestSuite.WEBPLOT_ADDR, TestSuite.WEBPLOT_PORT,
+                           self.touch_dev)
+    self.plotter.start()
+    print color.Fore.YELLOW + 'Plots visible at "%s"' % self.plotter.Url()
+    webbrowser.open(self.plotter.Url())
 
     # Compute the list of tests to run
     self.tests = tests.generate_test_list(options)
@@ -111,11 +121,11 @@ class TestSuite:
     # Consume any stray events that happened since the last gesture
     print 'Waiting for all contacts to leave before recording the gesture...'
     self.touch_dev.FlushSnapshotBuffer()
+    self.plotter.Clear()
 
     # Wait a long time for the first event, then have a much shorter
     # timeout on subsequent incoming events
     snapshots = []
-    plotter = TouchPlotter(self.touch_dev, window_title=prompt)
     print 'Waiting for 1st snapshot...',
     snapshot = None
     if not robot_thread or not robot_thread.isAlive():
@@ -124,7 +134,7 @@ class TestSuite:
         print '\rNo MT snapshots collected before timeout!'
     while snapshot or (robot_thread and robot_thread.isAlive()):
       if snapshot:
-        plotter.add_snapshot(snapshot)
+        self.plotter.AddSnapshot(snapshot)
         snapshots.append(snapshot)
         print '\rCollected %d MT snapshots' % len(snapshots),
       snapshot = self.touch_dev.NextSnapshot(test.timeout)
@@ -143,12 +153,11 @@ class TestSuite:
       while yorn not in ['y', 'n', 'yes', 'no', '']:
         print color.Fore.RED + 'Error: please enter "y" or "n" only'
         yorn = raw_input(CONFIRMATION_PROMPT).lower()
-      plot_image_png = plotter.end()
       if yorn in ['n', 'no']:
         print color.Fore.RED + 'Operator rejected the gesture.  Please retry...'
         return True
-    else:
-      plot_image_png = plotter.end()
+
+    plot_image_png = self.plotter.Save(wait_for_image=True)
 
     # Run the validators on these events
     results = test.RunAllValidators(snapshots)
@@ -165,6 +174,9 @@ class TestSuite:
     # indicator as to whether this was the last thing to do or not.
     next_test, next_var = self._Advance()
     return (next_test is not None)
+
+  def StopPlotter(self):
+    self.plotter.Quit()
 
   def _Advance(self):
     """ Move on to the next test/variation pair

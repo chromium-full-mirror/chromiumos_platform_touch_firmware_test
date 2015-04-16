@@ -13,6 +13,7 @@ import logging
 import os
 import re
 import subprocess
+import time
 import threading
 
 import cherrypy
@@ -100,6 +101,8 @@ def _IOError(e, filename):
              '!' * 60, '\n']
   cherrypy.log('\n'.join(err_msg))
 
+image_lock = threading.Event()
+image_string = ''
 
 class WebplotWSHandler(WebSocket):
   """The web socket handler for webplot."""
@@ -137,36 +140,11 @@ class WebplotWSHandler(WebSocket):
   @staticmethod
   def SaveImage(image_data, image_file):
     """Decoded the base64 image data and save it in the file."""
-    try:
-      with open(image_file, 'w') as f:
-        f.write(base64.b64decode(image_data))
-    except IOError as e:
-      _IOError(e, image_file)
-      state.QuitAndShutdown()
-
-
-class TouchDeviceWrapper(object):
-  """This is a wrapper of remote.RemoteTouchDevice.
-
-  It handles the instantiation of different device types, and the beginning
-  and ending of the event stream.
-  """
-
-  def __init__(self, dut_type, addr, is_touchscreen, grab):
-    if dut_type == 'chromeos':
-      if addr is None:
-        addr = '127.0.0.1'
-      self.device = ChromeOSTouchDevice(addr, is_touchscreen, grab=grab)
-    else:
-      self.device = AndroidTouchDevice(addr, True)
-
-  def close(self):
-    """ Close the device gracefully. """
-    if self.device.event_stream_process:
-      self.device.__del__()
-
-  def __str__(self):
-    return '\n  '.join(sorted([str(slot) for slot in self.slots.values()]))
+    global image_string
+    image_string = base64.b64decode(image_data)
+    image_lock.set()
+    with open(image_file, 'w') as f:
+      f.write(image_string)
 
 
 class ConnectionState(object):
@@ -339,16 +317,16 @@ class Webplot(threading.Thread):
     # If the cherrypy server exits for whatever reason, close the device
     # for required cleanup. Otherwise, there might exist local/remote
     # zombie processes.
-    cherrypy.engine.subscribe('exit',  self._device.close)
+    cherrypy.engine.subscribe('exit',  self._device.__del__)
 
     cherrypy.engine.signal_handler.handlers['SIGINT'] = InterruptHandler
     cherrypy.engine.signal_handler.handlers['SIGTERM'] = InterruptHandler
 
   def run(self):
     """Start the cherrypy engine."""
-    x_min, x_max = self._device.device.RangeX()
-    y_min, y_max = self._device.device.RangeY()
-    p_min, p_max = self._device.device.RangeP()
+    x_min, x_max = self._device.RangeX()
+    y_min, y_max = self._device.RangeY()
+    p_min, p_max = self._device.RangeP()
 
     cherrypy.quickstart(
         Root(self._server_addr, self._server_port,
@@ -414,7 +392,7 @@ class Webplot(threading.Thread):
 
   def GetSnapshot(self):
     """Get a snapshot from the touch device."""
-    return self._device.device.NextSnapshot()
+    return self._device.NextSnapshot()
 
   def AddSnapshot(self, snapshot):
     """Convert the snapshot to a proper format and publish it to clients."""
@@ -459,9 +437,20 @@ class Webplot(threading.Thread):
     """
     state.QuitAndShutdown()
 
-  def Save(self):
-    """Notify clients to save the screen."""
+  def Save(self, wait_for_image=False):
+    """Notify clients to save the screen, then wait for the file to appear
+    on disk and return it.
+    """
+    global image_lock
+    global image_string
+
+    # Trigger a save action
     self.Publish('save')
+
+    # Block until the server has completed saving it to disk
+    image_lock.wait()
+    image_lock.clear()
+    return image_string
 
   def Url(self):
     """The url the server is serving at."""
@@ -549,8 +538,12 @@ def Main():
   print '*' * 70 + '\n\n'
 
   # Instantiate a touch device.
-  device = TouchDeviceWrapper(args.dut_type, args.dut_addr, args.is_touchscreen,
-                              args.grab)
+  if args.dut_type == 'chromeos':
+    addr = args.dut_addr if args.dut_addr else '127.0.0.1'
+    device = ChromeOSTouchDevice(addr, args.is_touchscreen, grab=args.grab)
+  else:
+    device = AndroidTouchDevice(args.dut_addr, True)
+
 
   # Instantiate a webplot server daemon and start it.
   webplot = Webplot(args.server_addr, args.server_port, device)
