@@ -288,7 +288,8 @@ class Webplot(threading.Thread):
     webplot.GetAndPlotSnapshots()
   """
 
-  def __init__(self, server_addr, server_port, device, saved_file=SAVED_FILE):
+  def __init__(self, server_addr, server_port, device, saved_file=SAVED_FILE,
+               logging=False):
     self._server_addr = server_addr
     self._server_port = server_port
     self._device = device
@@ -297,6 +298,11 @@ class Webplot(threading.Thread):
 
     self.daemon = True
     self._prev_tids = []
+
+    # The logging is turned off by default when imported as a module so that
+    # it does not mess up the screen.
+    if not logging:
+      cherrypy.log.screen = None
 
     # Allow input traffic in iptables.
     EnableDestinationPort(self._server_port)
@@ -504,7 +510,7 @@ def Main():
   """The main function to launch webplot service."""
   _CheckLegalUser()
 
-  configure_logger(level=logging.DEBUG)
+  configure_logger(level=logging.ERROR)
   args = _ParseArguments()
 
   print '\n' + '-' * 70
@@ -546,7 +552,7 @@ def Main():
 
 
   # Instantiate a webplot server daemon and start it.
-  webplot = Webplot(args.server_addr, args.server_port, device)
+  webplot = Webplot(args.server_addr, args.server_port, device, logging=True)
   webplot.start()
 
   # Get touch snapshots from the touch device and have clients plot them.
