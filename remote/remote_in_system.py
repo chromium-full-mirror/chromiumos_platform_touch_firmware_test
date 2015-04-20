@@ -459,7 +459,7 @@ class AndroidTouchDevice(RemoteInSystemTouchDevice):
 
 class ChromeOSTouchDevice(RemoteInSystemTouchDevice):
   def __init__(self, addr, is_touchscreen=False, protocol='auto', grab=True):
-    program = 'evtest %s ' % ('--grab' if grab else '')
+    program = '/usr/local/bin/evtest %s ' % ('--grab' if grab else '')
     self.begin_event_stream_cmd = program + '/dev/input/event%d'
     self.kill_remote_process_cmd = 'killall evtest'
     RemoteInSystemTouchDevice.__init__(self, addr, is_touchscreen, protocol)
