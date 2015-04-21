@@ -143,8 +143,12 @@ class WebplotWSHandler(WebSocket):
     global image_string
     image_string = base64.b64decode(image_data)
     image_lock.set()
-    with open(image_file, 'w') as f:
-      f.write(image_string)
+    try:
+      with open(image_file, 'w') as f:
+        f.write(image_string)
+    except IOError as e:
+      _IOError(e, image_file)
+      state.QuitAndShutdown()
 
 
 class ConnectionState(object):
