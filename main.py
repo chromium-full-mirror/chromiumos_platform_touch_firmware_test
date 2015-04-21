@@ -103,10 +103,10 @@ def main():
   # Parse and validate the command line arguments
   options, args = parse_arguments()
 
-  # Connect to the DUT
-  touch_dev = initialize_touch_device(options)
-
   if options.dut_type != 'replay':
+    # Connect to the DUT
+    touch_dev = initialize_touch_device(options)
+
     # Create a test flow object that will run the test step by step
     test_suite = TestSuite(touch_dev, options, args)
 
