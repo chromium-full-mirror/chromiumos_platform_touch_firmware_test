@@ -263,31 +263,57 @@ class Report:
       return ''
 
     # Sort the results' scores by frequency
-    scores_by_frequency = {}
+    results_by_frequency = {}
     for noise_result in noise_results:
       freq, amp, waveform, location = noise_result.variation
-      scores_by_frequency[freq] = scores_by_frequency.get(freq, [])
+      results_by_frequency[freq] = results_by_frequency.get(freq, [])
 
       for validator_result in noise_result.validator_results:
         if not IsNoiseValidator(validator_result):
           continue
-        scores_by_frequency[freq].append(validator_result.score)
+        results_by_frequency[freq].append(validator_result)
 
     # Compute the average score for each frequency
+    avg_num_tids_by_frequency = {}
+    max_travel_by_frequency = {}
     avg_score_by_frequency = {}
-    for freq in scores_by_frequency:
-      for score in scores_by_frequency[freq]:
-        avg = sum(scores_by_frequency[freq]) / len(scores_by_frequency[freq])
-        avg_score_by_frequency[freq] = avg
+    for freq in results_by_frequency:
+      num_tids = []
+      max_travel = []
+      scores = []
+      for result in results_by_frequency[freq]:
+        if 'FingerCount' in result.name:
+          num_tids.append(result.observed)
+        if 'Stationary' in result.name:
+          max_travel.append(result.observed)
+        scores.append(result.score)
+      max_travel_by_frequency[freq] = max(max_travel)
+      avg_num_tids_by_frequency[freq] = sum(num_tids) / float(len(num_tids))
+      avg_score_by_frequency[freq] = sum(scores) / float(len(scores))
 
-    # Generate the graphic
-    freqs = sorted(int(f.replace('Hz', '')) for f in scores_by_frequency)
-    scores = [avg_score_by_frequency['%dHz' % freq] for freq in freqs]
-    plt.plot(freqs, scores)
-    plt.title('Touch Noise Test Results')
-    plt.xlabel('Frequency (Hz)')
-    plt.ylabel('Score')
-    plt.ylim([0.0, 1.1])
+    # Generate the graphics here.
+    f, axarr = plt.subplots(3, sharex=True)
+    f.set_size_inches(12, 10)
+    f.suptitle('Touch Noise Test Results')
+
+    # Build a subplot for the number of TIDS for each frequency
+    freqs = sorted(int(f.replace('Hz', '')) for f in avg_num_tids_by_frequency)
+    num_tids = [avg_num_tids_by_frequency['%dHz' % freq] for freq in freqs]
+    axarr[0].set_ylabel('Number of Tracking IDs')
+    axarr[0].plot(freqs, num_tids)
+
+    # Build a subplot for the max distance moved for each frequency
+    freqs = sorted(int(f.replace('Hz', '')) for f in max_travel_by_frequency)
+    max_travel = [max_travel_by_frequency['%dHz' % freq] for freq in freqs]
+    axarr[1].set_ylabel('Maximum Distance Traveled (mm)')
+    axarr[1].plot(freqs, max_travel)
+
+    # Build a subplot clearly marking which frequencies showed errors
+    scores = [1.0 - avg_score_by_frequency['%dHz' % freq] for freq in freqs]
+    axarr[2].set_ylabel('Overall Error Level')
+    axarr[2].plot(freqs, scores, color='black', linewidth='0.25')
+    axarr[2].fill_between(freqs, scores, 0.0, color='red')
+    axarr[2].set_xlabel('Frequency (Hz)')
 
     image_buffer = io.BytesIO()
     plt.savefig(image_buffer, format='png', transparent=True)
