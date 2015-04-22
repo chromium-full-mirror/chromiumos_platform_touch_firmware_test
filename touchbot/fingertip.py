@@ -35,7 +35,9 @@ class Fingertip:
 
 def LoadFingertips(directory):
   fingertips = {}
-  pattern = os.path.join(directory, '*.p')
+  this_dir = os.path.dirname(os.path.abspath(__file__))
+  full_path = os.path.join(this_dir, directory)
+  pattern = os.path.join(full_path, '*.p')
   for filename in glob.glob(pattern):
     fingertip = Fingertip.FromPickledFile(filename)
     fingertip_name, extension = os.path.splitext(os.path.basename(filename))

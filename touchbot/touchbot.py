@@ -43,6 +43,11 @@ class Touchbot:
   MIN_FINGER_DISTANCE = 0.5
   MAX_FINGER_DISTANCE = 140
 
+  # Settings for how to interpolate movement between two points
+  STRAIGHT_INTERPOLATION = -1
+  JOINT_INTERPOLATION = 0
+  INTERPOLATION_TYPES = [STRAIGHT_INTERPOLATION, JOINT_INTERPOLATION]
+
   # Constants for the finger actuators
   FINGER_NUMBERS = [1, 2]
   FINGER_CURRENT_LIMIT_MA = 550
@@ -70,8 +75,11 @@ class Touchbot:
       self._InitializeFinger(finger_number)
 
     # Set everything to a sane speed
-    self._PushSpeed(Touchbot.SPEED_MEDIUM)
+    self.PushSpeed(Touchbot.SPEED_MEDIUM)
     self._PushFingerSpeed_mm_per_s(1000)
+
+    # By default we want the robot to use linear movement interpolation
+    self._SetInterpolation(Touchbot.STRAIGHT_INTERPOLATION)
 
   def __del__(self):
     """ Move the robot arm up and disable the fingers before quitting. """
@@ -86,11 +94,11 @@ class Touchbot:
     The joint can only wrap around so many times before it's stuck, so this is
     a safe place to start a gesture from.
     """
-    self._PushSpeed(Touchbot.SPEED_MEDIUM)
+    self.PushSpeed(Touchbot.SPEED_MEDIUM)
     pos = self._GetCurrentPosition()
     pos.ax_4 = 0
     err, _ = self._SetAngles(pos)
-    self._PopSpeed()
+    self.PopSpeed()
     if err:
       print 'ERROR: unable to center the wrist.'
 
@@ -154,32 +162,33 @@ class Touchbot:
       self._ExtendFingerUntilContact(2, Touchbot.DEFAULT_MAX_EXTENSION)
 
   def _ExtendFingerUntilContact(self, finger_number, speed=1, cutoff=None):
-    """ Extend the specified finger slowly until it touches something.
+    """ Extend the specified finger(s) slowly until it touches something.
     This is done by telling the finger to extend slowly and polling the
     amount of current the actuator is drawing.  As soon as it meets some
     resistance the current will jump, indicating that it has made contact.
     """
-    if finger_number not in (1, 2):
+    if finger_number not in (1, 2, None):
       print 'ERROR: illegal finger_number (%d)' % finger_number
       return None
+    fingers_to_extend = (set([1, 2]) if finger_number is None
+                         else set([finger_number]))
 
-    # Start the finger moving at the specified velocity
-    self._SetFingerVelocity_mm_s(finger_number, speed)
+    # Start the finger(s) moving at the specified velocity
+    for finger in fingers_to_extend:
+      self._SetFingerVelocity_mm_s(finger, speed)
 
-    # Now poll the finger's position and current to know when to stop
-    while True:
-      pos = self._GetFingerPos(finger_number)
+    # Now poll the fingers' positions and current to know when to stop
+    while len(fingers_to_extend) > 0:
+      for finger in list(fingers_to_extend):
+        pos = self._GetFingerPos(finger)
+        current = self._GetFingerCurrent_mA(finger)
 
-      # If we've passed a cutoff point, stop
-      if cutoff is not None and pos >= cutoff:
-        break
+        # If we've passed a cutoff point, stop
+        if ((cutoff is not None and pos >= cutoff) or
+            (current >= Touchbot.FINGER_CONTACT_CURRENT)):
+          self._SetFingerVelocity_mm_s(finger, 0)
+          fingers_to_extend.remove(finger)
 
-      # If the current is spiking, stop
-      current = self._GetFingerCurrent_mA(finger_number)
-      if current >= Touchbot.FINGER_CONTACT_CURRENT:
-        break
-
-    self._SetFingerVelocity_mm_s(finger_number, 0)
     return pos
 
   def _SetFingerVelocity_mm_s(self, finger_number, speed):
@@ -286,6 +295,14 @@ class Touchbot:
     prof = self._GetCurrentProfile()
     return prof.speed
 
+  def _SetInterpolation(self, interpolation_type):
+    if interpolation_type not in Touchbot.INTERPOLATION_TYPES:
+      print 'ERROR: Invalid interpolation type (%d).' % interpolation_type
+      return
+    prof = self._GetCurrentProfile()
+    prof.straight = interpolation_type
+    self._SetProfileData(prof)
+
   def _FreeAxes(self):
     """ Set all axis into free mode, ie: make them go limp. """
     return self.comm.SendCmd('freemode', 0)
@@ -352,11 +369,11 @@ class Touchbot:
     new_pos.z = Touchbot.SAFETY_CLEARANCE
     return new_pos
 
-  def _PushSpeed(self, new_speed):
+  def PushSpeed(self, new_speed):
     self.speed_stack.append(self._GetSpeed())
     self._SetSpeed(new_speed)
 
-  def _PopSpeed(self):
+  def PopSpeed(self):
     if len(self.speed_stack) >= 1:
       self._SetSpeed(self.speed_stack.pop())
 
@@ -381,12 +398,12 @@ class Touchbot:
     self._SetFingerStates(False, False)
     self._SetAngles(fingertip.above_pos)
 
-    self._PushSpeed(Touchbot.SPEED_VERY_SLOW)
+    self.PushSpeed(Touchbot.SPEED_VERY_SLOW)
 
     self._MoveBothFingersAbsolute(fingertip.extension1, fingertip.extension2)
     self._SetCartesian(fingertip.slide_pos)
 
-    self._PopSpeed()
+    self.PopSpeed()
 
     self._PushFingerSpeed_mm_per_s(1 if fingertip.IsHeavy() else 20)
     self._SetFingerStates(False, False)
@@ -397,32 +414,38 @@ class Touchbot:
     self._SetFingerStates(False, False)
     self._SetCartesian(fingertip.slide_pos)
 
-    self._PushSpeed(Touchbot.SPEED_VERY_SLOW)
+    self.PushSpeed(Touchbot.SPEED_VERY_SLOW)
     self._PushFingerSpeed_mm_per_s(1 if fingertip.IsHeavy() else 20)
 
     self._MoveBothFingersAbsolute(fingertip.extension1, fingertip.extension2)
     self._SetCartesian(fingertip.above_pos)
 
-    self._PopSpeed()
+    self.PopSpeed()
     self._PopFingerSpeed()
     self._SetFingerStates(False, False)
 
-  def _CenterAroundSingleFinger(self, finger_number, pos):
-    """ Offset the coordinates so that finger 1 is centered at the point given,
+  def _CenterForFingertip(self, fingertip, pos):
+    """ Offset the coordinates so that  is centered at the point given,
     not the point directly between the two fingers.
     """
+    # Two-finger tips are already centered
+    if fingertip.finger_number not in [1, 2]:
+      return pos
+
     # Shift the x and y accordingly for both points in the line
-    angle = math.radians(pos.yaw - 90)
-    pos.x += math.cos(angle) * (pos.ax_5 + Touchbot.MIN_FINGER_SPACING) / 2.0
-    pos.y += math.sin(angle) * (pos.ax_5 + Touchbot.MIN_FINGER_SPACING) / 2.0
+    angle_deg = pos.yaw + (-90 if fingertip.finger_number == 1 else 90)
+    angle_rad = math.radians(angle_deg)
+    pos.x += math.cos(angle_rad) * (pos.ax_5 + Touchbot.MIN_FINGER_SPACING) / 2.0
+    pos.y += math.sin(angle_rad) * (pos.ax_5 + Touchbot.MIN_FINGER_SPACING) / 2.0
     return pos
+
 
 ################################################################################
 #                    Actual gestures after this point                          #
 ################################################################################
 
   def CalibrateDevice(self, filename=None):
-    self._PushSpeed(Touchbot.SPEED_FAST)
+    self.PushSpeed(Touchbot.SPEED_FAST)
 
     # First, lift the arm up and clear of any obstructions with the fingers as
     # close together as they can to allow for easy centering
@@ -442,7 +465,7 @@ class Touchbot:
         corners.append(self._CalibratePosition())
 
     self._SetFingerStates(False, False)
-    self._PopSpeed()
+    self.PopSpeed()
 
     # Build a DeviceSpec and save to disk if a filename was specified
     device_spec = DeviceSpec(*corners)
@@ -451,7 +474,8 @@ class Touchbot:
 
     return device_spec
 
-  def Tap(self, device_spec, tap_location, touch_time_s=None):
+  def SingleTipTap(self, device_spec, fingertip, tap_location,
+                   touch_time_s=None):
     """ This tells the robot to perform a tap gesture at the specified
     location on the device.
     If a touch_time_s is specified (in seconds) the robot will leave
@@ -459,15 +483,47 @@ class Touchbot:
     will simply perform a quick tap.
     """
     abs_pos = device_spec.RelativePosToAbsolutePos(tap_location)
-    abs_pos = self._CenterAroundSingleFinger(1, abs_pos)
+    abs_pos = self._CenterForFingertip(fingertip, abs_pos)
 
     # Get into position
     self._SetFingerStates(False, False)
     self._SetCartesian(abs_pos, finger_distance=abs_pos.ax_5)
 
     # Touch the pad then lift the finger back up to tap
-    self._ExtendFingerUntilContact(1, speed=1000,
+    self._ExtendFingerUntilContact(fingertip.finger_number, speed=1000,
                                    cutoff=Touchbot.DEFAULT_MAX_EXTENSION)
     if touch_time_s:
       time.sleep(touch_time_s)
-    self._MoveFingerAbsolute(1, 0)
+
+    # Then lift up
+    self._SetFingerStates(False, False)
+
+  def SingleTipLine(self, device_spec, fingertip, start_location, end_location,
+                    pause_s=0):
+    """ Draw a line with a single finger on the pad
+    This gesture will:
+      1. Center the specified fingertip over the start location
+      2. Touch down
+      3. Optionally pause for the specified number of seconds
+      4. Move to the end location
+      5. Lift up
+    """
+    self._SetFingerStates(False, False)
+
+    # Move into position
+    start_abs = device_spec.RelativePosToAbsolutePos(start_location)
+    start_abs = self._CenterForFingertip(fingertip, start_abs)
+    self._SetCartesian(start_abs, finger_distance=start_abs.ax_5)
+
+    # Extend the finger in question and touch the pad
+    self._ExtendFingerUntilContact(fingertip.finger_number, speed=100,
+                                   cutoff=Touchbot.DEFAULT_MAX_EXTENSION)
+    time.sleep(pause_s)
+
+    # Move to the end position
+    end_abs = device_spec.RelativePosToAbsolutePos(end_location)
+    end_abs = self._CenterForFingertip(fingertip, end_abs)
+    self._SetCartesian(end_abs, finger_distance=end_abs.ax_5)
+
+    # Then lift up
+    self._SetFingerStates(False, False)

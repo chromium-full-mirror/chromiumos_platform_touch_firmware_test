@@ -7,6 +7,7 @@ import sys
 
 from collections import namedtuple
 
+import fingertip
 from device_spec import DeviceSpec
 from position import Position
 from profile import Profile
