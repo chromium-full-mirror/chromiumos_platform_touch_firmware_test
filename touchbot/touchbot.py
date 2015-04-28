@@ -465,6 +465,10 @@ class Touchbot:
         corners.append(self._CalibratePosition())
 
     self._SetFingerStates(False, False)
+
+    pos = self._GetCurrentPosition()
+    pos = self._AddSafetyClearance(pos)
+    self._SetCartesian(pos)
     self.PopSpeed()
 
     # Build a DeviceSpec and save to disk if a filename was specified
