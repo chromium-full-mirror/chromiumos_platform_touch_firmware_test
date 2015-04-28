@@ -77,6 +77,8 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
   fn = None
   if test.name == tests.NOISE_STATIONARY:
     fn = lambda: _PerformStationaryNoiseTest(variation, robot, device_spec)
+  elif test.name == tests.ONE_FINGER_TAP:
+    fn = lambda: _PerformOneFingerTapTest(variation, robot, device_spec)
   elif test.name in SINGLE_FINGER_LINE_TESTS:
     pause = 1 if test.name == tests.ONE_FINGER_TRACKING_FROM_CENTER else 0
     fn = lambda: _PerformOneFingerLineTest(variation, robot, device_spec, pause)
@@ -93,6 +95,13 @@ def _PerformStationaryNoiseTest(variation, robot, device_spec):
   tap_position = LOCATION_COORDINATES[location]
   fingertip = robot.fingertips[STANDARD_FINGERTIP]
   robot.SingleTipTap(device_spec, fingertip, tap_position, touch_time_s=4)
+
+
+def _PerformOneFingerTapTest(variation, robot, device_spec):
+  location, = variation
+  tap_position = LOCATION_COORDINATES[location]
+  fingertip = robot.fingertips[STANDARD_FINGERTIP]
+  robot.SingleTipTap(device_spec, fingertip, tap_position)
 
 
 def _PerformOneFingerLineTest(variation, robot, device_spec, pause_time_s):
