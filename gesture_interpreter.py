@@ -8,6 +8,7 @@ In essence, you use this class to go from a Test object to the robot
 actually performing the correct gesture on the pad.
 """
 
+import math
 from threading import Thread
 
 import colorama as color
@@ -17,6 +18,7 @@ from touchbot import Touchbot
 
 
 STANDARD_FINGERTIP = '1round_9mm'
+STANDARD_SECONDARY_FINGERTIP = '2round_9mm'
 
 BUFFER_SIZE = 0.1
 OVERSHOOT_DISTANCE = 0.05
@@ -82,6 +84,8 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
   elif test.name in SINGLE_FINGER_LINE_TESTS:
     pause = 1 if test.name == tests.ONE_FINGER_TRACKING_FROM_CENTER else 0
     fn = lambda: _PerformOneFingerLineTest(variation, robot, device_spec, pause)
+  elif test.name in tests.TWO_FINGER_TRACKING:
+    fn = lambda: _PerformTwoFingerLineTest(variation, robot, device_spec)
 
   if fn is None:
     print color.Fore.RED + 'Error: Robot unable to perform gesture!'
@@ -110,5 +114,25 @@ def _PerformOneFingerLineTest(variation, robot, device_spec, pause_time_s):
   fingertip = robot.fingertips[STANDARD_FINGERTIP]
 
   robot.PushSpeed(SPEEDS[speed])
-  robot.SingleTipLine(device_spec, fingertip, start, end, pause_time_s)
+  robot.Line(device_spec, [fingertip], start, end, pause_time_s)
+  robot.PopSpeed()
+
+
+def _PerformTwoFingerLineTest(variation, robot, device_spec):
+  direction, speed = variation
+  start, end = LINE_DIRECTION_COORDINATES[direction]
+
+  # Compute the fingertip angle to be perpendicular to the
+  # movement direction
+  x1, y1 = start
+  x2, y2 = end
+  dy = y2 - y1
+  dx = x2 - x1
+  angle = -1 * (math.degrees(math.atan2(y2 - y1, x2 - x1)) + 90)
+
+  fingertips = [robot.fingertips[STANDARD_FINGERTIP],
+                robot.fingertips[STANDARD_SECONDARY_FINGERTIP]]
+  robot.PushSpeed(SPEEDS[speed])
+  robot.Line(device_spec, fingertips, start, end,
+             fingertip_spacing=5, fingertip_angle=angle)
   robot.PopSpeed()

@@ -56,6 +56,7 @@ class Touchbot:
   DEFAULT_MAX_EXTENSION = 1500
   DEFAULT_CALIBRATION_EXTENSION = DEFAULT_MAX_EXTENSION * 0.95
   MIN_FINGER_SPACING = 12
+  DEFAULT_FINGER_SPACING = 20
   FINGER_ACCEL_MM_S_S = 500
   FINGER_DECEL_MM_S_S = 2000
 
@@ -502,31 +503,49 @@ class Touchbot:
     # Then lift up
     self._SetFingerStates(False, False)
 
-  def SingleTipLine(self, device_spec, fingertip, start_location, end_location,
-                    pause_s=0):
-    """ Draw a line with a single finger on the pad
+  def Line(self, device_spec, fingertips, start_location, end_location,
+           fingertip_angle=0, fingertip_spacing=None, pause_s=0):
+    """ Draw a line on the pad
     This gesture will:
-      1. Center the specified fingertip over the start location
+      1. Center the specified fingertip(s) over the start location
       2. Touch down
       3. Optionally pause for the specified number of seconds
       4. Move to the end location
       5. Lift up
     """
+    # Compute how far apart the fingers should be spread
+    if fingertip_spacing is None:
+      for fingertip in fingertips:
+        if fingertip.finger_number is None:
+          fingertip_spacing = fingertip.above_pos.ax_5
+    if fingertip_spacing is None:
+      fingertip_spacing = Touchbot.DEFAULT_FINGER_SPACING
+
+    # Raise up both fingers
     self._SetFingerStates(False, False)
 
     # Move into position
     start_abs = device_spec.RelativePosToAbsolutePos(start_location)
-    start_abs = self._CenterForFingertip(fingertip, start_abs)
+    start_abs.yaw += fingertip_angle
+    start_abs.ax_5 = fingertip_spacing
+    if len(fingertips) == 1:
+      start_abs = self._CenterForFingertip(fingertip, start_abs)
     self._SetCartesian(start_abs, finger_distance=start_abs.ax_5)
 
     # Extend the finger in question and touch the pad
-    self._ExtendFingerUntilContact(fingertip.finger_number, speed=100,
+    fingers_to_extend = fingertips[0].finger_number
+    if len(fingertips) > 1:
+      fingers_to_extend = None
+    self._ExtendFingerUntilContact(fingers_to_extend, speed=100,
                                    cutoff=Touchbot.DEFAULT_MAX_EXTENSION)
     time.sleep(pause_s)
 
     # Move to the end position
     end_abs = device_spec.RelativePosToAbsolutePos(end_location)
-    end_abs = self._CenterForFingertip(fingertip, end_abs)
+    end_abs.yaw += fingertip_angle
+    end_abs.ax_5 = fingertip_spacing
+    if len(fingertips) == 1:
+      end_abs = self._CenterForFingertip(fingertip, end_abs)
     self._SetCartesian(end_abs, finger_distance=end_abs.ax_5)
 
     # Then lift up
