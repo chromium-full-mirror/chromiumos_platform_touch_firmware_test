@@ -6,6 +6,7 @@ import glob
 import os
 import pickle
 import position
+import re
 
 class Fingertip:
   """ This is a class that describes a single fingertip used by the robot. """
@@ -31,6 +32,15 @@ class Fingertip:
     the robot needs to move more slowly to prevent knocking it off the magnets.
     """
     return 'fingers' in self.name
+
+  def diameter(self):
+    """ Returns the diameter in mm if this is a round tip, otherwise None
+    Round fingertips are named like "$FINGERNUMBERround_$DIAMETERmm"
+    """
+    matches = re.match('^.*_(\d*)mm.*$', self.name)
+    if matches:
+      return int(matches.group(1))
+    return None
 
 
 def LoadFingertips(directory):

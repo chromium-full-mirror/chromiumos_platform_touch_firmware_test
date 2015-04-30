@@ -84,8 +84,10 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
   elif test.name in SINGLE_FINGER_LINE_TESTS:
     pause = 1 if test.name == tests.ONE_FINGER_TRACKING_FROM_CENTER else 0
     fn = lambda: _PerformOneFingerLineTest(variation, robot, device_spec, pause)
-  elif test.name in tests.TWO_FINGER_TRACKING:
+  elif test.name == tests.TWO_FINGER_TRACKING:
     fn = lambda: _PerformTwoFingerLineTest(variation, robot, device_spec)
+  elif test.name == tests.RESTING_FINGER_PLUS_2ND_FINGER_MOVE:
+    fn = lambda: _PerformRestingFingerTest(variation, robot, device_spec)
 
   if fn is None:
     print color.Fore.RED + 'Error: Robot unable to perform gesture!'
@@ -135,4 +137,19 @@ def _PerformTwoFingerLineTest(variation, robot, device_spec):
   robot.PushSpeed(SPEEDS[speed])
   robot.Line(device_spec, fingertips, start, end,
              fingertip_spacing=5, fingertip_angle=angle)
+  robot.PopSpeed()
+
+
+def _PerformRestingFingerTest(variation, robot, device_spec):
+  direction, speed = variation
+  start, end = LINE_DIRECTION_COORDINATES[direction]
+  stationary_location = LOCATION_COORDINATES[tests.GV.BL]
+
+  stationary_fingertip = robot.fingertips[STANDARD_FINGERTIP]
+  moving_fingertip = robot.fingertips[STANDARD_SECONDARY_FINGERTIP]
+
+  robot.PushSpeed(SPEEDS[speed])
+  robot.LineWithStationaryFinger(device_spec, stationary_fingertip,
+                                 moving_fingertip, start, end,
+                                 stationary_location)
   robot.PopSpeed()

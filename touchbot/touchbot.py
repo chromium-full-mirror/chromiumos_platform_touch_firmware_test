@@ -8,6 +8,8 @@ import os
 import sys
 import time
 
+import numpy as np
+
 from device_spec import DeviceSpec
 from fingertip import Fingertip, LoadFingertips
 from numpy import clip
@@ -42,11 +44,18 @@ class Touchbot:
   # Limits on how far the robot hand can move the fingers in and out
   MIN_FINGER_DISTANCE = 0.5
   MAX_FINGER_DISTANCE = 140
+  MIN_CENTER_TO_CENTER_DISTANCE_MM = 10.0
 
   # Settings for how to interpolate movement between two points
   STRAIGHT_INTERPOLATION = -1
   JOINT_INTERPOLATION = 0
   INTERPOLATION_TYPES = [STRAIGHT_INTERPOLATION, JOINT_INTERPOLATION]
+
+  # Setting for movement blending on the robot.  These set how the robot
+  # blends consecutive movement commands
+  BLEND_MOVEMENTS = -1
+  PRECISE_MOVEMENTS = 0
+  SMOOTHING_TYPES = [BLEND_MOVEMENTS, PRECISE_MOVEMENTS]
 
   # Constants for the finger actuators
   FINGER_NUMBERS = [1, 2]
@@ -81,6 +90,10 @@ class Touchbot:
 
     # By default we want the robot to use linear movement interpolation
     self._SetInterpolation(Touchbot.STRAIGHT_INTERPOLATION)
+
+    # By default the robot should be set to not blend consecutive move commands
+    # to produce more precise motions, at the cost of pauses between them.
+    self._SetSmoothing(Touchbot.PRECISE_MOVEMENTS)
 
   def __del__(self):
     """ Move the robot arm up and disable the fingers before quitting. """
@@ -304,6 +317,14 @@ class Touchbot:
     prof.straight = interpolation_type
     self._SetProfileData(prof)
 
+  def _SetSmoothing(self, smoothing_type):
+    if smoothing_type not in Touchbot.SMOOTHING_TYPES:
+      print 'ERROR: Invalid smoothing type (%d).' % smoothing_type
+      return
+    prof = self._GetCurrentProfile()
+    prof.inRange = smoothing_type
+    self._SetProfileData(prof)
+
   def _FreeAxes(self):
     """ Set all axis into free mode, ie: make them go limp. """
     return self.comm.SendCmd('freemode', 0)
@@ -440,6 +461,18 @@ class Touchbot:
     pos.y += math.sin(angle_rad) * (pos.ax_5 + Touchbot.MIN_FINGER_SPACING) / 2.0
     return pos
 
+  def _IntermediatePoints(self, start, end, steps=15):
+    """ Compute a number of intermediate points between the given
+    coordinates.
+
+    This function returns a list of coordinate tuples, linearly interpolating
+    between start and end.
+    """
+    x1, y1 = start
+    x2, y2 = end
+    return [(x1 * (1.0 - alpha) + x2 * alpha, y1 * (1.0 - alpha) + y2 * alpha)
+            for alpha in np.linspace(0.0, 1.0, num=steps)]
+
 
 ################################################################################
 #                    Actual gestures after this point                          #
@@ -549,4 +582,58 @@ class Touchbot:
     self._SetCartesian(end_abs, finger_distance=end_abs.ax_5)
 
     # Then lift up
+    self._SetFingerStates(False, False)
+
+  def LineWithStationaryFinger(self, device_spec, stationary_fingertip,
+                               moving_fingertip, start_location, end_location,
+                               stationary_location):
+
+    stationary_abs = device_spec.RelativePosToAbsolutePos(stationary_location,
+                          max_diagonal_distance=Touchbot.MAX_FINGER_DISTANCE)
+    sx, sy = stationary_abs.x, stationary_abs.y
+
+    positions = []
+    for moving_relative in self._IntermediatePoints(start_location,
+                                                    end_location):
+      # Convert into the absolute space, using the device spec
+      moving_abs = device_spec.RelativePosToAbsolutePos(moving_relative,
+                          max_diagonal_distance=Touchbot.MAX_FINGER_DISTANCE)
+      mx, my = moving_abs.x, moving_abs.y
+
+      # Find the center point between the two fingers
+      cx = (mx + sx) / 2.0
+      cy = (my + sy) / 2.0
+
+      # Compute the angle between the two fingers
+      dx = mx - sx
+      dy = my - sy
+      angle = math.degrees(math.atan2(dy, dx)) + 90
+
+      # Compute the distance between the fingers
+      d = (dx ** 2 + dy ** 2) ** 0.5
+      d -= Touchbot.MIN_CENTER_TO_CENTER_DISTANCE_MM
+
+      # Issue the movement command.  Start with a known good location on the
+      # sensor and then modify the coordinates to fit the gesture.
+      pos = moving_abs
+      pos.x = cx
+      pos.y = cy
+      pos.yaw = angle
+      pos.ax_5 = d
+      positions.append(pos)
+
+    # Move the robot into position
+    self._SetCartesian(positions[0], finger_distance=positions[0].ax_5,
+                       blocking=True)
+    self._ExtendFingerUntilContact(stationary_fingertip.finger_number, speed=30)
+    self._ExtendFingerUntilContact(moving_fingertip.finger_number, speed=30)
+
+    # Perform the gesture
+    self._SetSmoothing(Touchbot.BLEND_MOVEMENTS)
+    for pos in positions:
+      self._SetCartesian(pos, finger_distance=pos.ax_5, blocking=False)
+    self._SetSmoothing(Touchbot.PRECISE_MOVEMENTS)
+    self._Wait()
+
+    # Lift off the pad
     self._SetFingerStates(False, False)

@@ -52,13 +52,43 @@ class DeviceSpec:
             self.__InterpolateValue(p1.ax_4, p2.ax_4, ratio),
             self.__InterpolateValue(p1.ax_5, p2.ax_5, ratio))
 
-  def RelativePosToAbsolutePos(self, rel_p, angle=None):
+  def __ScaleForMaxDiagonalDistance(self, max_diagonal_distance):
+    # If there's no limit to the size, then there's no need to scale
+    if not max_diagonal_distance:
+      return self.tl, self.tr, self.bl, self.br
+
+    # If the limit on the size is bigger than the device, then we're done.
+    width = self.br.x - self.tl.x
+    height = self.tl.y - self.br.y
+    diagonal_distance = (width ** 2 + height ** 2) ** 0.5
+    if diagonal_distance <= max_diagonal_distance:
+      return self.tl, self.tr, self.bl, self.br
+
+    # Otherwise we have to scale it down
+    shrink_ratio = diagonal_distance / max_diagonal_distance
+    center = self.RelativePosToAbsolutePos((0.5, 0.5))
+    tl = self.__InterpolatePosition(self.tl, center, shrink_ratio)
+    tr = self.__InterpolatePosition(self.tr, center, shrink_ratio)
+    bl = self.__InterpolatePosition(self.bl, center, shrink_ratio)
+    br = self.__InterpolatePosition(self.br, center, shrink_ratio)
+    return tl, tr, bl, br
+
+
+  def RelativePosToAbsolutePos(self, rel_p, angle=None,
+                               max_diagonal_distance=None):
     """ Convert from relative (0.0->1.0 scaled) coordinates to absolute
     values for this device.
+
+    If a max_diagonal_distance is supplied the area will be
+    scaled down to a section in the center of the device small
+    enough that all points in it are within that distance of each
+    other.
     """
     rel_x, rel_y = rel_p
-    ptop = self.__InterpolatePosition(self.tl, self.tr, rel_x)
-    pbot = self.__InterpolatePosition(self.bl, self.br, rel_x)
+    tl, tr, bl, br = self.__ScaleForMaxDiagonalDistance(max_diagonal_distance)
+
+    ptop = self.__InterpolatePosition(tl, tr, rel_x)
+    pbot = self.__InterpolatePosition(bl, br, rel_x)
     abs_p = self.__InterpolatePosition(ptop, pbot, rel_y)
     if angle is not None:
       abs_p.yaw += angle
