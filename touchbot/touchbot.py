@@ -474,6 +474,13 @@ class Touchbot:
     return [(x1 * (1.0 - alpha) + x2 * alpha, y1 * (1.0 - alpha) + y2 * alpha)
             for alpha in np.linspace(0.0, 1.0, num=steps)]
 
+  def _SuggestSpacing(self, fingertips):
+    # Guess how far apart to space the fingers for a gesture using these tips
+    for fingertip in fingertips:
+      if fingertip.finger_number is None:
+        return fingertip.above_pos.ax_5
+    return Touchbot.DEFAULT_FINGER_SPACING
+
 
 ################################################################################
 #                    Actual gestures after this point                          #
@@ -513,23 +520,28 @@ class Touchbot:
 
     return device_spec
 
-  def SingleTipTap(self, device_spec, fingertip, tap_location,
-                   touch_time_s=None):
+  def Tap(self, device_spec, fingertips, tap_location,
+          touch_time_s=None, angle=0):
     """ This tells the robot to perform a tap gesture at the specified
     location on the device.
     If a touch_time_s is specified (in seconds) the robot will leave
     its finger in contact with the touch sensor for that long, otherwise it
     will simply perform a quick tap.
     """
-    abs_pos = device_spec.RelativePosToAbsolutePos(tap_location)
-    abs_pos = self._CenterForFingertip(fingertip, abs_pos)
+    abs_pos = device_spec.RelativePosToAbsolutePos(tap_location, angle=angle)
+    if len(fingertips) == 1:
+      abs_pos = self._CenterForFingertip(fingertips[0], abs_pos)
+    fingertip_spacing = self._SuggestSpacing(fingertips)
 
     # Get into position
     self._SetFingerStates(False, False)
-    self._SetCartesian(abs_pos, finger_distance=abs_pos.ax_5)
+    self._SetCartesian(abs_pos, finger_distance=fingertip_spacing)
 
     # Touch the pad then lift the finger back up to tap
-    self._ExtendFingerUntilContact(fingertip.finger_number, speed=1000,
+    finger_number = None
+    if len(fingertips) == 1:
+      finger_number = fingertips[0].finger_number
+    self._ExtendFingerUntilContact(finger_number, speed=1000,
                                    cutoff=Touchbot.DEFAULT_MAX_EXTENSION)
     if touch_time_s:
       time.sleep(touch_time_s)
@@ -549,11 +561,7 @@ class Touchbot:
     """
     # Compute how far apart the fingers should be spread
     if fingertip_spacing is None:
-      for fingertip in fingertips:
-        if fingertip.finger_number is None:
-          fingertip_spacing = fingertip.above_pos.ax_5
-    if fingertip_spacing is None:
-      fingertip_spacing = Touchbot.DEFAULT_FINGER_SPACING
+      fingertip_spacing = self._SuggestSpacing(fingertips)
 
     # Raise up both fingers
     self._SetFingerStates(False, False)

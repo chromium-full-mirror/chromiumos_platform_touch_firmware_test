@@ -67,7 +67,7 @@ SPEEDS = {
     tests.GV.SLOW: Touchbot.SPEED_SLOW,
 }
 
-PINCH_ANGLES = {
+ANGLES = {
     tests.GV.HORIZONTAL: 0,
     tests.GV.VERTICAL: 90,
     tests.GV.DIAGONAL: 45,
@@ -88,6 +88,8 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
     fn = lambda: _PerformStationaryNoiseTest(variation, robot, device_spec)
   elif test.name == tests.ONE_FINGER_TAP:
     fn = lambda: _PerformOneFingerTapTest(variation, robot, device_spec)
+  elif test.name == tests.TWO_FINGER_TAP:
+    fn = lambda: _PerformTwoFingerTapTest(variation, robot, device_spec)
   elif test.name in SINGLE_FINGER_LINE_TESTS:
     pause = 1 if test.name == tests.ONE_FINGER_TRACKING_FROM_CENTER else 0
     fn = lambda: _PerformOneFingerLineTest(variation, robot, device_spec, pause)
@@ -109,14 +111,24 @@ def _PerformStationaryNoiseTest(variation, robot, device_spec):
   frequency, amplitude, waveform, location = variation
   tap_position = LOCATION_COORDINATES[location]
   fingertip = robot.fingertips[STANDARD_FINGERTIP]
-  robot.SingleTipTap(device_spec, fingertip, tap_position, touch_time_s=4)
+  robot.Tap(device_spec, [fingertip], tap_position, touch_time_s=4)
 
 
 def _PerformOneFingerTapTest(variation, robot, device_spec):
   location, = variation
   tap_position = LOCATION_COORDINATES[location]
   fingertip = robot.fingertips[STANDARD_FINGERTIP]
-  robot.SingleTipTap(device_spec, fingertip, tap_position)
+  robot.Tap(device_spec, [fingertip], tap_position)
+
+
+def _PerformTwoFingerTapTest(variation, robot, device_spec):
+  angle, = variation
+
+  fingertip1 = robot.fingertips[STANDARD_FINGERTIP]
+  fingertip2 = robot.fingertips[STANDARD_SECONDARY_FINGERTIP]
+  fingertips = [fingertip1, fingertip2]
+
+  robot.Tap(device_spec, fingertips, (CENTER, CENTER), angle=ANGLES[angle])
 
 
 def _PerformOneFingerLineTest(variation, robot, device_spec, pause_time_s):
@@ -175,6 +187,6 @@ def _PerformPinchTest(variation, robot, device_spec):
     start_distance, end_distance = min_spread, max_spread
 
   robot.PushSpeed(SPEEDS[tests.GV.NORMAL])
-  robot.Pinch(device_spec, (CENTER, CENTER), PINCH_ANGLES[angle],
+  robot.Pinch(device_spec, (CENTER, CENTER), ANGLES[angle],
               start_distance, end_distance)
   robot.PopSpeed()
