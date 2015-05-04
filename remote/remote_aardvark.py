@@ -23,8 +23,6 @@ from subprocess import PIPE, Popen
 import time
 from importlib import import_module
 
-import colorama as color
-
 import mt
 from mt.input import linux_input
 from remote import RemoteTouchDevice
@@ -78,7 +76,7 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
     handle = self.adapter.aa_open(self._port)
     self._handle = handle
     if handle <= 0:
-      print color.Fore.RED + 'Unable to open Aardvark device on port'
+      print 'Unable to open Aardvark device on port'
       print 'Error code = %d' % handle
       sys.exit()
     # Ensure that the I2C subsystem is enabled
@@ -145,10 +143,9 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
     retVal = self.adapter.aa_i2c_write(self._handle,
                                        self._addr, flags, data_out)
     if retVal != data_len:
-      print color.Fore.RED + 'Error '
-      print '- Number of bytes written: %d' % retVal
-      print '          Make sure that the slave address is correct'
-      print '          Slave address: %d' % self._addr
+      print 'Error: Number of bytes written: %d' % retVal
+      print '       Make sure that the slave address is correct'
+      print '       Slave address: %d' % self._addr
       sys.exit()
     else:
       return retVal
@@ -159,8 +156,7 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
 
   def _CheckReturnVal(self, val, expected, description):
     if val != expected:
-      print color.Fore.RED + 'Error '
-      print '   The device does not reply to get', description, 'command.'
+      print 'Error: The device does not reply to get', description, 'command.'
       sys.exit()
 
   def _Initialize_TP(self):
