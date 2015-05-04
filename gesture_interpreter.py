@@ -67,6 +67,13 @@ SPEEDS = {
     tests.GV.SLOW: Touchbot.SPEED_SLOW,
 }
 
+PINCH_ANGLES = {
+    tests.GV.HORIZONTAL: 0,
+    tests.GV.VERTICAL: 90,
+    tests.GV.DIAGONAL: 45,
+}
+
+
 SINGLE_FINGER_LINE_TESTS = [
     tests.ONE_FINGER_TO_EDGE,
     tests.ONE_FINGER_TRACKING,
@@ -88,6 +95,8 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
     fn = lambda: _PerformTwoFingerLineTest(variation, robot, device_spec)
   elif test.name == tests.RESTING_FINGER_PLUS_2ND_FINGER_MOVE:
     fn = lambda: _PerformRestingFingerTest(variation, robot, device_spec)
+  elif test.name == tests.PINCH_TO_ZOOM:
+    fn = lambda: _PerformPinchTest(variation, robot, device_spec)
 
   if fn is None:
     print color.Fore.RED + 'Error: Robot unable to perform gesture!'
@@ -152,4 +161,20 @@ def _PerformRestingFingerTest(variation, robot, device_spec):
   robot.LineWithStationaryFinger(device_spec, stationary_fingertip,
                                  moving_fingertip, start, end,
                                  stationary_location)
+  robot.PopSpeed()
+
+def _PerformPinchTest(variation, robot, device_spec):
+  direction, angle = variation
+
+  min_spread = 15
+  max_spread = min(device_spec.Height(), device_spec.Width(),
+                   robot.MAX_FINGER_DISTANCE)
+  if direction == tests.GV.ZOOM_OUT:
+    start_distance, end_distance = max_spread, min_spread
+  else:
+    start_distance, end_distance = min_spread, max_spread
+
+  robot.PushSpeed(SPEEDS[tests.GV.NORMAL])
+  robot.Pinch(device_spec, (CENTER, CENTER), PINCH_ANGLES[angle],
+              start_distance, end_distance)
   robot.PopSpeed()

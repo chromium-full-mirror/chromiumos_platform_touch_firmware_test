@@ -283,12 +283,16 @@ tests_dict = {
   PINCH_TO_ZOOM:
   Test(
     name=PINCH_TO_ZOOM,
-    variations=(GV.ZOOM_IN, GV.ZOOM_OUT),
-    prompt='Using two fingers, preform a "{0}" pinch by bringing'
+    variations=((GV.ZOOM_IN, GV.ZOOM_OUT),
+                (GV.HORIZONTAL, GV.VERTICAL, GV.DIAGONAL)),
+    prompt='Using two fingers, preform a {2} "{0}" pinch by bringing'
            'your fingers {1}.',
     subprompt={
       GV.ZOOM_IN: ('zoom in', 'farther apart'),
       GV.ZOOM_OUT: ('zoom out', 'closer together'),
+      GV.HORIZONTAL: ('horizontal',),
+      GV.VERTICAL: ('vertical',),
+      GV.DIAGONAL: ('diagonal',),
     },
     validators=(
       FingerCountValidator('== 2'),

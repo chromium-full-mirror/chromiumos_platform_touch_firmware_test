@@ -68,6 +68,7 @@ class Touchbot:
   DEFAULT_FINGER_SPACING = 20
   FINGER_ACCEL_MM_S_S = 500
   FINGER_DECEL_MM_S_S = 2000
+  FINGER_EXTENSION_SPEED = 30
 
   def __init__(self, ip_address=TOUCHBOT_IP_ADDR, port=TOUCHBOT_PORT):
     self.speed_stack = []
@@ -625,8 +626,10 @@ class Touchbot:
     # Move the robot into position
     self._SetCartesian(positions[0], finger_distance=positions[0].ax_5,
                        blocking=True)
-    self._ExtendFingerUntilContact(stationary_fingertip.finger_number, speed=30)
-    self._ExtendFingerUntilContact(moving_fingertip.finger_number, speed=30)
+    self._ExtendFingerUntilContact(stationary_fingertip.finger_number,
+                                   speed=Touchbot.FINGER_EXTENSION_SPEED)
+    self._ExtendFingerUntilContact(moving_fingertip.finger_number,
+                                   speed=Touchbot.FINGER_EXTENSION_SPEED)
 
     # Perform the gesture
     self._SetSmoothing(Touchbot.BLEND_MOVEMENTS)
@@ -636,4 +639,11 @@ class Touchbot:
     self._Wait()
 
     # Lift off the pad
+    self._SetFingerStates(False, False)
+
+  def Pinch(self, device_spec, center, angle, start_distance, end_distance):
+    pos = device_spec.RelativePosToAbsolutePos(center, angle=angle)
+    self._SetCartesian(pos, finger_distance=start_distance, blocking=True)
+    self._ExtendFingerUntilContact(None, speed=Touchbot.FINGER_EXTENSION_SPEED)
+    self._SetCartesian(pos, finger_distance=end_distance, blocking=True)
     self._SetFingerStates(False, False)
