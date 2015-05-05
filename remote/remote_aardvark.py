@@ -21,21 +21,13 @@ import select
 import sys
 from subprocess import PIPE, Popen
 import time
+from importlib import import_module
 
 import colorama as color
 
 import mt
 from mt.input import linux_input
 from remote import RemoteTouchDevice
-
-
-try:
-  from aardvark_py import *
-except ImportError:
-  print 'The files "aardvark.so" and "aardvark.so" are needed.'
-  print 'You can download these files from the following link.'
-  print 'https://www.totalphase.com/downloadable/download/sample/sample_id/16/'
-  sys.exit()
 
 class RemoteAardvarkTouchDevice(RemoteTouchDevice):
   """ This class impliments much of the shared functionality among remote
@@ -52,6 +44,13 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
   AARDVARK_FLUSH_TIMEOUT = 0.5
 
   def __init__(self, addr, is_touchscreen=False, protocol='auto'):
+    try:
+      self.adapter = import_module('aardvark_py')
+    except ImportError:
+      print 'The files "aardvark_py.py" and "aardvark.so" are needed.'
+      print 'You can download these files from the following link.'
+      print 'https://www.totalphase.com/downloadable/download/sample/sample_id/16/'
+      sys.exit()
     self._addr = addr
     self.is_touchscreen = is_touchscreen
     self.state_machine = mt.MtaStateMachine()
@@ -59,7 +58,7 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
 
     self._Initialize_Aardvark()
 
-    aa_sleep_ms(200)
+    self.adapter.aa_sleep_ms(200)
     self._Initialize_TP()
 
     # Determine the ranges/resolutions of the various attributes of fingers
@@ -71,24 +70,25 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
   def __del__(self):
     # Turning off the device
     print "Turning off"
-    aa_target_power(self._handle, AA_TARGET_POWER_NONE)
+    self.adapter.aa_target_power(self._handle,
+                                 self.adapter.AA_TARGET_POWER_NONE)
 
   def _Initialize_Aardvark(self):
     self._port = self.I2C_AARDVARK_PORT
-    handle = aa_open(self._port)
+    handle = self.adapter.aa_open(self._port)
     self._handle = handle
     if handle <= 0:
       print color.Fore.RED + 'Unable to open Aardvark device on port'
       print 'Error code = %d' % handle
       sys.exit()
     # Ensure that the I2C subsystem is enabled
-    aa_configure(handle,  AA_CONFIG_SPI_I2C)
+    self.adapter.aa_configure(handle,  self.adapter.AA_CONFIG_SPI_I2C)
     # Enable the I2C bus pullup resistors (2.2k resistors).
-    aa_i2c_pullup(handle, AA_I2C_PULLUP_BOTH)
+    self.adapter.aa_i2c_pullup(handle, self.adapter.AA_I2C_PULLUP_BOTH)
     # Enable the Aardvark adapter's power supply.
-    aa_target_power(handle, AA_TARGET_POWER_BOTH)
+    self.adapter.aa_target_power(handle, self.adapter.AA_TARGET_POWER_BOTH)
     # Set the bitrate
-    bitrate = aa_i2c_bitrate(handle, self.I2C_BITRATE)
+    bitrate = self.adapter.aa_i2c_bitrate(handle, self.I2C_BITRATE)
     print 'Aardvark initialized'
 
   def _Initialize_TP(self):
@@ -139,10 +139,11 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
 
   def _i2c_write(self, flags, data):
     data_len = 4 if (data & 0xffff0000) else 2
-    data_out = array_u08(data_len)
+    data_out = self.adapter.array_u08(data_len)
     for byte_num in range(data_len):
       data_out[byte_num] = (data & (0xff << 8 * byte_num)) >> (8 * byte_num)
-    retVal = aa_i2c_write(self._handle, self._addr, flags, data_out)
+    retVal = self.adapter.aa_i2c_write(self._handle,
+                                       self._addr, flags, data_out)
     if retVal != data_len:
       print color.Fore.RED + 'Error '
       print '- Number of bytes written: %d' % retVal
@@ -153,7 +154,8 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
       return retVal
 
   def _i2c_read(self, flags, num_bytes):
-    return aa_i2c_read(self._handle, self._addr, flags, array_u08(num_bytes))
+    return self.adapter.aa_i2c_read(self._handle, self._addr,
+                                    flags, self.adapter.array_u08(num_bytes))
 
   def _CheckReturnVal(self, val, expected, description):
     if val != expected:
@@ -165,7 +167,7 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
     # Elan RESET
     self._i2c_write(self.I2C_FLAG_TEN, ElanTouchDevice.RESET_CMD)
     # Waiting for the device to return resets and sends the confirmation
-    aa_sleep_ms(100)
+    self.adapter.aa_sleep_ms(100)
     # Reset flag receive
     self._i2c_read(self.I2C_FLAG_TEN, 2)
     # Get device description
@@ -262,7 +264,7 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
         # 5 most significant bits of tp_info are mapped to fingers
         if tp_info & 0xf8:
           break
-      aa_sleep_ms(5)
+      self.adapter.aa_sleep_ms(5)
 
     self._event_started = True
     tp_info = data[ElanTouchDevice.TAP_INFO_INDEX]
