@@ -77,6 +77,7 @@ class Touchbot:
 
     # Load all the fingertip locations from disk
     self.fingertips = LoadFingertips('nest_locations')
+    self.attached_fingertips = set()
 
     # Center the wrist to prevent it starting twisted
     self._CenterWrist()
@@ -432,6 +433,8 @@ class Touchbot:
     self._SetFingerStates(False, False)
     self._PopFingerSpeed()
 
+    self.attached_fingertips.add(fingertip)
+
   def _DropFingertip(self, fingertip):
     """ Drop off the specified fingertip at its place in the nest. """
     self._SetFingerStates(False, False)
@@ -446,6 +449,93 @@ class Touchbot:
     self.PopSpeed()
     self._PopFingerSpeed()
     self._SetFingerStates(False, False)
+
+    self.attached_fingertips.remove(fingertip)
+
+  def _MoveToNest(self):
+    """ Safely move the robot from over the DUT to over the nest """
+    # Find a position just over the current spot, to avoid hitting anything
+    curr_pos = self._GetCurrentPosition()
+    above_curr_pos = self._AddSafetyClearance(curr_pos)
+
+    # Find a spot over the nest
+    nest_pos = None
+    for fingertip in self.fingertips.values():
+      if nest_pos is None:
+        nest_pos = copy.deepcopy(fingertip.above_pos)
+      else:
+        nest_pos.x += fingertip.above_pos.x
+        nest_pos.y += fingertip.above_pos.y
+    nest_pos.x /= len(self.fingertips)
+    nest_pos.y /= len(self.fingertips)
+    above_nest = self._AddSafetyClearance(nest_pos)
+
+    # Compute an intermediate step to prevent the hand colliding with the
+    # body of the robot.
+    intermediate_pos = copy.deepcopy(above_nest)
+    intermediate_pos.x = above_curr_pos.x
+
+    # Actually execute the moves
+    self._SetCartesian(above_curr_pos, blocking=True)
+    self._SetCartesian(intermediate_pos, blocking=True)
+    self._SetCartesian(above_nest, blocking=True)
+
+  def _CenterOverDevice(self, device_spec):
+    """ Safely move the robot from over the nest to over the DUT """
+    # Find a position just over the current spot, to avoid hitting anything
+    curr_pos = self._GetCurrentPosition()
+    above_curr_pos = self._AddSafetyClearance(curr_pos)
+
+    # Move over the center of the DUT
+    center = device_spec.RelativePosToAbsolutePos((0.5, 0.5))
+    above_dut = self._AddSafetyClearance(center)
+
+    # Compute an intermediate step to prevent collisions
+    intermediate_pos = copy.deepcopy(above_curr_pos)
+    intermediate_pos.x = above_dut.x
+
+    # Finally, execute the moves
+    self._SetCartesian(above_curr_pos, blocking=True)
+    self._SetCartesian(intermediate_pos, blocking=True)
+    self._SetCartesian(above_dut, blocking=True)
+    self._SetCartesian(center, blocking=True)
+
+  def _RequireFingertips(self, device_spec, required_fingertips):
+    """ Swap out fingertips as needed to have the specified ones equipped.
+    If they are already attached, this will do nothing, but otherwise will
+    put away any incorrect fingertips that are currenlty attached and will
+    attach the requested tips from the nest.
+    """
+    self.PushSpeed(Touchbot.SPEED_FAST)
+
+    # This function starts assuming the robot is over the dut and ready to
+    # perform gestures
+    is_over_dut = True
+
+    # Remove any unneeded fingertips
+    if not self.attached_fingertips.issubset(set(required_fingertips)):
+      self._MoveToNest()
+      is_over_dut = False
+      for fingertip in list(self.attached_fingertips):
+        if fingertip not in required_fingertips:
+          self._DropFingertip(fingertip)
+
+    # Attach the required ones that are not already attached
+    if not set(required_fingertips).issubset(self.attached_fingertips):
+      if is_over_dut:
+        self._MoveToNest()
+        is_over_dut = False
+      for fingertip in required_fingertips:
+        if fingertip not in self.attached_fingertips:
+          self._GetFingertip(fingertip)
+
+    # Finally move the robot back over the DUT if we had to move it to
+    # the nest to do some fingertip swaps
+    if not is_over_dut:
+      self._CenterOverDevice(device_spec)
+
+    self.PopSpeed()
+
 
   def _CenterForFingertip(self, fingertip, pos):
     """ Offset the coordinates so that  is centered at the point given,
@@ -528,6 +618,8 @@ class Touchbot:
     its finger in contact with the touch sensor for that long, otherwise it
     will simply perform a quick tap.
     """
+    self._RequireFingertips(device_spec, fingertips)
+
     abs_pos = device_spec.RelativePosToAbsolutePos(tap_location, angle=angle)
     if len(fingertips) == 1:
       abs_pos = self._CenterForFingertip(fingertips[0], abs_pos)
@@ -559,6 +651,8 @@ class Touchbot:
       4. Move to the end location
       5. Lift up
     """
+    self._RequireFingertips(device_spec, fingertips)
+
     # Compute how far apart the fingers should be spread
     if fingertip_spacing is None:
       fingertip_spacing = self._SuggestSpacing(fingertips)
@@ -571,7 +665,7 @@ class Touchbot:
     start_abs.yaw += fingertip_angle
     start_abs.ax_5 = fingertip_spacing
     if len(fingertips) == 1:
-      start_abs = self._CenterForFingertip(fingertip, start_abs)
+      start_abs = self._CenterForFingertip(fingertips[0], start_abs)
     self._SetCartesian(start_abs, finger_distance=start_abs.ax_5)
 
     # Extend the finger in question and touch the pad
@@ -587,7 +681,7 @@ class Touchbot:
     end_abs.yaw += fingertip_angle
     end_abs.ax_5 = fingertip_spacing
     if len(fingertips) == 1:
-      end_abs = self._CenterForFingertip(fingertip, end_abs)
+      end_abs = self._CenterForFingertip(fingertips[0], end_abs)
     self._SetCartesian(end_abs, finger_distance=end_abs.ax_5)
 
     # Then lift up
@@ -596,6 +690,9 @@ class Touchbot:
   def LineWithStationaryFinger(self, device_spec, stationary_fingertip,
                                moving_fingertip, start_location, end_location,
                                stationary_location):
+
+    self._RequireFingertips(device_spec,
+                            [stationary_fingertip, moving_fingertip])
 
     stationary_abs = device_spec.RelativePosToAbsolutePos(stationary_location,
                           max_diagonal_distance=Touchbot.MAX_FINGER_DISTANCE)
@@ -649,7 +746,9 @@ class Touchbot:
     # Lift off the pad
     self._SetFingerStates(False, False)
 
-  def Pinch(self, device_spec, center, angle, start_distance, end_distance):
+  def Pinch(self, device_spec, fingertips, center, angle, start_distance,
+            end_distance):
+    self._RequireFingertips(device_spec, fingertips)
     pos = device_spec.RelativePosToAbsolutePos(center, angle=angle)
     self._SetCartesian(pos, finger_distance=start_distance, blocking=True)
     self._ExtendFingerUntilContact(None, speed=Touchbot.FINGER_EXTENSION_SPEED)

@@ -17,6 +17,7 @@ import tests
 from touchbot import Touchbot
 
 
+NOISE_TESTING_FINGERTIP = '1round_12mm'
 STANDARD_FINGERTIP = '1round_9mm'
 STANDARD_SECONDARY_FINGERTIP = '2round_9mm'
 
@@ -110,7 +111,7 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
 def _PerformStationaryNoiseTest(variation, robot, device_spec):
   frequency, amplitude, waveform, location = variation
   tap_position = LOCATION_COORDINATES[location]
-  fingertip = robot.fingertips[STANDARD_FINGERTIP]
+  fingertip = robot.fingertips[NOISE_TESTING_FINGERTIP]
   robot.Tap(device_spec, [fingertip], tap_position, touch_time_s=4)
 
 
@@ -186,7 +187,10 @@ def _PerformPinchTest(variation, robot, device_spec):
   else:
     start_distance, end_distance = min_spread, max_spread
 
+  fingertips = [robot.fingertips[STANDARD_FINGERTIP],
+                robot.fingertips[STANDARD_SECONDARY_FINGERTIP]]
+
   robot.PushSpeed(SPEEDS[tests.GV.NORMAL])
-  robot.Pinch(device_spec, (CENTER, CENTER), ANGLES[angle],
+  robot.Pinch(device_spec, fingertips, (CENTER, CENTER), ANGLES[angle],
               start_distance, end_distance)
   robot.PopSpeed()
