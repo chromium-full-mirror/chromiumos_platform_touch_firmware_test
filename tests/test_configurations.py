@@ -38,7 +38,7 @@ TWO_FINGER_PHYSICAL_CLICK = 'two_fingers_physical_click'
 STATIONARY_FINGER_NOT_AFFECTED_BY_2ND_FINGER_TAPS = \
         'stationary_finger_not_affected_by_2nd_finger_taps'
 FAT_FINGER_MOVE_WITH_RESTING_FINGER = 'fat_finger_move_with_resting_finger'
-DRAG_EDGE_THUMB = 'drag_edge_thumb'
+DRAG_THUMB_EDGE = 'drag_thumb_edge'
 TWO_CLOSE_FINGERS_TRACKING = 'two_close_fingers_tracking'
 RESTING_FINGER_PLUS_2ND_FINGER_MOVE = 'resting_finger_plus_2nd_finger_move'
 TWO_FAT_FINGERS_TRACKING = 'two_fat_fingers_tracking'
@@ -54,7 +54,7 @@ PERFORMANCE_TESTS = [ONE_FINGER_TRACKING, ONE_FINGER_TO_EDGE,
   PINCH_TO_ZOOM, ONE_FINGER_TAP, TWO_FINGER_TAP, THREE_FINGER_TAP,
   FOUR_FINGER_TAP, FIVE_FINGER_TAP, ONE_FINGER_PHYSICAL_CLICK,
   TWO_FINGER_PHYSICAL_CLICK, STATIONARY_FINGER_NOT_AFFECTED_BY_2ND_FINGER_TAPS,
-  FAT_FINGER_MOVE_WITH_RESTING_FINGER, DRAG_EDGE_THUMB,
+  FAT_FINGER_MOVE_WITH_RESTING_FINGER, DRAG_THUMB_EDGE,
   TWO_CLOSE_FINGERS_TRACKING, RESTING_FINGER_PLUS_2ND_FINGER_MOVE,
   TWO_FAT_FINGERS_TRACKING, FIRST_FINGER_TRACKING_AND_SECOND_FINGER_TAPS,
   DRUMROLL, RAPID_TAPS, ONE_FINGER_TRACKING_FROM_CENTER
@@ -448,10 +448,11 @@ tests_dict = {
     ),
   ),
 
-  DRAG_EDGE_THUMB:
+  DRAG_THUMB_EDGE:
   Test(
-    name=DRAG_EDGE_THUMB,
-    variations=(GV.LR, GV.RL, GV.TB, GV.BT),
+    name=DRAG_THUMB_EDGE,
+    variations=((GV.SMALL_THUMB, GV.LARGE_THUMB),
+                (GV.LR, GV.RL, GV.TB, GV.BT)),
     prompt='Drag the edge of your thumb {0} in a straight line '
            'across the touch surface',
     subprompt={

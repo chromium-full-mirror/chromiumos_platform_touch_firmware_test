@@ -82,6 +82,31 @@ SINGLE_FINGER_LINE_TESTS = [
 ]
 
 
+def _ComputePerpendicularAngle(start, end):
+  """ Compute the fingertip angle to be perpendicular to the
+  movement direction.
+
+  The robot's X/Y axes are not in the same direction as the touch device's,
+  they are flipped.
+
+  DUT  x ---->      Robot  y ---->
+      y                   x
+      |                   |
+      |                   |
+      \/                  \/
+
+  As a result the angle is computed in the DUT space, but then must have
+  its sign flipped before being used in any commands to the robot or
+  everything will be wrong since it's a clockwise angle instead of counter-
+  clockwise.
+  """
+  x1, y1 = start
+  x2, y2 = end
+  dy = y2 - y1
+  dx = x2 - x1
+  return -1 * (math.degrees(math.atan2(y2 - y1, x2 - x1)) + 90)
+
+
 def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
   variation = test.variations[variation_number]
   fn = None
@@ -100,6 +125,8 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
     fn = lambda: _PerformRestingFingerTest(variation, robot, device_spec)
   elif test.name == tests.PINCH_TO_ZOOM:
     fn = lambda: _PerformPinchTest(variation, robot, device_spec)
+  elif test.name == tests.DRAG_THUMB_EDGE:
+    fn = lambda: _PerformThumbEdgeTest(variation, robot, device_spec)
 
   if fn is None:
     print color.Fore.RED + 'Error: Robot unable to perform gesture!'
@@ -145,14 +172,7 @@ def _PerformOneFingerLineTest(variation, robot, device_spec, pause_time_s):
 def _PerformTwoFingerLineTest(variation, robot, device_spec):
   direction, speed = variation
   start, end = LINE_DIRECTION_COORDINATES[direction]
-
-  # Compute the fingertip angle to be perpendicular to the
-  # movement direction
-  x1, y1 = start
-  x2, y2 = end
-  dy = y2 - y1
-  dx = x2 - x1
-  angle = -1 * (math.degrees(math.atan2(y2 - y1, x2 - x1)) + 90)
+  angle = _ComputePerpendicularAngle(start, end)
 
   fingertips = [robot.fingertips[STANDARD_FINGERTIP],
                 robot.fingertips[STANDARD_SECONDARY_FINGERTIP]]
@@ -193,4 +213,15 @@ def _PerformPinchTest(variation, robot, device_spec):
   robot.PushSpeed(SPEEDS[tests.GV.NORMAL])
   robot.Pinch(device_spec, fingertips, (CENTER, CENTER), ANGLES[angle],
               start_distance, end_distance)
+  robot.PopSpeed()
+
+def _PerformThumbEdgeTest(variation, robot, device_spec):
+  fingertip_type, direction = variation
+  start, end = LINE_DIRECTION_COORDINATES[direction]
+  angle = _ComputePerpendicularAngle(start, end)
+
+  fingertip = robot.fingertips[fingertip_type]
+
+  robot.PushSpeed(SPEEDS[tests.GV.NORMAL])
+  robot.Line(device_spec, [fingertip], start, end, fingertip_angle=angle)
   robot.PopSpeed()
