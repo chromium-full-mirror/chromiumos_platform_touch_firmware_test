@@ -474,7 +474,8 @@ tests_dict = {
   TWO_CLOSE_FINGERS_TRACKING:
   Test(
     name=TWO_CLOSE_FINGERS_TRACKING,
-    variations=(GV.LR, GV.TB, GV.TLBR),
+    variations=((GV.LR, GV.TB, GV.TLBR),
+                (GV.SLOW, GV.NORMAL)),
     prompt='With two fingers close together (lightly touching each '
            'other) in a two finger scrolling gesture, draw a {0} '
            'line {1}.',

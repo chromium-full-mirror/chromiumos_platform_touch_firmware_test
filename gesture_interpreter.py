@@ -81,6 +81,11 @@ SINGLE_FINGER_LINE_TESTS = [
     tests.ONE_FINGER_TRACKING_FROM_CENTER,
 ]
 
+TWO_FINGER_LINE_TESTS = [
+    tests.TWO_FINGER_TRACKING,
+    tests.TWO_CLOSE_FINGERS_TRACKING,
+]
+
 
 def _ComputePerpendicularAngle(start, end):
   """ Compute the fingertip angle to be perpendicular to the
@@ -119,8 +124,10 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
   elif test.name in SINGLE_FINGER_LINE_TESTS:
     pause = 1 if test.name == tests.ONE_FINGER_TRACKING_FROM_CENTER else 0
     fn = lambda: _PerformOneFingerLineTest(variation, robot, device_spec, pause)
-  elif test.name == tests.TWO_FINGER_TRACKING:
-    fn = lambda: _PerformTwoFingerLineTest(variation, robot, device_spec)
+  elif test.name in TWO_FINGER_LINE_TESTS:
+    spacing = 0 if test.name == tests.TWO_CLOSE_FINGERS_TRACKING else 5
+    fn = lambda: _PerformTwoFingerLineTest(variation, robot, device_spec,
+                                           spacing_mm=spacing)
   elif test.name == tests.RESTING_FINGER_PLUS_2ND_FINGER_MOVE:
     fn = lambda: _PerformRestingFingerTest(variation, robot, device_spec)
   elif test.name == tests.PINCH_TO_ZOOM:
@@ -169,16 +176,17 @@ def _PerformOneFingerLineTest(variation, robot, device_spec, pause_time_s):
   robot.PopSpeed()
 
 
-def _PerformTwoFingerLineTest(variation, robot, device_spec):
+def _PerformTwoFingerLineTest(variation, robot, device_spec, spacing_mm):
   direction, speed = variation
   start, end = LINE_DIRECTION_COORDINATES[direction]
   angle = _ComputePerpendicularAngle(start, end)
 
   fingertips = [robot.fingertips[STANDARD_FINGERTIP],
                 robot.fingertips[STANDARD_SECONDARY_FINGERTIP]]
+
   robot.PushSpeed(SPEEDS[speed])
   robot.Line(device_spec, fingertips, start, end,
-             fingertip_spacing=5, fingertip_angle=angle)
+             fingertip_spacing=spacing_mm, fingertip_angle=angle)
   robot.PopSpeed()
 
 
