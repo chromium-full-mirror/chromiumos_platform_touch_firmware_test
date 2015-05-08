@@ -59,6 +59,8 @@ def parse_arguments():
   # Test suite settings
   parser.add_option('-i', '--iterations', dest='num_iterations', default=1,
                     type=int, help=('The number of test iterations to run.'))
+  parser.add_option('--title', dest='title', default=None,
+                    help='An optional title to put at the top of the report.')
 
   (options, args) = parser.parse_args()
 

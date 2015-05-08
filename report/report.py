@@ -23,9 +23,10 @@ class Report:
   CSS_FILE = 'report.css'
   JS_FILE = 'report.js'
 
-  def __init__(self):
+  def __init__(self, title=None):
     """ Construct a new, empty Report """
     self.results = []
+    self.title = title
 
   @classmethod
   def FromFile(self, filename):
@@ -62,7 +63,10 @@ class Report:
     else that might go in the head set up.  This function returns a string.
     """
     # Define the title of the page
-    title = '<title>%s</title>' % Report.REPORT_TITLE
+    title_string = Report.REPORT_TITLE
+    if self.title is not None:
+      title_string += ' (%s)' % self.title
+    title_html = '<title>%s</title>' % title_string
 
     # Load the CSS from a file and include it directly in the HTML so this
     # module can ouput a standalone html file.
@@ -80,7 +84,7 @@ class Report:
                                                                     % fo.read())
 
     # Wrap everything in <head> tags and return that string
-    return '<head>%s%s%s</head>' % (title, css, js)
+    return '<head>%s%s%s</head>' % (title_html, css, js)
 
   def _GenerateValidatorHeadingHtml(self):
     """ Generate the html for the first row of the Validators list.  This acts
@@ -333,6 +337,8 @@ class Report:
     """
     # Generate the Heading for the top of the page
     title = '<h1>Touch FW Testing Results</h1>'
+    if self.title is not None:
+      title += '<h2>%s</h2>' % self.title
 
     # Generate the list of validators and their scores
     validator_list_title = '<h2>Validator Scores</h1>'

@@ -78,6 +78,7 @@ class TestSuite:
 
     # Create a new Report that will store all the test Results
     self.report = Report()
+    self.report.title = self.options.title
 
   def RunNextTestAndVariation(self):
     """ Run the next test.
