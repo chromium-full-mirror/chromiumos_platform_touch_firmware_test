@@ -420,12 +420,14 @@ class Touchbot:
   def _GetFingertip(self, fingertip):
     """ Retrieve the specified fingertip from the nest. """
     self._SetFingerStates(False, False)
-    self._SetAngles(fingertip.above_pos)
+    self._SetCartesian(fingertip.above_pos,
+                       finger_distance=fingertip.above_pos.ax_5)
 
     self.PushSpeed(Touchbot.SPEED_VERY_SLOW)
 
     self._MoveBothFingersAbsolute(fingertip.extension1, fingertip.extension2)
-    self._SetCartesian(fingertip.slide_pos)
+    self._SetCartesian(fingertip.slide_pos,
+                       finger_distance=fingertip.slide_pos.ax_5)
 
     self.PopSpeed()
 
@@ -438,13 +440,15 @@ class Touchbot:
   def _DropFingertip(self, fingertip):
     """ Drop off the specified fingertip at its place in the nest. """
     self._SetFingerStates(False, False)
-    self._SetCartesian(fingertip.slide_pos)
+    self._SetCartesian(fingertip.slide_pos,
+                       finger_distance=fingertip.slide_pos.ax_5)
 
     self.PushSpeed(Touchbot.SPEED_VERY_SLOW)
     self._PushFingerSpeed_mm_per_s(1 if fingertip.IsHeavy() else 20)
 
     self._MoveBothFingersAbsolute(fingertip.extension1, fingertip.extension2)
-    self._SetCartesian(fingertip.above_pos)
+    self._SetCartesian(fingertip.above_pos,
+                       finger_distance=fingertip.above_pos.ax_5)
 
     self.PopSpeed()
     self._PopFingerSpeed()
