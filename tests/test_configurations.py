@@ -522,7 +522,8 @@ tests_dict = {
   TWO_FAT_FINGERS_TRACKING:
   Test(
     name=TWO_FAT_FINGERS_TRACKING,
-    variations=(GV.LR, GV.RL),
+    variations=((GV.LR, GV.TB, GV.TLBR),
+                (GV.SLOW, GV.NORMAL)),
     prompt='Use two FAT fingers separated by about 1cm to draw '
            'a straight line {0}.',
     subprompt={

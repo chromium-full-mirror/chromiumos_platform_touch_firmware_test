@@ -17,9 +17,11 @@ import tests
 from touchbot import Touchbot
 
 
-NOISE_TESTING_FINGERTIP = '1round_12mm'
 STANDARD_FINGERTIP = '1round_9mm'
 STANDARD_SECONDARY_FINGERTIP = '2round_9mm'
+FAT_FINGERTIP = '1round_14mm'
+FAT_SECONDARY_FINGERTIP = '2round_14mm'
+NOISE_TESTING_FINGERTIP = '1round_12mm'
 
 BUFFER_SIZE = 0.1
 OVERSHOOT_DISTANCE = 0.05
@@ -84,6 +86,7 @@ SINGLE_FINGER_LINE_TESTS = [
 TWO_FINGER_LINE_TESTS = [
     tests.TWO_FINGER_TRACKING,
     tests.TWO_CLOSE_FINGERS_TRACKING,
+    tests.TWO_FAT_FINGERS_TRACKING,
 ]
 
 
@@ -125,9 +128,19 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
     pause = 1 if test.name == tests.ONE_FINGER_TRACKING_FROM_CENTER else 0
     fn = lambda: _PerformOneFingerLineTest(variation, robot, device_spec, pause)
   elif test.name in TWO_FINGER_LINE_TESTS:
-    spacing = 0 if test.name == tests.TWO_CLOSE_FINGERS_TRACKING else 5
+    spacing = 5
+    fingertips = [robot.fingertips[STANDARD_FINGERTIP],
+                  robot.fingertips[STANDARD_SECONDARY_FINGERTIP]]
+
+    if test.name == tests.TWO_CLOSE_FINGERS_TRACKING:
+      spacing = 0
+    elif test.name == tests.TWO_FAT_FINGERS_TRACKING:
+      spacing = 10
+      fingertips = [robot.fingertips[FAT_FINGERTIP],
+                    robot.fingertips[FAT_SECONDARY_FINGERTIP]]
+
     fn = lambda: _PerformTwoFingerLineTest(variation, robot, device_spec,
-                                           spacing_mm=spacing)
+                                           fingertips, spacing)
   elif test.name == tests.RESTING_FINGER_PLUS_2ND_FINGER_MOVE:
     fn = lambda: _PerformRestingFingerTest(variation, robot, device_spec)
   elif test.name == tests.PINCH_TO_ZOOM:
@@ -176,13 +189,11 @@ def _PerformOneFingerLineTest(variation, robot, device_spec, pause_time_s):
   robot.PopSpeed()
 
 
-def _PerformTwoFingerLineTest(variation, robot, device_spec, spacing_mm):
+def _PerformTwoFingerLineTest(variation, robot, device_spec, fingertips,
+                              spacing_mm):
   direction, speed = variation
   start, end = LINE_DIRECTION_COORDINATES[direction]
   angle = _ComputePerpendicularAngle(start, end)
-
-  fingertips = [robot.fingertips[STANDARD_FINGERTIP],
-                robot.fingertips[STANDARD_SECONDARY_FINGERTIP]]
 
   robot.PushSpeed(SPEEDS[speed])
   robot.Line(device_spec, fingertips, start, end,
