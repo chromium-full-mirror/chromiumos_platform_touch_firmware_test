@@ -58,7 +58,14 @@ class RemoteTouchDevice:
     the next MtEvent it will return None instead of a MtSnapshot.  The default
     timeout value of None indicates that it should wait forever.
     """
-    raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
+    event = self._NextEvent(timeout)
+    while event:
+      self.state_machine.add_event(event)
+      if event.is_SYN_REPORT():
+        self.most_recent_snapshot = self.state_machine.get_current_snapshot()
+        return self.most_recent_snapshot
+      event = self._NextEvent(timeout)
+    return None
 
   def ResolutionX(self):
     return self._x_res

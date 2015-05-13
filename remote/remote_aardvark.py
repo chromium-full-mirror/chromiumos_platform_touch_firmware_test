@@ -34,14 +34,14 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
   """
 
   # This flag indicates that 10 bit address is used
-  I2C_FLAG_TEN = 0x10
+  I2C_NO_FLAGS = 0x00
 
   # Constants
   I2C_BITRATE = 400
   I2C_AARDVARK_PORT = 0
   AARDVARK_FLUSH_TIMEOUT = 0.5
 
-  def __init__(self, addr, is_touchscreen=False, protocol='auto'):
+  def __init__(self, addr):
     try:
       self.adapter = import_module('aardvark_py')
     except ImportError:
@@ -49,15 +49,15 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
       print 'You can download these files from the following link.'
       print 'https://www.totalphase.com/downloadable/download/sample/sample_id/16/'
       sys.exit()
+
     self._addr = addr
-    self.is_touchscreen = is_touchscreen
     self.state_machine = mt.MtaStateMachine()
     self.flush_timeout = self.AARDVARK_FLUSH_TIMEOUT
 
     self._Initialize_Aardvark()
 
     self.adapter.aa_sleep_ms(200)
-    self._Initialize_TP()
+    self._Initialize_Device()
 
     # Determine the ranges/resolutions of the various attributes of fingers
     x, y, p = self._GetDimensions()
@@ -67,7 +67,7 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
 
   def __del__(self):
     # Turning off the device
-    print "Turning off"
+    print 'Turning off'
     self.adapter.aa_target_power(self._handle,
                                  self.adapter.AA_TARGET_POWER_NONE)
 
@@ -87,14 +87,57 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
     self.adapter.aa_target_power(handle, self.adapter.AA_TARGET_POWER_BOTH)
     # Set the bitrate
     bitrate = self.adapter.aa_i2c_bitrate(handle, self.I2C_BITRATE)
-    print 'Aardvark initialized'
 
-  def _Initialize_TP(self):
+  def _Initialize_Device(self):
     """ This function should initialize the TP or TS device.
     Depending on the device type this should be implemented different ways.
     It mainly depend on the protocols and the device firmware.
     """
     raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
+
+  def _i2c_write(self, data):
+    data_len = 4 if (data & 0xffff0000) else 2
+    data_out = self.adapter.array_u08(data_len)
+    for byte_num in range(data_len):
+      data_out[byte_num] = (data & (0xff << 8 * byte_num)) >> (8 * byte_num)
+    retVal = self.adapter.aa_i2c_write(self._handle,
+                                       self._addr, self.I2C_NO_FLAGS, data_out)
+    if retVal != data_len:
+      print 'Error: Number of bytes written: %d' % retVal
+      print '       Make sure that the slave address is correct'
+      print '       Slave address: %d' % self._addr
+      sys.exit()
+    else:
+      return retVal
+
+  def _cut_data(self, tmp_data, num_bytes):
+    start_index = -1
+    end_index = -1
+    for i in xrange(num_bytes):
+      if tmp_data[i] != 255:
+        start_index = i
+        break
+    if start_index != -1:
+      for i in xrange(num_bytes):
+        if tmp_data[num_bytes - i - 1] != 255:
+          end_index = num_bytes - i - 1
+          break
+    if end_index == -1:
+      return 0, num_bytes - 1, tmp_data
+    return start_index, end_index , tmp_data[start_index:end_index + 1]
+
+  def _i2c_read(self, num_bytes):
+    temp_len, tmp_data = self.adapter.aa_i2c_read(self._handle, self._addr,
+                                    self.I2C_NO_FLAGS,
+                                    self.adapter.array_u08(num_bytes))
+    s, e, data = self._cut_data(tmp_data, num_bytes)
+    if e == num_bytes - 1 and s != 0:
+      temp_len, tmp_data = self.adapter.aa_i2c_read(self._handle, self._addr,
+                                    self.I2C_NO_FLAGS,
+                                    self.adapter.array_u08(num_bytes))
+      s, e, data_extension = self._cut_data(tmp_data, num_bytes)
+      return len(data) + len(data_extension), data + data_extension
+    return len(data), data
 
 class ElanTouchDevice(RemoteAardvarkTouchDevice):
   I2C_ETP_ADDRESS = 21
@@ -128,77 +171,53 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
   I2C_FINGER_DATA_OFFSET = 4
   FINGER_DATA_LEN = 5
 
-  def __init__(self, addr, is_touchscreen=False):
-    self._addr = ElanTouchDevice.I2C_ETP_ADDRESS
-    self.device_num = 0
+  def __init__(self, addr):
+    RemoteAardvarkTouchDevice.__init__(self, ElanTouchDevice.I2C_ETP_ADDRESS)
     self._eventQ = Queue.Queue()
-
-    RemoteAardvarkTouchDevice.__init__(self, self._addr, is_touchscreen)
-
-  def _i2c_write(self, flags, data):
-    data_len = 4 if (data & 0xffff0000) else 2
-    data_out = self.adapter.array_u08(data_len)
-    for byte_num in range(data_len):
-      data_out[byte_num] = (data & (0xff << 8 * byte_num)) >> (8 * byte_num)
-    retVal = self.adapter.aa_i2c_write(self._handle,
-                                       self._addr, flags, data_out)
-    if retVal != data_len:
-      print 'Error: Number of bytes written: %d' % retVal
-      print '       Make sure that the slave address is correct'
-      print '       Slave address: %d' % self._addr
-      sys.exit()
-    else:
-      return retVal
-
-  def _i2c_read(self, flags, num_bytes):
-    return self.adapter.aa_i2c_read(self._handle, self._addr,
-                                    flags, self.adapter.array_u08(num_bytes))
 
   def _CheckReturnVal(self, val, expected, description):
     if val != expected:
       print 'Error: The device does not reply to get', description, 'command.'
       sys.exit()
 
-  def _Initialize_TP(self):
+  def _Initialize_Device(self):
     # Elan RESET
-    self._i2c_write(self.I2C_FLAG_TEN, ElanTouchDevice.RESET_CMD)
+    self._i2c_write(ElanTouchDevice.RESET_CMD)
     # Waiting for the device to return resets and sends the confirmation
     self.adapter.aa_sleep_ms(100)
     # Reset flag receive
-    self._i2c_read(self.I2C_FLAG_TEN, 2)
+    self._i2c_read(2)
     # Get device description
-    self._i2c_write(self.I2C_FLAG_TEN, ElanTouchDevice.DEVICE_DESC_CMD)
-    desc_len, desc_data = self._i2c_read(self.I2C_FLAG_TEN,
-                                         ElanTouchDevice.DEVICE_DESC_LEN)
+    self._i2c_write(ElanTouchDevice.DEVICE_DESC_CMD)
+    desc_len, desc_data = self._i2c_read(ElanTouchDevice.DEVICE_DESC_LEN)
     self._CheckReturnVal(desc_len,
                          ElanTouchDevice.DEVICE_DESC_LEN, 'description')
 
     # Get report description
-    self._i2c_write(self.I2C_FLAG_TEN, ElanTouchDevice.REPORT_DESC_CMD)
-    report_len, report_data = self._i2c_read(self.I2C_FLAG_TEN,
-                                             ElanTouchDevice.REPORT_DESC_LEN)
+    self._i2c_write(ElanTouchDevice.REPORT_DESC_CMD)
+    report_len, report_data = self._i2c_read(ElanTouchDevice.REPORT_DESC_LEN)
     # Absolute mode activation
-    self._i2c_write(self.I2C_FLAG_TEN, ElanTouchDevice.ABS_MODE_CMD)
+    self._i2c_write(ElanTouchDevice.ABS_MODE_CMD)
     # Send wake up command
-    self._i2c_write(self.I2C_FLAG_TEN, ElanTouchDevice.WAKE_UP_CMD)
+    self._i2c_write(ElanTouchDevice.WAKE_UP_CMD)
     # Get Product ID
-    self._i2c_write(self.I2C_FLAG_TEN, ElanTouchDevice.PRODUCT_ID_CMD)
-    product_id_len, product_id = self._i2c_read(self.I2C_FLAG_TEN, 2)
+    self._i2c_write(ElanTouchDevice.PRODUCT_ID_CMD)
+    product_id_len, product_id = self._i2c_read(2)
     self._CheckReturnVal(product_id_len, 2, 'product ID')
     self._product_id = product_id[0]
     # Get FW version
-    self._i2c_write(self.I2C_FLAG_TEN, ElanTouchDevice.FW_VERSION_CMD)
-    fw_len, fw_version = self._i2c_read(self.I2C_FLAG_TEN, 2)
+    self._i2c_write(ElanTouchDevice.FW_VERSION_CMD)
+    fw_len, fw_version = self._i2c_read(2)
     self._CheckReturnVal(fw_len, 2, 'FW version')
     self._fw_version = fw_version[0]
     # Get SM version
-    self._i2c_write(self.I2C_FLAG_TEN, ElanTouchDevice.SM_VERSION_CMD)
-    sm_len, sm_version = self._i2c_read(self.I2C_FLAG_TEN, 2)
+    self._i2c_write(ElanTouchDevice.SM_VERSION_CMD)
+    sm_len, sm_version = self._i2c_read(2)
     self._CheckReturnVal(sm_len, 2, 'SM version')
     self._sm_version = sm_version[0]
     # Get IAP version
-    self._i2c_write(self.I2C_FLAG_TEN, ElanTouchDevice.IAP_VERSION_CMD)
-    iap_len, iap_version = self._i2c_read(self.I2C_FLAG_TEN, 2)
+    self._i2c_write(ElanTouchDevice.IAP_VERSION_CMD)
+    iap_len, iap_version = self._i2c_read(2)
     self._CheckReturnVal(iap_len, 2, 'IAP version')
     self._iap_version = iap_version[0]
 
@@ -206,29 +225,29 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
     handle = self._handle
     slave_addr = self._addr
 
-    self._i2c_write(self.I2C_FLAG_TEN, ElanTouchDevice.I2C_XY_TRACENUM_CMD)
-    data_len, data_val = self._i2c_read(self.I2C_FLAG_TEN, 2)
+    self._i2c_write(ElanTouchDevice.I2C_XY_TRACENUM_CMD)
+    data_len, data_val = self._i2c_read(2)
     self.trace_x = data_val[0] - 1
     self.trace_y = data_val[1] - 1
 
     # Get X min and max
-    self._i2c_write(self.I2C_FLAG_TEN, ElanTouchDevice.X_MAX_CMD)
-    data_len, max_x = self._i2c_read(self.I2C_FLAG_TEN, 2)
+    self._i2c_write(ElanTouchDevice.X_MAX_CMD)
+    data_len, max_x = self._i2c_read(2)
     self._CheckReturnVal(data_len, 2, 'Max X')
 
     self._max_x = (0x0f & max_x[1]) << 8 | max_x[0]
     x = {'min': 0, 'max': self._max_x}
 
     # Get Y Min and Max
-    self._i2c_write(self.I2C_FLAG_TEN, ElanTouchDevice.Y_MAX_CMD)
-    data_len, max_y = self._i2c_read(self.I2C_FLAG_TEN, 2)
+    self._i2c_write(ElanTouchDevice.Y_MAX_CMD)
+    data_len, max_y = self._i2c_read(2)
     self._CheckReturnVal(data_len, 2, 'Max Y')
 
     self._max_y = (0x0f & max_y[1]) << 8 | max_y[0]
     y = {'min': 0, 'max': self._max_y}
 
-    self._i2c_write(self.I2C_FLAG_TEN, ElanTouchDevice.RESOLUTION_CMD)
-    data_len, resolution = self._i2c_read(self.I2C_FLAG_TEN, 2)
+    self._i2c_write(ElanTouchDevice.RESOLUTION_CMD)
+    data_len, resolution = self._i2c_read(2)
     self._CheckReturnVal(data_len, 2, 'resolution')
 
     self._x_resolution = self._ConvertResolution(resolution[0])
@@ -247,11 +266,10 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
     timestamp = time.time()
     self._event_started = False;
     while True:
-      input_len, data = self._i2c_read(self.I2C_FLAG_TEN,
-                                       ElanTouchDevice.EVENT_LEN)
+      input_len, data = self._i2c_read(ElanTouchDevice.EVENT_LEN)
       if data[ElanTouchDevice.REPORT_ID_INDEX] != ElanTouchDevice.REPORT_ID:
-        print (' Incompatible format'
-               ' Maybe your device is not isolated and has noise')
+        print ' Incompatible format'
+        print '        Maybe your device is not isolated and has noise'
       else:
         if time.time() - timestamp > timeout:
           self._event_started = False
@@ -260,7 +278,6 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
         # 5 most significant bits of tp_info are mapped to fingers
         if tp_info & 0xf8:
           break
-      self.adapter.aa_sleep_ms(5)
 
     self._event_started = True
     tp_info = data[ElanTouchDevice.TAP_INFO_INDEX]
@@ -299,17 +316,6 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
                                 linux_input.SYN_REPORT,0))
     return self._eventQ.get()
 
-  def NextSnapshot(self, timeout=None):
-    event = self._NextEvent(timeout)
-    while event:
-      self.state_machine.add_event(event)
-      if event.is_SYN_REPORT():
-        self.most_recent_snapshot = self.state_machine.get_current_snapshot()
-        return self.most_recent_snapshot
-      event = self._NextEvent(timeout)
-
-    return None
-
   def _ConvertResolution(self, val):
     # TODO(asimjour): This function looks a bit magical and it has to be fixed.
     # Unfortunately, exactly the same function appears in the driver.
@@ -320,3 +326,214 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
     else:
       res = (val * 10 + 790) * 10 / 254;
     return res
+
+class ElanTouchScreenDevice(RemoteAardvarkTouchDevice):
+  I2C_ETS_ADDRESS = 0x10
+  HEADER_SIZE = 4
+  FW_HDR_TYPE = 0
+  FW_HDR_LENGTH = 2
+  FW_HDR_COUNT = 1
+
+  MAX_RETRIES = 3
+  PACKET_SIZE = 55
+  MAX_PACKET_SIZE = 169
+  FW_POS_WIDTH = 35
+  FW_POS_PRESSURE = 45
+  MAX_CONTACT_NUM = 10
+  FW_POS_STATE = 1
+  FW_POS_XY = 3
+
+  QUEUE_HEADER_SINGLE = 0x62
+  QUEUE_HEADER_NORMAL = 0X63
+  QUEUE_HEADER_WAIT = 0x64
+
+  RESET_CMD = 0x77777777
+  FAST_BOOT_CMD = 0x6E69614D
+  QUERY_FW_ID_CMD = 0x0100F053
+  QUERY_FW_VERSION_CMD = 0x01000053
+  QUERY_TEST_CMD = 0x0100E053
+  QUERY_BC_VERSION_CMD = 0x01001053
+
+  GET_RES_CMD = 0x00000000005B
+  GET_OSR_CMD = 0x0100D653
+  GET_PHYSICAL_SCAN_CMD = 0x0100D753
+  GET_PHYSICAL_DRIVE_CMD = 0x0100D853
+
+  CMD_HEADER_HELLO = 0x55
+  CMD_HEADER_REK = 0x66
+  CMD_HEADER_RESP = 0x52
+
+  def __init__(self, addr):
+    RemoteAardvarkTouchDevice.__init__(self,
+                                       ElanTouchScreenDevice.I2C_ETS_ADDRESS)
+    self.flush_timeout = 0.5
+    self._eventQ = Queue.Queue()
+    self._last_event_time = time.time()
+    self._event_started = False;
+
+  def _Initialize_Device(self):
+    # Reset command
+    self._i2c_write(self.RESET_CMD)
+    # Fast boot
+    self._i2c_write(self.FAST_BOOT_CMD)
+
+    self.adapter.aa_sleep_ms(50)
+
+    # Read the hello packet
+    # Hello packet should be (0x55 0x55 0x55 0x55)
+    hello_len, hello_packet = self._i2c_read(self.HEADER_SIZE)
+    for i in xrange(4):
+      if hello_packet[i] != 0x55:
+        print 'Failed to initialize the device.'
+        print 'Hello packaet does not have the correct format.'
+
+    # Read FW Id
+    self._i2c_repeat_cmd(self.QUERY_FW_ID_CMD)
+
+    # Read FW version
+    self._i2c_repeat_cmd(self.QUERY_FW_VERSION_CMD)
+
+    # Query test
+    self._i2c_repeat_cmd(self.QUERY_TEST_CMD)
+
+    # Query bc version
+    self._i2c_repeat_cmd(self.QUERY_BC_VERSION_CMD)
+
+  def _GetDimensions(self):
+    #TODO (asimjour): all templen values should be used for error checking
+    templen, self._resolution = self._i2c_execute_cmd_size(self.GET_RES_CMD,
+                                                           6, 17)
+
+    row = self._resolution[2] + self._resolution[6] + self._resolution[10]
+    col = self._resolution[3] + self._resolution[7] + self._resolution[11]
+
+    # Interpolating  trace
+    templen, osr_buf = self._i2c_execute_cmd(self.GET_OSR_CMD)
+    osr = osr_buf[3]
+    self._x_max = (row - 1) * osr
+    self._y_max = (col - 1) * osr
+
+    phy_x_len, phy_x_buf = self._i2c_execute_cmd(self.GET_PHYSICAL_SCAN_CMD)
+    phy_y_len, phy_y_buf = self._i2c_execute_cmd(self.GET_PHYSICAL_DRIVE_CMD)
+    phy_x = (phy_x_buf[2] << 8) | phy_x_buf[3]
+    phy_y = (phy_y_buf[2] << 8) | phy_y_buf[3]
+    x_res = self._x_max // phy_x
+    y_res = self._y_max // phy_y
+    x = {'min': 0, 'max': self._x_max, 'resolution': x_res}
+    y = {'min': 0, 'max': self._y_max, 'resolution': y_res}
+    p = {'min': 0, 'max': 255}
+    return x, y, p
+
+  def _i2c_execute_cmd_size(self, cmd, data_len, out_len):
+    data_out = self.adapter.array_u08(data_len)
+    for byte_num in range(data_len):
+      data_out[byte_num] = (cmd & (0xff << 8 * byte_num)) >> (8 * byte_num)
+    retVal = self.adapter.aa_i2c_write(self._handle, self._addr,
+                                       self.I2C_NO_FLAGS, data_out)
+    resp = self._i2c_read(out_len)
+    return resp
+
+  def _i2c_execute_cmd(self, cmd):
+    data_len = 6 if cmd >> 32 else 4
+    data_out = self.adapter.array_u08(data_len)
+    for byte_num in range(data_len):
+      data_out[byte_num] = (cmd & (0xff << 8 * byte_num)) >> (8 * byte_num)
+    retVal = self.adapter.aa_i2c_write(self._handle, self._addr,
+                                       self.I2C_NO_FLAGS, data_out)
+    resp = self._i2c_read(data_len)
+    return resp
+
+  def _i2c_repeat_cmd(self, cmd):
+    for i in xrange(1, self.MAX_RETRIES):
+      resp = self._i2c_execute_cmd(cmd)
+      if resp:
+         return resp
+    print ('ERROR: exiting after %d retries to issue command %s' %
+           self.MAX_RETRIES, cmd)
+    sys.exit()
+
+  def _NextEvent(self, timeout=None):
+    handle = self._handle
+    slave_addr = self._addr
+    if not self._eventQ.empty():
+      return self._eventQ.get()
+    ct = time.time()
+
+    while True:
+      timestamp = time.time()
+      if (self._event_started and
+          timestamp - self._last_event_time > self.AARDVARK_FLUSH_TIMEOUT):
+        self._event_started = False
+        return None
+      input_len, data = self._i2c_read(self.MAX_PACKET_SIZE)
+      if (data[self.FW_HDR_TYPE] == self.CMD_HEADER_HELLO or
+          data[self.FW_HDR_TYPE] == self.CMD_HEADER_RESP or
+          data[self.FW_HDR_TYPE] == self.CMD_HEADER_REK):
+        continue
+      if (data[self.FW_HDR_TYPE] == self.QUEUE_HEADER_WAIT):
+        print 'Waiting...'
+        self.adapter.aa_sleep_ms(30)
+        continue
+
+      if (data[self.FW_HDR_TYPE] == self.QUEUE_HEADER_SINGLE):
+        self._finger_report_parser(data, self.HEADER_SIZE, timestamp)
+        if not self._eventQ.empty():
+          return self._eventQ.get()
+        continue
+
+      if (data[self.FW_HDR_TYPE] == self.QUEUE_HEADER_NORMAL):
+        report_count = data[self.FW_HDR_COUNT]
+        if report_count > 3:
+          print 'The report count is greater than the max limit'
+          continue
+        report_len = data[self.FW_HDR_LENGTH]
+        if not report_len == self.PACKET_SIZE * report_count:
+          print 'Mismatching report length'
+          continue
+        for i in xrange(report_count):
+          self._finger_report_parser(data, self.HEADER_SIZE + i * self.PACKET_SIZE,
+                              timestamp)
+        if not self._eventQ.empty():
+          return self._eventQ.get()
+        continue
+
+  def _finger_report_parser(self, data, start_point, timestamp):
+    """ This function reads the finger report from data that starts from the
+    start_point index. Packets with header QUEUE_HEADER_SINGLE have one finger
+    report and packets with QUEUE_HEADER_NORMAL might have up to 3 finger
+    reports.
+    This function reads the report, builds MtEvents based on the report, and
+    puts the MtEvents into the eventQ.
+    eventQ is used to send the _NextEvent and building the next snapshot
+    """
+    n_fingers = data[start_point + self.FW_POS_STATE + 1] & 0x0f
+    n_fingers = min(n_fingers, self.MAX_CONTACT_NUM)
+    self._last_event_time = timestamp
+    if not self._event_started:
+      self._eventQ.put(None)
+    self._event_started = True
+    finger_state = (((data[start_point + self.FW_POS_STATE + 1] & 0x30) << 4) |
+                   data[start_point + self.FW_POS_STATE])
+    for i in xrange(n_fingers):
+      if finger_state & 1:
+        finger_start_ptr = start_point + self.FW_POS_XY + i * 3
+        finger_data = data[finger_start_ptr: finger_start_ptr + 3]
+        x = ((finger_data[0] & 0xf0) << 4) | finger_data[1]
+        y = ((finger_data[0] & 0x0f) << 8) | finger_data[2]
+        p = data[start_point + self.FW_POS_PRESSURE + i]
+        w = data[start_point + self.FW_POS_WIDTH + i]
+        self._eventQ.put(mt.MtEvent(timestamp, linux_input.EV_ABS,
+                                    linux_input.ABS_MT_TRACKING_ID, i + 1))
+        self._eventQ.put(mt.MtEvent(timestamp, linux_input.EV_ABS,
+                                    linux_input.ABS_MT_POSITION_X, x))
+        self._eventQ.put(mt.MtEvent(timestamp, linux_input.EV_ABS,
+                                    linux_input.ABS_MT_POSITION_Y, y))
+        self._eventQ.put(mt.MtEvent(timestamp, linux_input.EV_ABS,
+                                    linux_input.ABS_MT_PRESSURE, p))
+        self._eventQ.put(mt.MtEvent(timestamp, linux_input.EV_ABS,
+                                    linux_input.ABS_MT_TOUCH_MAJOR, w))
+        self._eventQ.put(mt.MtEvent(timestamp, linux_input.EV_SYN,
+                                    linux_input.SYN_MT_REPORT, 0))
+      finger_state = finger_state >> 1
+    self._eventQ.put(mt.MtEvent(timestamp, linux_input.EV_SYN,
+                                linux_input.SYN_REPORT, 0))

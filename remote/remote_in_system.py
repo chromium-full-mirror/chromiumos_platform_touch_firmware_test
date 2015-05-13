@@ -123,17 +123,6 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
     """
     raise NotImplementedError(RemoteTouchDevice.not_implemented_msg)
 
-  def NextSnapshot(self, timeout=None):
-    event = self._NextEvent(timeout)
-    while event:
-      self.state_machine.add_event(event)
-      if event.is_SYN_REPORT():
-        self.most_recent_snapshot = self.state_machine.get_current_snapshot()
-        return self.most_recent_snapshot
-      event = self._NextEvent(timeout)
-
-    return None
-
   def _NextEvent(self, timeout=None):
     """ Wait for and capture the next MT event
     Once a connection has been initiated with BeginEventStream() this

@@ -8,14 +8,15 @@ import sys
 
 import colorama as color
 
-from remote import ChromeOSTouchDevice, AndroidTouchDevice, ElanTouchDevice, mt
+from remote import ChromeOSTouchDevice, AndroidTouchDevice, mt
+from remote import ElanTouchScreenDevice, ElanTouchDevice
 from report import Report
 from test_suite import TestSuite
 
 REPORT_LOCATION = 'report.html'
 
 def parse_arguments():
-  VALID_DUT_TYPES = ['chromeos', 'android', 'elan_i2c', 'replay']
+  VALID_DUT_TYPES = ['chromeos', 'android', 'elan_i2c', 'elan_ts_i2c', 'replay']
   VALID_MODES = ['performance', 'noise', 'full']
   VALID_PROTOCOLS = [mt.MTA, mt.MTB, 'auto']
   parser = optparse.OptionParser()
@@ -96,7 +97,9 @@ def initialize_touch_device(options):
   elif options.dut_type == 'android':
     touch_dev = AndroidTouchDevice(options.addr, True, options.protocol)
   elif options.dut_type == 'elan_i2c':
-    touch_dev = ElanTouchDevice(options.addr, True)
+    touch_dev = ElanTouchDevice(options.addr)
+  elif options.dut_type == 'elan_ts_i2c':
+    touch_dev = ElanTouchScreenDevice(options.addr)
   else:
     return None
 
