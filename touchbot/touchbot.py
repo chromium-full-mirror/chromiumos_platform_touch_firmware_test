@@ -98,8 +98,9 @@ class Touchbot:
     self._SetSmoothing(Touchbot.PRECISE_MOVEMENTS)
 
   def __del__(self):
-    """ Move the robot arm up and disable the fingers before quitting. """
+    """ Return all fingertips and disable the fingers before quitting. """
     if self.comm:
+      self._RequireFingertips(None, [], should_end_over_dut=False)
       self._SetCartesian(self._AddSafetyClearance(self._GetCurrentPosition()))
       for finger_number in Touchbot.FINGER_NUMBERS:
         self._DisableFinger(finger_number)
@@ -423,7 +424,7 @@ class Touchbot:
     self._SetCartesian(fingertip.above_pos,
                        finger_distance=fingertip.above_pos.ax_5)
 
-    self.PushSpeed(Touchbot.SPEED_VERY_SLOW)
+    self.PushSpeed(Touchbot.SPEED_MEDIUM)
 
     self._MoveBothFingersAbsolute(fingertip.extension1, fingertip.extension2)
     self._SetCartesian(fingertip.slide_pos,
@@ -443,7 +444,7 @@ class Touchbot:
     self._SetCartesian(fingertip.slide_pos,
                        finger_distance=fingertip.slide_pos.ax_5)
 
-    self.PushSpeed(Touchbot.SPEED_VERY_SLOW)
+    self.PushSpeed(Touchbot.SPEED_MEDIUM)
     self._PushFingerSpeed_mm_per_s(1 if fingertip.IsHeavy() else 20)
 
     self._MoveBothFingersAbsolute(fingertip.extension1, fingertip.extension2)
@@ -504,7 +505,8 @@ class Touchbot:
     self._SetCartesian(above_dut, blocking=True)
     self._SetCartesian(center, blocking=True)
 
-  def _RequireFingertips(self, device_spec, required_fingertips):
+  def _RequireFingertips(self, device_spec, required_fingertips,
+                         should_end_over_dut=True):
     """ Swap out fingertips as needed to have the specified ones equipped.
     If they are already attached, this will do nothing, but otherwise will
     put away any incorrect fingertips that are currenlty attached and will
@@ -535,7 +537,7 @@ class Touchbot:
 
     # Finally move the robot back over the DUT if we had to move it to
     # the nest to do some fingertip swaps
-    if not is_over_dut:
+    if should_end_over_dut and not is_over_dut:
       self._CenterOverDevice(device_spec)
 
     self.PopSpeed()
