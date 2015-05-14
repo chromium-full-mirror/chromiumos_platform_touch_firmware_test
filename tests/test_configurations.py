@@ -87,7 +87,7 @@ tests_dict = {
     variations=(tuple(GV.NOISE_EXTENDED_FREQUENCIES),
                 (GV.MAX_AMPLITUDE,),
                 (GV.SQUARE_WAVE,),
-                (GV.TL, GV.BR, GV.CENTER),
+                (GV.CENTER,),
     ),
     prompt='Hold one finger on the {3} of the touch surface with a '
            '{0} {1} {2} in noise.',
