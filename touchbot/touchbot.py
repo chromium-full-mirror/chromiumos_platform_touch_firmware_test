@@ -637,13 +637,13 @@ class Touchbot:
     self._RequireFingertips(device_spec, fingertips)
 
     abs_pos = device_spec.RelativePosToAbsolutePos(tap_location, angle=angle)
+    abs_pos.ax_5 = self._SuggestSpacing(fingertips)
     if len(fingertips) == 1:
       abs_pos = self._CenterForFingertip(fingertips[0], abs_pos)
-    fingertip_spacing = self._SuggestSpacing(fingertips)
 
     # Get into position
     self._SetFingerStates(False, False)
-    self._SetCartesian(abs_pos, finger_distance=fingertip_spacing)
+    self._SetCartesian(abs_pos, finger_distance=abs_pos.ax_5)
 
     # Touch the pad then lift the finger back up to tap
     finger_number = None
