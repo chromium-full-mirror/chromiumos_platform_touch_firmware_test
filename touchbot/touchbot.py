@@ -230,11 +230,17 @@ class Touchbot:
 
   def _GetFingerPos(self, finger_number):
     """ Get the current position of the finger """
-    return int(self.comm.SendFingerCmd('%dPOS' % finger_number))
+    resp = None
+    while resp is None:
+      resp = self.comm.SendFingerCmd('%dPOS' % finger_number)
+    return int(resp)
 
   def _GetFingerTargetPos(self, finger_number):
     """ Get the position that this finger is currently trying to go to """
-    return int(self.comm.SendFingerCmd('%dTPOS' % finger_number))
+    resp = None
+    while resp is None:
+      resp = self.comm.SendFingerCmd('%dTPOS' % finger_number)
+    return int(resp)
 
   def _ExecuteFingerMove(self, finger_number, blocking):
     """ Tell the finger to execute a pending move.
@@ -250,16 +256,20 @@ class Touchbot:
       self.comm.SendFingerCmd('2M')
 
     if blocking:
-      required_fingers = [1, 2] if finger_number is None else [finger_number]
+      if finger_number is None:
+        required_fingers = [1, 2]
+      else:
+        required_fingers = [finger_number]
+
       while True:
-        completed_fingers = 0
+        completed_fingers = set()
         for finger in required_fingers:
-          if finger_number is None or finger_number == finger:
+          if finger not in completed_fingers:
             target = self._GetFingerTargetPos(finger)
             current = self._GetFingerPos(finger)
             if abs(target - current) <= CORRIDOR:
-              completed_fingers += 1
-        if completed_fingers == len(required_fingers):
+              completed_fingers.add(finger)
+        if len(completed_fingers) == len(required_fingers):
           return
 
   def _MoveFingerRelative(self, finger_number, distance, blocking=True):
