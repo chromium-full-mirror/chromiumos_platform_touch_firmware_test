@@ -1152,6 +1152,7 @@ EV_STRINGS = {
 
     # Keys (only buttons, for now)
     EV_KEY: {
+        KEY_HOMEPAGE    : 'HOME',
         BTN_0           : '0',
         BTN_1           : '1',
         BTN_2           : '0',
