@@ -68,6 +68,7 @@ LINE_DIRECTION_COORDINATES = {
 SPEEDS = {
     tests.GV.NORMAL: Touchbot.SPEED_MEDIUM,
     tests.GV.SLOW: Touchbot.SPEED_SLOW,
+    tests.GV.FAST: Touchbot.SPEED_FAST,
 }
 
 ANGLES = {
@@ -81,12 +82,14 @@ SINGLE_FINGER_LINE_TESTS = [
     tests.ONE_FINGER_TO_EDGE,
     tests.ONE_FINGER_TRACKING,
     tests.ONE_FINGER_TRACKING_FROM_CENTER,
+    tests.ONE_FINGER_SWIPE,
 ]
 
 TWO_FINGER_LINE_TESTS = [
     tests.TWO_FINGER_TRACKING,
     tests.TWO_CLOSE_FINGERS_TRACKING,
     tests.TWO_FAT_FINGERS_TRACKING,
+    tests.TWO_FINGER_SWIPE,
 ]
 
 
@@ -126,11 +129,14 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
     fn = lambda: _PerformTwoFingerTapTest(variation, robot, device_spec)
   elif test.name in SINGLE_FINGER_LINE_TESTS:
     pause = 1 if test.name == tests.ONE_FINGER_TRACKING_FROM_CENTER else 0
-    fn = lambda: _PerformOneFingerLineTest(variation, robot, device_spec, pause)
+    is_swipe = (test.name == tests.ONE_FINGER_SWIPE)
+    fn = lambda: _PerformOneFingerLineTest(variation, robot, device_spec,
+                                           pause, is_swipe)
   elif test.name in TWO_FINGER_LINE_TESTS:
     spacing = 5
     fingertips = [robot.fingertips[STANDARD_FINGERTIP],
                   robot.fingertips[STANDARD_SECONDARY_FINGERTIP]]
+    is_swipe = (test.name == tests.TWO_FINGER_SWIPE)
 
     if test.name == tests.TWO_CLOSE_FINGERS_TRACKING:
       spacing = 0
@@ -140,7 +146,7 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
                     robot.fingertips[FAT_SECONDARY_FINGERTIP]]
 
     fn = lambda: _PerformTwoFingerLineTest(variation, robot, device_spec,
-                                           fingertips, spacing)
+                                           fingertips, spacing, is_swipe)
   elif test.name == tests.RESTING_FINGER_PLUS_2ND_FINGER_MOVE:
     fn = lambda: _PerformRestingFingerTest(variation, robot, device_spec)
   elif test.name == tests.PINCH_TO_ZOOM:
@@ -179,25 +185,27 @@ def _PerformTwoFingerTapTest(variation, robot, device_spec):
   robot.Tap(device_spec, fingertips, (CENTER, CENTER), angle=ANGLES[angle])
 
 
-def _PerformOneFingerLineTest(variation, robot, device_spec, pause_time_s):
+def _PerformOneFingerLineTest(variation, robot, device_spec, pause_time_s,
+                              is_swipe):
   direction, speed = variation
   start, end = LINE_DIRECTION_COORDINATES[direction]
   fingertip = robot.fingertips[STANDARD_FINGERTIP]
 
   robot.PushSpeed(SPEEDS[speed])
-  robot.Line(device_spec, [fingertip], start, end, pause_time_s)
+  robot.Line(device_spec, [fingertip], start, end, pause_s=pause_time_s,
+             swipe=is_swipe)
   robot.PopSpeed()
 
 
 def _PerformTwoFingerLineTest(variation, robot, device_spec, fingertips,
-                              spacing_mm):
+                              spacing_mm, is_swipe):
   direction, speed = variation
   start, end = LINE_DIRECTION_COORDINATES[direction]
   angle = _ComputePerpendicularAngle(start, end)
 
   robot.PushSpeed(SPEEDS[speed])
-  robot.Line(device_spec, fingertips, start, end,
-             fingertip_spacing=spacing_mm, fingertip_angle=angle)
+  robot.Line(device_spec, fingertips, start, end, fingertip_spacing=spacing_mm,
+             fingertip_angle=angle, swipe=is_swipe)
   robot.PopSpeed()
 
 

@@ -252,7 +252,7 @@ tests_dict = {
   ONE_FINGER_SWIPE:
   Test(
     name=ONE_FINGER_SWIPE,
-    variations=(GV.BLTR, GV.TRBL),
+    variations=((GV.BLTR, GV.TLBR, GV.TB, GV.LR), (GV.FAST,)),
     prompt='Use ONE finger to quickly swipe {0}.',
     subprompt={
       GV.BLTR: ('from the bottom left to the top right',),
@@ -268,7 +268,7 @@ tests_dict = {
   TWO_FINGER_SWIPE:
   Test(
     name=TWO_FINGER_SWIPE,
-    variations=(GV.TB, GV.BT),
+    variations=((GV.BLTR, GV.TLBR, GV.TB, GV.LR), (GV.FAST,)),
     prompt='Use TWO fingers to quickly swipe {0}.',
     subprompt={ GV.TB: ('from top to bottom',),
       GV.BT: ('from bottom to top',),

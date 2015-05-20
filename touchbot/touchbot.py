@@ -35,10 +35,10 @@ class Touchbot:
 
   # Useful speeds for movement
   SPEED_VERY_SLOW = 1.0
-  SPEED_SLOW = 10.0
-  SPEED_MEDIUM = 25.0
-  SPEED_FAST = 50.0
-  SPEED_VERY_FAST = 75.0
+  SPEED_SLOW = 20.0
+  SPEED_MEDIUM = 40.0
+  SPEED_FAST = 75.0
+  SPEED_VERY_FAST = 85.0
   MAX_SPEED = 100.0
 
   # Limits on how far the robot hand can move the fingers in and out
@@ -510,10 +510,15 @@ class Touchbot:
     intermediate_pos.x = above_dut.x
 
     # Finally, execute the moves
+    self.PushSpeed(Touchbot.SPEED_FAST)
     self._SetCartesian(above_curr_pos, blocking=True)
     self._SetCartesian(intermediate_pos, blocking=True)
     self._SetCartesian(above_dut, blocking=True)
+    self.PopSpeed()
+
+    self.PushSpeed(Touchbot.SPEED_MEDIUM)
     self._SetCartesian(center, blocking=True)
+    self.PopSpeed()
 
   def _RequireFingertips(self, device_spec, required_fingertips,
                          should_end_over_dut=True):
@@ -658,7 +663,7 @@ class Touchbot:
     self._SetFingerStates(False, False)
 
   def Line(self, device_spec, fingertips, start_location, end_location,
-           fingertip_angle=0, fingertip_spacing=None, pause_s=0):
+           fingertip_angle=0, fingertip_spacing=None, pause_s=0, swipe=False):
     """ Draw a line on the pad
     This gesture will:
       1. Center the specified fingertip(s) over the start location
@@ -672,6 +677,10 @@ class Touchbot:
     # Compute how far apart the fingers should be spread
     if fingertip_spacing is None:
       fingertip_spacing = self._SuggestSpacing(fingertips)
+    # Note which fingers are in play
+    fingers_to_extend = fingertips[0].finger_number
+    if len(fingertips) > 1:
+      fingers_to_extend = None
 
     # Raise up both fingers
     self._SetFingerStates(False, False)
@@ -684,13 +693,11 @@ class Touchbot:
       start_abs = self._CenterForFingertip(fingertips[0], start_abs)
     self._SetCartesian(start_abs, finger_distance=start_abs.ax_5)
 
-    # Extend the finger in question and touch the pad
-    fingers_to_extend = fingertips[0].finger_number
-    if len(fingertips) > 1:
-      fingers_to_extend = None
-    self._ExtendFingerUntilContact(fingers_to_extend, speed=100,
-                                   cutoff=Touchbot.DEFAULT_MAX_EXTENSION)
-    time.sleep(pause_s)
+    # If this is NOT a swipe, extend the fingers now (before anything moves)
+    if not swipe:
+      self._ExtendFingerUntilContact(fingers_to_extend, speed=100,
+                                     cutoff=Touchbot.DEFAULT_MAX_EXTENSION)
+      time.sleep(pause_s)
 
     # Move to the end position
     end_abs = device_spec.RelativePosToAbsolutePos(end_location)
@@ -698,10 +705,19 @@ class Touchbot:
     end_abs.ax_5 = fingertip_spacing
     if len(fingertips) == 1:
       end_abs = self._CenterForFingertip(fingertips[0], end_abs)
-    self._SetCartesian(end_abs, finger_distance=end_abs.ax_5)
+    self._SetCartesian(end_abs, finger_distance=end_abs.ax_5,
+                       blocking=(not swipe))
+
+    # If this IS a swipe, extend the fingers now (after they're already moving)
+    if swipe:
+      self._ExtendFingerUntilContact(fingers_to_extend, speed=200,
+                                     cutoff=Touchbot.DEFAULT_MAX_EXTENSION)
 
     # Then lift up
     self._SetFingerStates(False, False)
+
+    # Make sure nothing exits until all the moves have completed, just in case
+    self._Wait()
 
   def LineWithStationaryFinger(self, device_spec, stationary_fingertip,
                                moving_fingertip, start_location, end_location,
