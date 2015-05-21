@@ -51,3 +51,14 @@ class Position:
     return ((self.x - other.x) ** 2 +
         (self.y - other.y) ** 2 +
         (self.z - other.z) ** 2) ** 0.5
+
+  def SaveToPickledFile(self, filename):
+    with open(filename, 'wb') as fo:
+      pickle.dump(self, fo)
+
+  @staticmethod
+  def FromPickledFile(filename):
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    filename = os.path.join(this_dir, filename)
+    with open(filename, 'rb') as fo:
+      return pickle.load(fo)

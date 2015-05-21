@@ -345,9 +345,9 @@ tests_dict = {
   THREE_FINGER_TAP:
   Test(
     name=THREE_FINGER_TAP,
-    variations=None,
-    prompt='Use three fingers to tap the center of the touch surface.',
-    subprompt=None,
+    variations=(GV.CENTER,),
+    prompt='Use three fingers to tap the {0} of the touch surface.',
+    subprompt={GV.CENTER: ('center',)},
     validators=(
       FingerCountValidator('== 3'),
       StationaryTapValidator(RELAXED_STATIONARY_FINGER_CRITERIA_MM),
@@ -357,9 +357,9 @@ tests_dict = {
   FOUR_FINGER_TAP:
   Test(
     name=FOUR_FINGER_TAP,
-    variations=None,
-    prompt='Use four fingers to tap the center of the touch surface.',
-    subprompt=None,
+    variations=(GV.CENTER,),
+    prompt='Use four fingers to tap the {0} of the touch surface.',
+    subprompt={GV.CENTER: ('center',)},
     validators=(
       FingerCountValidator('== 4'),
       StationaryTapValidator(RELAXED_STATIONARY_FINGER_CRITERIA_MM),
@@ -370,9 +370,9 @@ tests_dict = {
   FIVE_FINGER_TAP:
   Test(
     name=FIVE_FINGER_TAP,
-    variations=None,
-    prompt='Use five fingers to tap the center of the touch surface.',
-    subprompt=None,
+    variations=(GV.CENTER,),
+    prompt='Use five fingers to tap the {0} of the touch surface.',
+    subprompt={GV.CENTER: ('center',)},
     validators=(
       FingerCountValidator('== 5'),
       StationaryTapValidator(RELAXED_STATIONARY_FINGER_CRITERIA_MM),

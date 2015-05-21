@@ -58,8 +58,8 @@ class TouchbotComm:
     """ Send a command throught the robot to the fingers """
     cmd_string = 'CustomSerial ' + cmd + MESSAGE_TERMINATOR
 
-    if cmd[0] not in ('1', '2'):
-      print "WARNING: broadcast commands are dangerous to use!"
+    if TOUCHBOT_DEBUG:
+      print '[FINGER]\t"%s"' % cmd
 
     self.soc.send(cmd_string)
     ready_to_read, _, _ = select.select([self.soc], [], [], 5)

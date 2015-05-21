@@ -53,8 +53,11 @@ def main():
   bot._MoveBothFingersAbsolute(0, 0)
   fingertip.above_pos = bot._CalibratePosition()
   pos1, pos2 = bot._ExtendRequiredFingers(FINGER)
-  bot._SetFingerStates(False, False)
-  fingertip.extension1, fingertip.extension2 = pos1, pos2
+  bot._MoveBothFingersAbsolute(0, 0)
+  if FINGER in Touchbot.FINGER_NUMBERS:
+    fingertip.extension1, fingertip.extension2 = pos1, pos2
+  else:
+    fingertip.extension1, fingertip.extension2 = pos1, pos1
 
   # Based on which row the tip is in, calculate the position that will slide
   # the tip out of the nest.

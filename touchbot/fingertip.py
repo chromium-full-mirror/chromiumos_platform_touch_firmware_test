@@ -27,9 +27,11 @@ class Fingertip:
     with open(filename, 'rb') as fo:
       return pickle.load(fo)
 
-  def IsHeavy(self):
-    """ Returns True if the fingertip is especially heavy.  In this case
+  def IsLarge(self):
+    """ Returns True if the fingertip is especially large.  In this case
     the robot needs to move more slowly to prevent knocking it off the magnets.
+    These fingertips are also thicker than the others, so they need to be offset
+    to contact the pad.
     """
     return 'fingers' in self.name
 
@@ -50,7 +52,8 @@ def LoadFingertips(directory):
   pattern = os.path.join(full_path, '*.p')
   for filename in glob.glob(pattern):
     fingertip = Fingertip.FromPickledFile(filename)
-    fingertip_name, extension = os.path.splitext(os.path.basename(filename))
-    fingertips[fingertip_name] = fingertip
+    if isinstance(fingertip, Fingertip):
+      fingertip_name, extension = os.path.splitext(os.path.basename(filename))
+      fingertips[fingertip_name] = fingertip
   return fingertips
 

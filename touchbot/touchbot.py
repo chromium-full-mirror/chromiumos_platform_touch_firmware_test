@@ -61,16 +61,23 @@ class Touchbot:
   FINGER_NUMBERS = [1, 2]
   FINGER_CURRENT_LIMIT_MA = 550
   FINGER_HOME_OFFSET = 2500
-  FINGER_CONTACT_CURRENT = 250
+  FINGER_CONTACT_CURRENT = 400
   DEFAULT_MAX_EXTENSION = 1500
   DEFAULT_CALIBRATION_EXTENSION = DEFAULT_MAX_EXTENSION * 0.95
   MIN_FINGER_SPACING = 12
   DEFAULT_FINGER_SPACING = 20
   FINGER_ACCEL_MM_S_S = 500
   FINGER_DECEL_MM_S_S = 2000
+  FINGER_PD_CONTROLLER_P = 20
+  FINGER_PD_CONTROLLER_D = 10
   FINGER_EXTENSION_SPEED = 30
   CALIBRATION_FINGERTIP1 = '1round_8mm'
   CALIBRATION_FINGERTIP2 = '2round_8mm'
+  LARGE_FINGERTIP_VERTICAL_OFFSET = 2000
+
+  NO_RESPONSES = 0
+  REQUIRE_RESPONSES = 2
+  FINGER_RESPONSE_LEVELS = [NO_RESPONSES, REQUIRE_RESPONSES]
 
   def __init__(self, ip_address=TOUCHBOT_IP_ADDR, port=TOUCHBOT_PORT):
     self.speed_stack = []
@@ -81,12 +88,12 @@ class Touchbot:
     self.fingertips = LoadFingertips('nest_locations')
     self.attached_fingertips = set()
 
-    # Center the wrist to prevent it starting twisted
+    # Lift up and center the wrist to prevent it starting twisted
+    self._SetCartesian(self._AddSafetyClearance(self._GetCurrentPosition()))
     self._CenterWrist()
 
     # Initialize the fingers
-    for finger_number in Touchbot.FINGER_NUMBERS:
-      self._InitializeFinger(finger_number)
+    self._InitializeFingers()
 
     # Set everything to a sane speed
     self.PushSpeed(Touchbot.SPEED_MEDIUM)
@@ -116,32 +123,54 @@ class Touchbot:
     self.PushSpeed(Touchbot.SPEED_MEDIUM)
     pos = self._GetCurrentPosition()
     pos.ax_4 = 0
-    pos.ax_5 = Touchbot.MIN_FINGER_DISTANCE
+    pos.ax_5 = self._SuggestSpacing(self.attached_fingertips)
     err, _ = self._SetAngles(pos)
     self.PopSpeed()
     if err:
       print 'ERROR: unable to center the wrist.'
 
-  def _InitializeFinger(self, finger_number):
+  def _InitializeFingers(self):
+    # First turn on the fingers, and and lift them up as high as they go
+    for finger_number in Touchbot.FINGER_NUMBERS:
+      self._TurnOnFinger(finger_number)
+
+    # Move the robot's hand over a known, flat surface to "zero" them on
+    self._MoveToNest()
+    zeroing_pos= Position.FromPickledFile('nest_locations/zeroing_position.p')
+    self._SetCartesian(zeroing_pos, finger_distance=5)
+
+    # Now lower the fingers slowly until they hit the surface.  This will
+    # allow us to make sure they are perfectly zeroed
+    for finger_number in Touchbot.FINGER_NUMBERS:
+      self._ZeroFinger(finger_number)
+
+  def _ZeroFinger(self, finger_number):
+    self._ExtendFingerUntilContact(finger_number, speed=10)
+    self._SetFingerZeroPoint(finger_number)
+
+  def _TurnOnFinger(self, finger_number):
     """ Do all the setup for a finger
     This function sets the current limit for the finger controller and sets
     the Zero point for the fingers
     """
-    self.comm.SendFingerCmd('%dANSW2' % finger_number)
-    self.comm.SendFingerCmd('%dDI' % finger_number)
+    self._SetFingerResponseLevel(Touchbot.REQUIRE_RESPONSES)
+    self._SendFingerCmd('%dDI' % finger_number)
     time.sleep(0.5)
     self._SetFingerCurrentLimit_mA(finger_number,
                                    Touchbot.FINGER_CURRENT_LIMIT_MA)
-    self._SetFingerAcceleration(Touchbot.FINGER_ACCEL_MM_S_S)
-    self._SetFingerDeceleration(Touchbot.FINGER_DECEL_MM_S_S)
+
+    self._SetFingerAcceleration(finger_number, Touchbot.FINGER_ACCEL_MM_S_S)
+    self._SetFingerDeceleration(finger_number, Touchbot.FINGER_DECEL_MM_S_S)
+    self._SetFingerPDParameters(finger_number,
+                                Touchbot.FINGER_PD_CONTROLLER_P,
+                                Touchbot.FINGER_PD_CONTROLLER_D)
 
     # Track to roughly the middle of the range and call that Zero
-    self.comm.SendFingerCmd('%dAPL0' % finger_number) # Disable range limiting
+    self._SendFingerCmd('%dAPL0' % finger_number) # Disable range limiting
     self._EnableFinger(finger_number)
-    self._ExtendFingerUntilContact(finger_number)
+    self._ExtendFingerUntilContact(finger_number, speed=-30)
     self._SetFingerZeroPoint(finger_number)
-    self._MoveFingerAbsolute(finger_number, -Touchbot.FINGER_HOME_OFFSET)
-    self._SetFingerZeroPoint(finger_number)
+    self._MoveFingerAbsolute(finger_number, 500)
 
   def _PushFingerSpeed_mm_per_s(self, speed):
     self.finger_speed_stack.append(self._GetFingerSpeed())
@@ -152,19 +181,24 @@ class Touchbot:
       self._SetFingerSpeed(self.finger_speed_stack.pop())
 
   def _GetFingerSpeed(self):
-    return int(self.comm.SendFingerCmd('1GSP'))
+    return int(self._SendFingerCmd('1GSP'))
 
   def _SetFingerSpeed(self, speed):
-    self.comm.SendFingerCmd('1SP%d' % speed)
-    self.comm.SendFingerCmd('2SP%d' % speed)
+    self._SendFingerCmd('1SP%d' % speed)
+    self._SendFingerCmd('2SP%d' % speed)
 
-  def _SetFingerAcceleration(self, speed):
-    self.comm.SendFingerCmd('1AC%d' % speed)
-    self.comm.SendFingerCmd('2AC%d' % speed)
+  def _SetFingerPDParameters(self, finger_number, p, d):
+    """ Configure the P and D parameters for the PD controller used to servo
+    the finger positions.
+    """
+    self._SendFingerCmd('%dPP%d' % (finger_number, p))
+    self._SendFingerCmd('%dPD%d' % (finger_number, d))
 
-  def _SetFingerDeceleration(self, speed):
-    self.comm.SendFingerCmd('1DEC%d' % speed)
-    self.comm.SendFingerCmd('2DEC%d' % speed)
+  def _SetFingerAcceleration(self, finger_number, speed):
+    self._SendFingerCmd('%dAC%d' % (finger_number, speed))
+
+  def _SetFingerDeceleration(self, finger_number, speed):
+    self._SendFingerCmd('%dDEC%d' % (finger_number, speed))
 
   def _ExtendFingerUntilContact(self, finger_number, speed=1):
     """ Extend the specified finger(s) slowly until it touches something.
@@ -172,10 +206,10 @@ class Touchbot:
     amount of current the actuator is drawing.  As soon as it meets some
     resistance the current will jump, indicating that it has made contact.
     """
-    if finger_number not in (1, 2, None):
+    if finger_number not in Touchbot.FINGER_NUMBERS + [None]:
       print 'ERROR: illegal finger_number (%d)' % finger_number
       return None
-    fingers_to_extend = (set([1, 2]) if finger_number is None
+    fingers_to_extend = (set(Touchbot.FINGER_NUMBERS) if finger_number is None
                          else set([finger_number]))
 
     # First stop any fingertip motion and wait to let the current
@@ -185,7 +219,6 @@ class Touchbot:
     # target position.
     for finger in fingers_to_extend:
       self._SetFingerVelocity_mm_s(finger, 0)
-    time.sleep(1.0)
 
     # Start the finger(s) moving at the specified velocity
     for finger in fingers_to_extend:
@@ -206,33 +239,52 @@ class Touchbot:
 
   def _SetFingerVelocity_mm_s(self, finger_number, speed):
     """ Set the specified finger's velocity (as opposed to position) """
-    self.comm.SendFingerCmd('%dV%d' % (finger_number, speed))
+    self._SendFingerCmd('%dV%d' % (finger_number, speed))
 
   def _GetFingerCurrent_mA(self, finger_number):
     """ Get the current for a specified finger in mA """
-    return int(self.comm.SendFingerCmd('%dGRC' % finger_number))
+    return int(self._SendFingerCmd('%dGRC' % finger_number))
 
   def _SetFingerZeroPoint(self, finger_number):
     """ Set Home (position 0) for the given finger to where it is right now """
-    self.comm.SendFingerCmd('%dHO' % finger_number)
+    self._SendFingerCmd('%dHO' % finger_number)
 
   def _SetFingerCurrentLimit_mA(self, finger_number, current):
     """ Set the maximum current that this finger can draw in mA """
-    self.comm.SendFingerCmd('%dLCC%d' % (finger_number, current))
+    self._SendFingerCmd('%dLCC%d' % (finger_number, current))
 
   def _EnableFinger(self, finger_number):
     """ Enable the finger, it can now move when given movement commands """
-    self.comm.SendFingerCmd('%dEN' % finger_number)
+    self._SendFingerCmd('%dEN' % finger_number)
 
   def _GetFingerPos(self, finger_number):
     """ Get the current position of the finger """
-    return int(self.comm.SendFingerCmd('%dPOS' % finger_number))
+    return int(self._SendFingerCmd('%dPOS' % finger_number))
 
   def _GetFingerTargetPos(self, finger_number):
     """ Get the position that this finger is currently trying to go to """
-    return int(self.comm.SendFingerCmd('%dTPOS' % finger_number))
+    return int(self._SendFingerCmd('%dTPOS' % finger_number))
 
-  def _ExecuteFingerMove(self, finger_number, blocking):
+  def _SetFingerResponseLevel(self, response_level):
+    if response_level not in Touchbot.FINGER_RESPONSE_LEVELS:
+      print 'ERROR: Unknown finger response level "%s"!' % str(response_level)
+      return
+    self.finger_response_level = response_level
+    for finger in Touchbot.FINGER_NUMBERS:
+      self._SendFingerCmd('%dANSW%d' % (finger, response_level))
+
+  def _SendFingerCmd(self, cmd):
+    # Messages not beginning in a finger number (1 or 2) are broadcast to
+    # both fingers, and can cause collisions on the serial bus if they both
+    # respond at the same time.
+    if (self.finger_response_level != Touchbot.NO_RESPONSES and
+        cmd[0] not in ('1', '2')):
+      print ('WARNING: broadcast commands are dangerous to use when '
+             'the fingertips are configured to respond!')
+
+    return self.comm.SendFingerCmd(cmd)
+
+  def _ExecuteFingerMove(self, finger_number, must_sync, blocking):
     """ Tell the finger to execute a pending move.
     If blocking is set to True then this will poll the finger until the
     true location of the finger and the target location are sufficiently
@@ -240,12 +292,24 @@ class Touchbot:
     """
     CORRIDOR = 1
 
-    required_fingers = [1, 2]
-    if finger_number in (1, 2):
+    if finger_number in Touchbot.FINGER_NUMBERS:
       required_fingers = [finger_number]
+      self._SendFingerCmd('%dM' % finger_number)
+    else:
+      required_fingers = Touchbot.FINGER_NUMBERS
 
-    for finger_number in required_fingers:
-      self.comm.SendFingerCmd('%dM' % finger_number)
+      if must_sync:
+        # Briefly disable responses so we can send a broacast "Move" instruction
+        # to both fingers simultaneously.  If they don't move perfectly in sync
+        # with eachother, they can't stay aligned with the magnets in the two
+        # finger probes, which makes them liable to fall off.
+        # Note: This is slow, it takes the fingers several seconds to do this
+        self._SetFingerResponseLevel(Touchbot.NO_RESPONSES)
+        self._SendFingerCmd('M')
+        self._SetFingerResponseLevel(Touchbot.REQUIRE_RESPONSES)
+      else:
+        for finger in required_fingers:
+          self._SendFingerCmd('%dM' % finger)
 
     if blocking:
       targets = {}
@@ -264,18 +328,24 @@ class Touchbot:
 
   def _MoveFingerAbsolute(self, finger_number, position, blocking=True):
     """ Move the finger to an absolute position. """
-    self.comm.SendFingerCmd('%dLA%d' % (finger_number, position))
-    self._ExecuteFingerMove(finger_number, blocking)
+    self._SendFingerCmd('%dLA%d' % (finger_number, position))
+    self._ExecuteFingerMove(finger_number, False, blocking)
 
-  def _MoveBothFingersAbsolute(self, position1, position2, blocking=True):
-    """ Move both fingers simultaineously to absolute positions """
-    self.comm.SendFingerCmd('1LA%d' % position1)
-    self.comm.SendFingerCmd('2LA%d' % position2)
-    self._ExecuteFingerMove(None, blocking)
+  def _MoveBothFingersAbsolute(self, position1, position2,
+                               must_sync=False, blocking=True):
+    """ Move both fingers to absolute positions.
+    The must_sync parameter allows you to indicate that the fingers must
+    move totally in sync (as is the case for two-finger fingertips).  This
+    incurs a delay, so it's better not to specify it unless you need to.
+    For most situations, they do not need to be perfectly synced.
+    """
+    self._SendFingerCmd('1LA%d' % position1)
+    self._SendFingerCmd('2LA%d' % position2)
+    self._ExecuteFingerMove(None, must_sync, blocking)
 
   def _DisableFinger(self, finger_number):
     self._MoveFingerAbsolute(finger_number, 0.9 * Touchbot.FINGER_HOME_OFFSET)
-    self.comm.SendFingerCmd('%dDI' % finger_number)
+    self._SendFingerCmd('%dDI' % finger_number)
 
   def _CalibratePosition(self):
     """ Make the robot go limp and record its position after the operator
@@ -427,22 +497,29 @@ class Touchbot:
 
     self.PopSpeed()
 
-    self._PushFingerSpeed_mm_per_s(1 if fingertip.IsHeavy() else 20)
-    self._MoveBothFingersAbsolute(0, 0)
+    self._PushFingerSpeed_mm_per_s(10 if fingertip.IsLarge() else 20)
+    is_dual_fingertip = (fingertip.finger_number is None)
+    self._MoveBothFingersAbsolute(0, 0, must_sync=is_dual_fingertip)
     self._PopFingerSpeed()
 
     self.attached_fingertips.add(fingertip)
 
   def _DropFingertip(self, fingertip):
     """ Drop off the specified fingertip at its place in the nest. """
-    self._MoveBothFingersAbsolute(0, 0)
-    self._SetCartesian(fingertip.slide_pos,
+    is_dual_fingertip = (fingertip.finger_number is None)
+
+    self._PushFingerSpeed_mm_per_s(10 if fingertip.IsLarge() else 50)
+
+    self._MoveBothFingersAbsolute(0, 0, must_sync=is_dual_fingertip)
+    self._SetCartesian(self._AddSafetyClearance(fingertip.slide_pos),
                        finger_distance=fingertip.slide_pos.ax_5)
 
     self.PushSpeed(Touchbot.SPEED_MEDIUM)
-    self._PushFingerSpeed_mm_per_s(1 if fingertip.IsHeavy() else 20)
+    self._SetCartesian(fingertip.slide_pos,
+                       finger_distance=fingertip.slide_pos.ax_5)
 
-    self._MoveBothFingersAbsolute(fingertip.extension1, fingertip.extension2)
+    self._MoveBothFingersAbsolute(fingertip.extension1, fingertip.extension2,
+                                  must_sync=is_dual_fingertip)
     self._SetCartesian(fingertip.above_pos,
                        finger_distance=fingertip.above_pos.ax_5)
 
@@ -501,10 +578,6 @@ class Touchbot:
     self._SetCartesian(above_dut, blocking=True)
     self.PopSpeed()
 
-    self.PushSpeed(Touchbot.SPEED_MEDIUM)
-    self._SetCartesian(center, blocking=True)
-    self.PopSpeed()
-
   def _RequireFingertips(self, device_spec, required_fingertips,
                          should_end_over_dut=True):
     """ Swap out fingertips as needed to have the specified ones equipped.
@@ -549,7 +622,7 @@ class Touchbot:
     not the point directly between the two fingers.
     """
     # Two-finger tips are already centered
-    if fingertip.finger_number not in [1, 2]:
+    if fingertip.finger_number not in Touchbot.FINGER_NUMBERS:
       return pos
 
     # Shift the x and y accordingly for both points in the line
@@ -621,7 +694,7 @@ class Touchbot:
     return device_spec
 
   def Tap(self, device_spec, fingertips, tap_location,
-          touch_time_s=None, angle=0):
+          touch_time_s=None, angle=0, vertical_offset=0):
     """ This tells the robot to perform a tap gesture at the specified
     location on the device.
     If a touch_time_s is specified (in seconds) the robot will leave
@@ -630,25 +703,32 @@ class Touchbot:
     """
     self._RequireFingertips(device_spec, fingertips)
 
+    is_dual_fingertip = False
     abs_pos = device_spec.RelativePosToAbsolutePos(tap_location, angle=angle)
     abs_pos.ax_5 = self._SuggestSpacing(fingertips)
     if len(fingertips) == 1:
       abs_pos = self._CenterForFingertip(fingertips[0], abs_pos)
+      is_dual_fingertip = (fingertips[0].finger_number is None)
 
     # Get into position
-    self._MoveBothFingersAbsolute(0, 0)
+    self._MoveBothFingersAbsolute(-vertical_offset, -vertical_offset,
+                                  must_sync=is_dual_fingertip)
     self._SetCartesian(abs_pos, finger_distance=abs_pos.ax_5)
 
     # Touch the pad then lift the finger back up to tap
     finger_number = None
     if len(fingertips) == 1:
       finger_number = fingertips[0].finger_number
-    self._ExtendFingerUntilContact(finger_number, speed=1000)
+    speed = 1000 if not fingertips[0].IsLarge() else 10
+    self._ExtendFingerUntilContact(finger_number, speed=speed)
     if touch_time_s:
       time.sleep(touch_time_s)
 
     # Then lift up
-    self._MoveBothFingersAbsolute(0, 0)
+    self._PushFingerSpeed_mm_per_s(speed)
+    self._MoveBothFingersAbsolute(-vertical_offset, -vertical_offset,
+                                  must_sync=is_dual_fingertip)
+    self._PopFingerSpeed()
 
   def Line(self, device_spec, fingertips, start_location, end_location,
            fingertip_angle=0, fingertip_spacing=None, pause_s=0, swipe=False):

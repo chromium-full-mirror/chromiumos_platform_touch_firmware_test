@@ -22,6 +22,9 @@ STANDARD_SECONDARY_FINGERTIP = '2round_9mm'
 FAT_FINGERTIP = '1round_14mm'
 FAT_SECONDARY_FINGERTIP = '2round_14mm'
 NOISE_TESTING_FINGERTIP = '1round_12mm'
+THREE_FINGER_FINGERTIP = 'three_fingers'
+FOUR_FINGER_FINGERTIP = 'four_fingers'
+FIVE_FINGER_FINGERTIP = 'five_fingers'
 
 BUFFER_SIZE = 0.1
 OVERSHOOT_DISTANCE = 0.05
@@ -77,6 +80,19 @@ ANGLES = {
     tests.GV.DIAGONAL: 45,
 }
 
+ONE_FINGERTIP_TAP_TESTS = [
+  tests.ONE_FINGER_TAP,
+  tests.THREE_FINGER_TAP,
+  tests.FOUR_FINGER_TAP,
+  tests.FIVE_FINGER_TAP,
+]
+
+TAP_TEST_FINGERTIPS = {
+  tests.ONE_FINGER_TAP: STANDARD_FINGERTIP,
+  tests.THREE_FINGER_TAP: THREE_FINGER_FINGERTIP,
+  tests.FOUR_FINGER_TAP: FOUR_FINGER_FINGERTIP,
+  tests.FIVE_FINGER_TAP: FIVE_FINGER_FINGERTIP,
+}
 
 SINGLE_FINGER_LINE_TESTS = [
     tests.ONE_FINGER_TO_EDGE,
@@ -121,36 +137,46 @@ def _ComputePerpendicularAngle(start, end):
 def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
   variation = test.variations[variation_number]
   fn = None
+
   if test.name == tests.NOISE_STATIONARY:
     fn = lambda: _PerformStationaryNoiseTest(variation, robot, device_spec)
-  elif test.name == tests.ONE_FINGER_TAP:
-    fn = lambda: _PerformOneFingerTapTest(variation, robot, device_spec)
+
+  elif test.name in ONE_FINGERTIP_TAP_TESTS:
+    fingertip = robot.fingertips[TAP_TEST_FINGERTIPS[test.name]]
+    vertical_offset = 0
+    if test.name != tests.ONE_FINGER_TAP:
+      vertical_offset = robot.LARGE_FINGERTIP_VERTICAL_OFFSET
+    fn = lambda: _PerformOneFingertipTapTest(variation, robot, device_spec,
+                                             fingertip, vertical_offset)
   elif test.name == tests.TWO_FINGER_TAP:
     fn = lambda: _PerformTwoFingerTapTest(variation, robot, device_spec)
+
   elif test.name in SINGLE_FINGER_LINE_TESTS:
     pause = 1 if test.name == tests.ONE_FINGER_TRACKING_FROM_CENTER else 0
     is_swipe = (test.name == tests.ONE_FINGER_SWIPE)
     fn = lambda: _PerformOneFingerLineTest(variation, robot, device_spec,
                                            pause, is_swipe)
+
   elif test.name in TWO_FINGER_LINE_TESTS:
     spacing = 5
     fingertips = [robot.fingertips[STANDARD_FINGERTIP],
                   robot.fingertips[STANDARD_SECONDARY_FINGERTIP]]
     is_swipe = (test.name == tests.TWO_FINGER_SWIPE)
-
     if test.name == tests.TWO_CLOSE_FINGERS_TRACKING:
       spacing = 0
     elif test.name == tests.TWO_FAT_FINGERS_TRACKING:
       spacing = 10
       fingertips = [robot.fingertips[FAT_FINGERTIP],
                     robot.fingertips[FAT_SECONDARY_FINGERTIP]]
-
     fn = lambda: _PerformTwoFingerLineTest(variation, robot, device_spec,
                                            fingertips, spacing, is_swipe)
+
   elif test.name == tests.RESTING_FINGER_PLUS_2ND_FINGER_MOVE:
     fn = lambda: _PerformRestingFingerTest(variation, robot, device_spec)
+
   elif test.name == tests.PINCH_TO_ZOOM:
     fn = lambda: _PerformPinchTest(variation, robot, device_spec)
+
   elif test.name == tests.DRAG_THUMB_EDGE:
     fn = lambda: _PerformThumbEdgeTest(variation, robot, device_spec)
 
@@ -168,11 +194,12 @@ def _PerformStationaryNoiseTest(variation, robot, device_spec):
   robot.Tap(device_spec, [fingertip], tap_position, touch_time_s=4)
 
 
-def _PerformOneFingerTapTest(variation, robot, device_spec):
+def _PerformOneFingertipTapTest(variation, robot, device_spec, fingertip,
+                                vertical_offset):
   location, = variation
   tap_position = LOCATION_COORDINATES[location]
-  fingertip = robot.fingertips[STANDARD_FINGERTIP]
-  robot.Tap(device_spec, [fingertip], tap_position)
+  robot.Tap(device_spec, [fingertip], tap_position,
+            vertical_offset=vertical_offset)
 
 
 def _PerformTwoFingerTapTest(variation, robot, device_spec):
