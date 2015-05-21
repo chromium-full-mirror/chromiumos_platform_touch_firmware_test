@@ -118,6 +118,9 @@ class TestSuite:
                           self.robot, self.device_spec)
       if robot_thread:
         robot_thread.start()
+      else:
+        next_test, next_var = self._Advance()
+        return (next_test is not None)
 
     # Consume any stray events that happened since the last gesture
     print 'Waiting for all contacts to leave before recording the gesture...'

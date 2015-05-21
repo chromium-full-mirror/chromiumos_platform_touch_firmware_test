@@ -155,7 +155,7 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
     fn = lambda: _PerformThumbEdgeTest(variation, robot, device_spec)
 
   if fn is None:
-    print color.Fore.RED + 'Error: Robot unable to perform gesture!'
+    print color.Fore.RED + 'Robot unable to perform gesture! Skipping...'
     return None
 
   return Thread(target=fn)
