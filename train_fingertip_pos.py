@@ -22,8 +22,9 @@ import copy
 import sys
 import time
 
-from fingertip import Fingertip
 from touchbot import Touchbot
+from touchbot.fingertip import Fingertip
+from touchbot.position import Position
 
 
 # Configure which fingertip you would like to train the position for here
@@ -39,7 +40,7 @@ ROW_TWO_SLIDE_OFFSET = 60
 
 def main():
   bot = Touchbot()
-  bot._PushSpeed(Touchbot.SPEED_MEDIUM)
+  bot.PushSpeed(Touchbot.SPEED_MEDIUM)
 
   name = ('%d%s' % (FINGER, BASENAME)) if FINGER else BASENAME
 
@@ -88,9 +89,9 @@ def main():
       break
 
   # Finally, save the results
-  fingertip.SaveToPickledFile('nest_locations/%s.p' % name)
+  fingertip.SaveToPickledFile('touchbot/nest_locations/%s.p' % name)
 
-  bot._PopSpeed()
+  bot.PopSpeed()
 
 
 if __name__ == "__main__":

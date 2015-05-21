@@ -453,13 +453,15 @@ tests_dict = {
     name=DRAG_THUMB_EDGE,
     variations=((GV.SMALL_THUMB, GV.LARGE_THUMB),
                 (GV.LR, GV.RL, GV.TB, GV.BT)),
-    prompt='Drag the edge of your thumb {0} in a straight line '
-           'across the touch surface',
+    prompt='Drag the edge of a {0} thumb {1} in a straight line '
+           'across the touch surface.',
     subprompt={
       GV.LR: ('horizontally from left to right',),
       GV.RL: ('horizontally from right to left',),
       GV.TB: ('vertically from top to bottom',),
       GV.BT: ('vertically from bottom to top',),
+      GV.SMALL_THUMB: ('small',),
+      GV.LARGE_THUMB: ('large',),
     },
     validators=(
       FingerCountValidator('== 1'),
