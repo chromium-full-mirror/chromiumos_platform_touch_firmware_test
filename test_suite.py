@@ -145,6 +145,11 @@ class TestSuite:
     if robot_thread:
       robot_thread.join()
 
+    # Run the validators on these events
+    results = test.RunAllValidators(snapshots)
+    for result in results:
+      print result
+
     # Prompt to see if the gesture was performed acceptibly by the user before
     # continuing.  If the user is unsatisfied abort before advancing on to the
     # next test/variation, allowing the test suite to retry this variation.
@@ -158,10 +163,8 @@ class TestSuite:
         print color.Fore.RED + 'Operator rejected the gesture.  Please retry...'
         return True
 
+    # Save the image displayed by the plotter
     plot_image_png = self.plotter.Save(wait_for_image=True)
-
-    # Run the validators on these events
-    results = test.RunAllValidators(snapshots)
 
     # Bundle the Validator results with some details of which gesture was used
     # during the test for easier debugging.
@@ -169,7 +172,7 @@ class TestSuite:
                                    results, prompt, plot_image_png)
 
     # Add the results into our report (And have it print them to stdout, too)
-    self.report.AddTestResult(test_result, verbose=True)
+    self.report.AddTestResult(test_result)
 
     # Advance the test suite to the next test and variation and return an
     # indicator as to whether this was the last thing to do or not.

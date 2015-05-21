@@ -39,12 +39,9 @@ class Report:
     with open(filename, 'wb') as fo:
       pickle.dump(self, fo)
 
-  def AddTestResult(self, test_result, verbose=False):
+  def AddTestResult(self, test_result):
     """ Add a new TestResult object to this Report """
     self.results.append(test_result)
-    if verbose:
-      for result in test_result.validator_results:
-        print result
 
   def GenerateHtml(self):
     """ Generate the html version of this report
