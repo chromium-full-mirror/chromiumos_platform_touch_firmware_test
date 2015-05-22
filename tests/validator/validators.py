@@ -302,9 +302,10 @@ class NoGapValidator(BaseValidator):
         gap_ratio_with_prev = curr_gap / prev_gap
         gap_ratio_with_next = curr_gap / next_gap
         if (curr_gap >= GAP_LOWER_BOUND and
-          gap_ratio_with_prev > largest_gap_ratio and
-          gap_ratio_with_next > RATIO_THRESHOLD_CURR_GAP_TO_NEXT_GAP):
-          largest_gap_ratio = gap_ratio_with_prev
+            gap_ratio_with_next > RATIO_THRESHOLD_CURR_GAP_TO_NEXT_GAP):
+          largest_gap_ratio = max(largest_gap_ratio, gap_ratio_with_prev)
+        else:
+          largest_gap_ratio = max(largest_gap_ratio, 1.0)
 
     result = Result()
     result.name = self.name
