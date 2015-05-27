@@ -479,12 +479,14 @@ tests_dict = {
     variations=((GV.LR, GV.TB, GV.TLBR),
                 (GV.SLOW, GV.NORMAL)),
     prompt='With two fingers close together (lightly touching each '
-           'other) in a two finger scrolling gesture, draw a {0} '
+           'other) in a two finger scrolling gesture, take {2} to draw a {0} '
            'line {1}.',
     subprompt={
       GV.LR: ('horizontal', 'from left to right',),
       GV.TB: ('vertical', 'from top to bottom',),
       GV.TLBR: ('diagonal', 'from the top left to the bottom right',),
+      GV.NORMAL: ('1 second',),
+      GV.SLOW: ('3 seconds',),
     },
     validators=(
       FingerCountValidator('== 2'),
@@ -526,11 +528,13 @@ tests_dict = {
     name=TWO_FAT_FINGERS_TRACKING,
     variations=((GV.LR, GV.TB, GV.TLBR),
                 (GV.SLOW, GV.NORMAL)),
-    prompt='Use two FAT fingers separated by about 1cm to draw '
-           'a straight line {0}.',
+    prompt='Take {1} to draw a straight line {0} with two FAT fingers '
+           'separated by about 1cm.',
     subprompt={
       GV.LR: ('from left to right',),
       GV.RL: ('from right to left',),
+      GV.NORMAL: ('1 second',),
+      GV.SLOW: ('3 seconds',),
     },
     validators=(
       FingerCountValidator('== 2'),
