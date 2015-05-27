@@ -492,7 +492,7 @@ class ChromeOSTouchDevice(RemoteInSystemTouchDevice):
     RSA_KEY_PATH = os.path.dirname(
         os.path.realpath(inspect.getfile(
         inspect.currentframe()))) + '/data/testing_rsa'
-    if stat.S_IMODE(os.stat(RSA_KEY_PATH).st_mode) != 0600
+    if stat.S_IMODE(os.stat(RSA_KEY_PATH).st_mode) != 0600:
       os.chmod(RSA_KEY_PATH, 0600)
 
     args = ['ssh', 'root@%s' % self.addr,
