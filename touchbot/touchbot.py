@@ -69,6 +69,8 @@ class Touchbot:
   FINGER_ACCEL_MM_S_S = 500
   FINGER_DECEL_MM_S_S = 2000
   FINGER_EXTENSION_SPEED = 30
+  CALIBRATION_FINGERTIP1 = '1round_8mm'
+  CALIBRATION_FINGERTIP2 = '2round_8mm'
 
   def __init__(self, ip_address=TOUCHBOT_IP_ADDR, port=TOUCHBOT_PORT):
     self.speed_stack = []
@@ -598,13 +600,16 @@ class Touchbot:
 ################################################################################
 
   def CalibrateDevice(self, filename=None):
+    fingertips = [self.fingertips[Touchbot.CALIBRATION_FINGERTIP1],
+                  self.fingertips[Touchbot.CALIBRATION_FINGERTIP2]]
+    self._RequireFingertips(None, fingertips, should_end_over_dut=False)
     self.PushSpeed(Touchbot.SPEED_FAST)
 
     # First, lift the arm up and clear of any obstructions with the fingers as
     # close together as they can to allow for easy centering
     pos = self._GetCurrentPosition()
     pos = self._AddSafetyClearance(pos)
-    self._SetCartesian(pos, finger_distance=0, blocking=True)
+    self._SetCartesian(pos, finger_distance=4, blocking=True)
 
     self._ExtendFingerUntilContact(1, Touchbot.DEFAULT_CALIBRATION_EXTENSION)
     self._ExtendFingerUntilContact(2, Touchbot.DEFAULT_CALIBRATION_EXTENSION)
