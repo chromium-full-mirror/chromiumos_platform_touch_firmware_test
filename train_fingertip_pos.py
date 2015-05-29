@@ -50,7 +50,7 @@ def main():
   # Prompt the user to align the robot's fingers over the tip and record the
   # location as the "above" position
   print 'Please align finger(s) above the tip "%s"' % name
-  bot._SetFingerStates(False, False)
+  bot._MoveBothFingersAbsolute(0, 0)
   fingertip.above_pos = bot._CalibratePosition()
   pos1, pos2 = bot._ExtendRequiredFingers(FINGER)
   bot._SetFingerStates(False, False)
