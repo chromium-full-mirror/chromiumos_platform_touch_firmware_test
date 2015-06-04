@@ -116,6 +116,7 @@ class Touchbot:
     self.PushSpeed(Touchbot.SPEED_MEDIUM)
     pos = self._GetCurrentPosition()
     pos.ax_4 = 0
+    pos.ax_5 = Touchbot.MIN_FINGER_DISTANCE
     err, _ = self._SetAngles(pos)
     self.PopSpeed()
     if err:
@@ -176,6 +177,15 @@ class Touchbot:
       return None
     fingers_to_extend = (set([1, 2]) if finger_number is None
                          else set([finger_number]))
+
+    # First stop any fingertip motion and wait to let the current
+    # drop for a little while to make sure they aren't going to
+    # immediately trigger the current spike value.  This can occur if
+    # the servo mechanism in the finger is still oscilating around its
+    # target position.
+    for finger in fingers_to_extend:
+      self._SetFingerVelocity_mm_s(finger, 0)
+    time.sleep(1.0)
 
     # Start the finger(s) moving at the specified velocity
     for finger in fingers_to_extend:
@@ -502,7 +512,7 @@ class Touchbot:
     put away any incorrect fingertips that are currenlty attached and will
     attach the requested tips from the nest.
     """
-    self.PushSpeed(Touchbot.SPEED_FAST)
+    self.PushSpeed(Touchbot.SPEED_MEDIUM)
 
     # This function starts assuming the robot is over the dut and ready to
     # perform gestures
@@ -530,6 +540,7 @@ class Touchbot:
     if should_end_over_dut and not is_over_dut:
       self._CenterOverDevice(device_spec)
 
+    self._CenterWrist()
     self.PopSpeed()
 
 

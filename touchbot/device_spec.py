@@ -65,7 +65,7 @@ class DeviceSpec:
       return self.tl, self.tr, self.bl, self.br
 
     # Otherwise we have to scale it down
-    shrink_ratio = diagonal_distance / max_diagonal_distance
+    shrink_ratio = max_diagonal_distance / diagonal_distance
     center = self.RelativePosToAbsolutePos((0.5, 0.5))
     tl = self.__InterpolatePosition(self.tl, center, shrink_ratio)
     tr = self.__InterpolatePosition(self.tr, center, shrink_ratio)
