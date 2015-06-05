@@ -82,6 +82,7 @@ ANGLES = {
 
 ONE_FINGERTIP_TAP_TESTS = [
   tests.ONE_FINGER_TAP,
+  tests.REPEATED_TAPS,
   tests.THREE_FINGER_TAP,
   tests.FOUR_FINGER_TAP,
   tests.FIVE_FINGER_TAP,
@@ -89,6 +90,7 @@ ONE_FINGERTIP_TAP_TESTS = [
 
 TAP_TEST_FINGERTIPS = {
   tests.ONE_FINGER_TAP: STANDARD_FINGERTIP,
+  tests.REPEATED_TAPS: STANDARD_FINGERTIP,
   tests.THREE_FINGER_TAP: THREE_FINGER_FINGERTIP,
   tests.FOUR_FINGER_TAP: FOUR_FINGER_FINGERTIP,
   tests.FIVE_FINGER_TAP: FIVE_FINGER_FINGERTIP,
@@ -143,11 +145,14 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
 
   elif test.name in ONE_FINGERTIP_TAP_TESTS:
     fingertip = robot.fingertips[TAP_TEST_FINGERTIPS[test.name]]
+    num_taps = 20 if test.name == tests.REPEATED_TAPS else 1
     vertical_offset = 0
     if test.name != tests.ONE_FINGER_TAP:
       vertical_offset = robot.LARGE_FINGERTIP_VERTICAL_OFFSET
-    fn = lambda: _PerformOneFingertipTapTest(variation, robot, device_spec,
-                                             fingertip, vertical_offset)
+    fn = lambda: _PerformOneFingertipTapTest(
+                      variation, robot, device_spec, fingertip,
+                      vertical_offset, num_taps)
+
   elif test.name == tests.TWO_FINGER_TAP:
     fn = lambda: _PerformTwoFingerTapTest(variation, robot, device_spec)
 
@@ -195,11 +200,11 @@ def _PerformStationaryNoiseTest(variation, robot, device_spec):
 
 
 def _PerformOneFingertipTapTest(variation, robot, device_spec, fingertip,
-                                vertical_offset):
+                                vertical_offset, num_taps):
   location, = variation
   tap_position = LOCATION_COORDINATES[location]
   robot.Tap(device_spec, [fingertip], tap_position,
-            vertical_offset=vertical_offset)
+            vertical_offset=vertical_offset, num_taps=num_taps)
 
 
 def _PerformTwoFingerTapTest(variation, robot, device_spec):

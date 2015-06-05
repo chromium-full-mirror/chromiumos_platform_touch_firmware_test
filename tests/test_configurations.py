@@ -45,7 +45,7 @@ TWO_FAT_FINGERS_TRACKING = 'two_fat_fingers_tracking'
 FIRST_FINGER_TRACKING_AND_SECOND_FINGER_TAPS = \
         'first_finger_tracking_and_second_finger_taps'
 DRUMROLL = 'drumroll'
-RAPID_TAPS = 'rapid_taps_20'
+REPEATED_TAPS = 'repeated_taps_20'
 ONE_FINGER_TRACKING_FROM_CENTER = 'one_finger_tracking_from_center'
 
 # Basic tests are ones that require no special hardware to perform
@@ -57,7 +57,7 @@ PERFORMANCE_TESTS = [ONE_FINGER_TRACKING, ONE_FINGER_TO_EDGE,
   FAT_FINGER_MOVE_WITH_RESTING_FINGER, DRAG_THUMB_EDGE,
   TWO_CLOSE_FINGERS_TRACKING, RESTING_FINGER_PLUS_2ND_FINGER_MOVE,
   TWO_FAT_FINGERS_TRACKING, FIRST_FINGER_TRACKING_AND_SECOND_FINGER_TAPS,
-  DRUMROLL, RAPID_TAPS, ONE_FINGER_TRACKING_FROM_CENTER
+  DRUMROLL, REPEATED_TAPS, ONE_FINGER_TRACKING_FROM_CENTER
 ]
 # These tests require a function generator connected to a probe so the
 # test suite can simulate electrical noise conditions.
@@ -77,6 +77,7 @@ PINCH_CRITERIA_MM = '>= 15, ~ -5'
 RELAXED_LINEARITY_CRITERIA_MM = '<= 1.5, ~ +3.0'
 STATIONARY_FINGER_CRITERIA_MM = '<= 1.0'
 RELAXED_STATIONARY_FINGER_CRITERIA_MM = '<= 3.0'
+TAP_ACCURACY_CRITERIA_MM = '<= 0.5, ~ +0.5'
 
 
 # Definitions for the test specifics
@@ -585,24 +586,19 @@ tests_dict = {
     timeout = 2,
   ),
 
-  RAPID_TAPS:
+  REPEATED_TAPS:
   Test(
-    name=RAPID_TAPS,
+    name=REPEATED_TAPS,
     variations=(GV.TL, GV.BR, GV.CENTER),
-    prompt='Tap the {0} of the touch surface 20 times quickly',
+    prompt='Tap the same spot in the {0} of the touch surface 20 times.',
     subprompt={
       GV.TL: ('top left corner',),
-      GV.TS: ('top edge',),
-      GV.TR: ('top right corner',),
-      GV.LS: ('left edge',),
       GV.CENTER: ('center',),
-      GV.RS: ('right edge',),
-      GV.BL: ('bottom left corner',),
-      GV.BS: ('bottom edge',),
       GV.BR: ('bottom right corner',),
     },
     validators=(
       FingerCountValidator('== 20'),
+      TapAccuracyValidator(TAP_ACCURACY_CRITERIA_MM),
       StationaryTapValidator(STATIONARY_FINGER_CRITERIA_MM),
     ),
     timeout = 2,

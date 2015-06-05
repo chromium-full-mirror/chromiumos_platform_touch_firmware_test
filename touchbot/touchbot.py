@@ -74,6 +74,7 @@ class Touchbot:
   CALIBRATION_FINGERTIP1 = '1round_8mm'
   CALIBRATION_FINGERTIP2 = '2round_8mm'
   LARGE_FINGERTIP_VERTICAL_OFFSET = 2000
+  TAP_LIFT_DISTANCE = 500
 
   NO_RESPONSES = 0
   REQUIRE_RESPONSES = 2
@@ -331,6 +332,11 @@ class Touchbot:
     self._SendFingerCmd('%dLA%d' % (finger_number, position))
     self._ExecuteFingerMove(finger_number, False, blocking)
 
+  def _MoveFingerRelative(self, finger_number, delta, blocking=True):
+    """ Move the finger to an relative position. """
+    self._SendFingerCmd('%dLR%d' % (finger_number, delta))
+    self._ExecuteFingerMove(finger_number, False, blocking)
+
   def _MoveBothFingersAbsolute(self, position1, position2,
                                must_sync=False, blocking=True):
     """ Move both fingers to absolute positions.
@@ -341,6 +347,16 @@ class Touchbot:
     """
     self._SendFingerCmd('1LA%d' % position1)
     self._SendFingerCmd('2LA%d' % position2)
+    self._ExecuteFingerMove(None, must_sync, blocking)
+
+  def _MoveBothFingersRelative(self, delta1, delta2,
+                               must_sync=False, blocking=True):
+    """ Move both fingers to relative positions.
+    This uses the same arguments as _MoveBothFingersAbsolute, but
+    uses relative position values instead of absolute.
+    """
+    self._SendFingerCmd('1LR%d' % delta1)
+    self._SendFingerCmd('2LR%d' % delta2)
     self._ExecuteFingerMove(None, must_sync, blocking)
 
   def _DisableFinger(self, finger_number):
@@ -694,7 +710,7 @@ class Touchbot:
     return device_spec
 
   def Tap(self, device_spec, fingertips, tap_location,
-          touch_time_s=None, angle=0, vertical_offset=0):
+          touch_time_s=None, angle=0, vertical_offset=0, num_taps=1):
     """ This tells the robot to perform a tap gesture at the specified
     location on the device.
     If a touch_time_s is specified (in seconds) the robot will leave
@@ -715,17 +731,27 @@ class Touchbot:
                                   must_sync=is_dual_fingertip)
     self._SetCartesian(abs_pos, finger_distance=abs_pos.ax_5)
 
-    # Touch the pad then lift the finger back up to tap
+    # Precomputing tap parameters based on the fingertip
     finger_number = None
     if len(fingertips) == 1:
       finger_number = fingertips[0].finger_number
-    speed = 1000 if not fingertips[0].IsLarge() else 10
-    self._ExtendFingerUntilContact(finger_number, speed=speed)
-    if touch_time_s:
-      time.sleep(touch_time_s)
+    speed = 5000 if not fingertips[0].IsLarge() else 10
 
-    # Then lift up
     self._PushFingerSpeed_mm_per_s(speed)
+    for tap in range(num_taps):
+      # Touch the pad
+      self._ExtendFingerUntilContact(finger_number, speed=speed)
+      if touch_time_s:
+        time.sleep(touch_time_s)
+
+      # Then lift up
+      if finger_number is not None:
+        self._MoveFingerRelative(finger_number, -Touchbot.TAP_LIFT_DISTANCE)
+      else:
+        self._MoveBothFingersRelative(-Touchbot.TAP_LIFT_DISTANCE,
+                                      -Touchbot.TAP_LIFT_DISTANCE,
+                                      must_sync=is_dual_fingertip)
+
     self._MoveBothFingersAbsolute(-vertical_offset, -vertical_offset,
                                   must_sync=is_dual_fingertip)
     self._PopFingerSpeed()

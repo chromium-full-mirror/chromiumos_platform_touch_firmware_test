@@ -100,6 +100,16 @@ class BaseValidator(object):
     ordered_paths = sorted(paths, key=lambda path:path[0].syn_time)
     return [ordered_paths[finger_num]]
 
+  def _MinimumEnclosingRadius(self, fingers):
+    """ Compute the radius (in mm) of the smallest circle that can surround all
+    the points where the fingers are.
+    """
+    if len(fingers) <= 1:
+      return 0
+    fingers_mm = [BaseValidator._device.PxToMm((f.x, f.y)) for f in fingers]
+    circle = minicircle(fingers_mm)
+    return circle.radius
+
   def Validate(self, snapshots):
     raise NotImplementedError('Not implemented in subclass.')
 
@@ -746,16 +756,6 @@ class DrumrollValidator(BaseValidator):
                     if self._Distance(f, p1) >= self._Distance(f, p2)])
     return cluster1, cluster2
 
-  def _MinimumEnclosingRadius(self, fingers):
-    """ Compute the radius (in mm) of the smallest circle that can surround all
-    the points where the fingers are.
-    """
-    if len(fingers) <= 1:
-      return 0
-    fingers_mm = [BaseValidator._device.PxToMm((f.x, f.y)) for f in fingers]
-    circle = minicircle(fingers_mm)
-    return circle.radius
-
   def Validate(self, snapshots):
     """ For each tracking ID, the events should all be able to be enclosed in
     a circle with a radius which is scored by this validator.
@@ -906,6 +906,36 @@ class HysteresisValidator(BaseValidator):
     result.score = self.fc.mf.grade(result.observed)
     if error:
       result.error = error
+    return result
+
+class TapAccuracyValidator(BaseValidator):
+  """ This validator is designed to compare how close in X/Y a
+  series of repeated taps are reported.  These values will be unreliable
+  if the taps are executed by a human, but with a robot they should
+  be very close together.
+
+  Example:
+      To verify that the all the taps are within 1mm of eachother
+        TapAccuracyValidator('<= 0.5')
+  """
+
+  def __init__(self, criteria_str, mf=None):
+    name = self.__class__.__name__
+    super(TapAccuracyValidator, self).__init__(criteria_str, mf, name)
+
+  def Validate(self, snapshots):
+    """ Check the how many physical clicks were seen with the # of fingers """
+    all_points_reported = []
+    for snapshot in snapshots:
+      all_points_reported.extend(snapshot.fingers)
+    radius = self._MinimumEnclosingRadius(all_points_reported)
+
+    result = Result()
+    result.name = self.name
+    result.units = 'mm'
+    result.criteria = self.criteria_str
+    result.observed = radius
+    result.score = self.fc.mf.grade(result.observed)
     return result
 
 
