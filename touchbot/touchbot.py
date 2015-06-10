@@ -779,12 +779,14 @@ class Touchbot:
     self._MoveBothFingersAbsolute(0, 0)
 
     # Move into position
+    self.PushSpeed(Touchbot.SPEED_MEDIUM)
     start_abs = device_spec.RelativePosToAbsolutePos(start_location)
     start_abs.yaw += fingertip_angle
     start_abs.ax_5 = fingertip_spacing
     if len(fingertips) == 1:
       start_abs = self._CenterForFingertip(fingertips[0], start_abs)
     self._SetCartesian(start_abs, finger_distance=start_abs.ax_5)
+    self.PopSpeed()
 
     # If this is NOT a swipe, extend the fingers now (before anything moves)
     if not swipe:
