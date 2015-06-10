@@ -62,8 +62,7 @@ class Touchbot:
   FINGER_CURRENT_LIMIT_MA = 550
   FINGER_HOME_OFFSET = 2500
   FINGER_CONTACT_CURRENT = 400
-  DEFAULT_MAX_EXTENSION = 1500
-  DEFAULT_CALIBRATION_EXTENSION = DEFAULT_MAX_EXTENSION * 0.95
+  CALIBRATION_EXTENSION = 1500
   MIN_FINGER_SPACING = 12
   DEFAULT_FINGER_SPACING = 20
   FINGER_ACCEL_MM_S_S = 500
@@ -684,8 +683,8 @@ class Touchbot:
     pos = self._AddSafetyClearance(pos)
     self._SetCartesian(pos, finger_distance=4, blocking=True)
 
-    self._ExtendFingerUntilContact(1, Touchbot.DEFAULT_CALIBRATION_EXTENSION)
-    self._ExtendFingerUntilContact(2, Touchbot.DEFAULT_CALIBRATION_EXTENSION)
+    self._MoveBothFingersAbsolute(Touchbot.CALIBRATION_EXTENSION,
+                                  Touchbot.CALIBRATION_EXTENSION)
 
     # Prompt the user to calibrate each corner of the device
     CORNER_NAMES = ['top right', 'top left', 'bottom left', 'bottom right']
