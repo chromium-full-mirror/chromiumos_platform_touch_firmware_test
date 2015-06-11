@@ -402,10 +402,12 @@ tests_dict = {
   TWO_FINGER_PHYSICAL_CLICK:
   Test(
     name=TWO_FINGER_PHYSICAL_CLICK,
-    variations=None,
-    prompt='Use two fingers physically click the center of the '
+    variations=(GV.CENTER,),
+    prompt='Use two fingers physically click the {0} of the '
            'touch surface.',
-    subprompt=None,
+    subprompt={
+      GV.CENTER: ('center',),
+    },
     validators=(
       FingerCountValidator('== 2'),
       PhysicalClickValidator('== 1', fingers=2),

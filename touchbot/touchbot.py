@@ -59,9 +59,9 @@ class Touchbot:
 
   # Constants for the finger actuators
   FINGER_NUMBERS = [1, 2]
-  FINGER_CURRENT_LIMIT_MA = 550
+  FINGER_CONTINUOUS_CURRENT_LIMIT_MA = 500
+  FINGER_PEAK_CURRENT_LIMIT_MA = 700
   FINGER_HOME_OFFSET = 2500
-  FINGER_CONTACT_CURRENT = 400
   CALIBRATION_EXTENSION = 1500
   MIN_FINGER_SPACING = 12
   DEFAULT_FINGER_SPACING = 20
@@ -69,11 +69,12 @@ class Touchbot:
   FINGER_DECEL_MM_S_S = 2000
   FINGER_PD_CONTROLLER_P = 20
   FINGER_PD_CONTROLLER_D = 10
-  FINGER_EXTENSION_SPEED = 30
   CALIBRATION_FINGERTIP1 = '1round_8mm'
   CALIBRATION_FINGERTIP2 = '2round_8mm'
   LARGE_FINGERTIP_VERTICAL_OFFSET = 2000
   TAP_LIFT_DISTANCE = 500
+  CLICK_CURRENT_MA = 500
+  PHYSICAL_CLICK_SPEED_MM_S = 5
 
   NO_RESPONSES = 0
   REQUIRE_RESPONSES = 2
@@ -156,8 +157,10 @@ class Touchbot:
     self._SetFingerResponseLevel(Touchbot.REQUIRE_RESPONSES)
     self._SendFingerCmd('%dDI' % finger_number)
     time.sleep(0.5)
-    self._SetFingerCurrentLimit_mA(finger_number,
-                                   Touchbot.FINGER_CURRENT_LIMIT_MA)
+    self._SetFingerContinuousCurrentLimit_mA(
+        finger_number, Touchbot.FINGER_CONTINUOUS_CURRENT_LIMIT_MA)
+    self._SetFingerPeakCurrentLimit_mA(
+        finger_number, Touchbot.FINGER_PEAK_CURRENT_LIMIT_MA)
 
     self._SetFingerAcceleration(finger_number, Touchbot.FINGER_ACCEL_MM_S_S)
     self._SetFingerDeceleration(finger_number, Touchbot.FINGER_DECEL_MM_S_S)
@@ -200,7 +203,8 @@ class Touchbot:
   def _SetFingerDeceleration(self, finger_number, speed):
     self._SendFingerCmd('%dDEC%d' % (finger_number, speed))
 
-  def _ExtendFingerUntilContact(self, finger_number, speed=1):
+  def _ExtendFingerUntilContact(self, finger_number, speed=30,
+                                contact_current_ma=400):
     """ Extend the specified finger(s) slowly until it touches something.
     This is done by telling the finger to extend slowly and polling the
     amount of current the actuator is drawing.  As soon as it meets some
@@ -230,7 +234,7 @@ class Touchbot:
         current = self._GetFingerCurrent_mA(finger)
 
         # If the current spikes, we know we've touched something
-        if (current >= Touchbot.FINGER_CONTACT_CURRENT):
+        if (current >= contact_current_ma):
           self._SetFingerVelocity_mm_s(finger, 0)
           fingers_to_extend.remove(finger)
 
@@ -249,8 +253,12 @@ class Touchbot:
     """ Set Home (position 0) for the given finger to where it is right now """
     self._SendFingerCmd('%dHO' % finger_number)
 
-  def _SetFingerCurrentLimit_mA(self, finger_number, current):
-    """ Set the maximum current that this finger can draw in mA """
+  def _SetFingerContinuousCurrentLimit_mA(self, finger_number, current):
+    """ Set the maximum continuous current that this finger can draw in mA """
+    self._SendFingerCmd('%dLCC%d' % (finger_number, current))
+
+  def _SetFingerPeakCurrentLimit_mA(self, finger_number, current):
+    """ Set the maximum Peak current that this finger can draw in mA """
     self._SendFingerCmd('%dLCC%d' % (finger_number, current))
 
   def _EnableFinger(self, finger_number):
@@ -481,22 +489,6 @@ class Touchbot:
   def PopSpeed(self):
     if len(self.speed_stack) >= 1:
       self._SetSpeed(self.speed_stack.pop())
-
-  def _ExtendRequiredFingers(self, finger_number):
-    """ Extend the finger(s) indicated.
-    If finger_number is None, this indicates that BOTH fingers are needed,
-    otherwise the number indicates which finger to extend.
-    """
-    if finger_number is None:
-      pos1 = self._ExtendFingerUntilContact(1)
-      pos2 = self._ExtendFingerUntilContact(2)
-      return pos1, pos2
-    elif finger_number == 1:
-      pos = self._ExtendFingerUntilContact(1)
-      return pos, 0
-    else:
-      pos = self._ExtendFingerUntilContact(2)
-      return 0, pos
 
   def _GetFingertip(self, fingertip):
     """ Retrieve the specified fingertip from the nest. """
@@ -856,10 +848,8 @@ class Touchbot:
     # Move the robot into position
     self._SetCartesian(positions[0], finger_distance=positions[0].ax_5,
                        blocking=True)
-    self._ExtendFingerUntilContact(stationary_fingertip.finger_number,
-                                   speed=Touchbot.FINGER_EXTENSION_SPEED)
-    self._ExtendFingerUntilContact(moving_fingertip.finger_number,
-                                   speed=Touchbot.FINGER_EXTENSION_SPEED)
+    self._ExtendFingerUntilContact(stationary_fingertip.finger_number)
+    self._ExtendFingerUntilContact(moving_fingertip.finger_number)
 
     # Perform the gesture
     self._SetSmoothing(Touchbot.BLEND_MOVEMENTS)
@@ -876,6 +866,33 @@ class Touchbot:
     self._RequireFingertips(device_spec, fingertips)
     pos = device_spec.RelativePosToAbsolutePos(center, angle=angle)
     self._SetCartesian(pos, finger_distance=start_distance, blocking=True)
-    self._ExtendFingerUntilContact(None, speed=Touchbot.FINGER_EXTENSION_SPEED)
+    self._ExtendFingerUntilContact(None)
     self._SetCartesian(pos, finger_distance=end_distance, blocking=True)
+    self._MoveBothFingersAbsolute(0, 0)
+
+  def Click(self, device_spec, fingertips, tap_location):
+    """ This tells the robot to perform a PHYSICAL click gesture at the
+    specified location on the device.  This means it will press down
+    hard, to make sure that when the touchpad is physically clicked down
+    the dome switch reports a click.
+    """
+    self._RequireFingertips(device_spec, fingertips)
+
+    finger_number = None
+    abs_pos = device_spec.RelativePosToAbsolutePos(tap_location)
+    abs_pos.ax_5 = self._SuggestSpacing(fingertips)
+    if len(fingertips) == 1:
+      finger_number = fingertips[0].finger_number
+      abs_pos = self._CenterForFingertip(fingertips[0], abs_pos)
+
+    # Get into position
+    self._MoveBothFingersAbsolute(0, 0)
+    self._SetCartesian(abs_pos, finger_distance=abs_pos.ax_5)
+
+    # Exert some force on the pad to cause a click
+    self._ExtendFingerUntilContact(finger_number,
+                                   speed=Touchbot.PHYSICAL_CLICK_SPEED_MM_S,
+                                   contact_current_ma=Touchbot.CLICK_CURRENT_MA)
+
+    # Lift up
     self._MoveBothFingersAbsolute(0, 0)

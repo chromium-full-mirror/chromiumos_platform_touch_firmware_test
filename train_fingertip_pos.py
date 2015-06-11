@@ -52,7 +52,17 @@ def main():
   print 'Please align finger(s) above the tip "%s"' % name
   bot._MoveBothFingersAbsolute(0, 0)
   fingertip.above_pos = bot._CalibratePosition()
-  pos1, pos2 = bot._ExtendRequiredFingers(FINGER)
+
+  # Extend the fingers into the probe and record their positions
+  pos1 = pos2 = 0
+  if FINGER is None:
+    pos1 = bot._ExtendFingerUntilContact(1)
+    pos2 = bot._ExtendFingerUntilContact(2)
+  elif finger_number == 1:
+    pos1 = bot._ExtendFingerUntilContact(1)
+  else:
+    pos2 = bot._ExtendFingerUntilContact(2)
+
   bot._MoveBothFingersAbsolute(0, 0)
   if FINGER in Touchbot.FINGER_NUMBERS:
     fingertip.extension1, fingertip.extension2 = pos1, pos2

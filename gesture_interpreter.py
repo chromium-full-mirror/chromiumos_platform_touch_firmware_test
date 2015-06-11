@@ -110,6 +110,11 @@ TWO_FINGER_LINE_TESTS = [
     tests.TWO_FINGER_SWIPE,
 ]
 
+PHYSICAL_CLICK_TESTS = [
+    tests.ONE_FINGER_PHYSICAL_CLICK,
+    tests.TWO_FINGER_PHYSICAL_CLICK,
+]
+
 
 def _ComputePerpendicularAngle(start, end):
   """ Compute the fingertip angle to be perpendicular to the
@@ -155,6 +160,13 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
 
   elif test.name == tests.TWO_FINGER_TAP:
     fn = lambda: _PerformTwoFingerTapTest(variation, robot, device_spec)
+
+  elif test.name in PHYSICAL_CLICK_TESTS:
+    fingertips = [robot.fingertips[STANDARD_FINGERTIP]]
+    if test.name == tests.TWO_FINGER_PHYSICAL_CLICK:
+      fingertips.append(robot.fingertips[STANDARD_SECONDARY_FINGERTIP])
+    fn = lambda: _PerformPhysicalClickTest(variation, robot, device_spec,
+                                           fingertips)
 
   elif test.name in SINGLE_FINGER_LINE_TESTS:
     pause = 1 if test.name == tests.ONE_FINGER_TRACKING_FROM_CENTER else 0
@@ -284,3 +296,8 @@ def _PerformThumbEdgeTest(variation, robot, device_spec):
   robot.PushSpeed(SPEEDS[tests.GV.NORMAL])
   robot.Line(device_spec, [fingertip], start, end, fingertip_angle=angle)
   robot.PopSpeed()
+
+def _PerformPhysicalClickTest(variation, robot, device_spec, fingertips):
+  location, = variation
+  click_position = LOCATION_COORDINATES[location]
+  robot.Click(device_spec, fingertips, click_position)
