@@ -27,6 +27,7 @@ class Report:
   def __init__(self, title=None, test_version=None):
     """ Construct a new, empty Report """
     self.results = []
+    self.warnings = []
     self.title = cgi.escape(title) if title else None
     self.test_version = cgi.escape(test_version) if test_version else None
 
@@ -329,19 +330,30 @@ class Report:
     image_header = '<h2 class="section_title">Noise Test Results</h2>'
     return '%s%s' % (image_header, image_html)
 
+  def _GenerateHeadings(self):
+    # Generate the Headings for the top of the page
+    title = '<h1>Touch FW Testing Results</h1>'
+
+    if self.title is not None:
+      title += ('<div class="test_title"><b>Test Title:</b> %s</div>' %
+                self.title)
+
+    if self.test_version is not None:
+      title += ('<div class="test_version"><b>Test Version:</b> %s</div>' %
+                self.test_version)
+
+    for warning in self.warnings:
+      title += ('<div class="warning"><b>WARNING</b>:%s</div>' %
+                cgi.escape(warning))
+
+    return '<div id="headings">%s</div>' % title
+
   def _GenerateHtmlBody(self):
     """ Generate the html for the <body> tag of the Report.
     This includes the actual results and anything else that will go within the
     <body> tags of the html page.  This function returns a string.
     """
-    # Generate the Heading for the top of the page
-    title = '<h1>Touch FW Testing Results</h1>'
-    if self.title is not None:
-      title += '<div class="test_title"><b>Test Title:</b> %s</div>' % self.title
-    if self.test_version is not None:
-      title += ('<div class="test_version"><b>Test Version:</b> %s</div>' %
-                self.test_version)
-    title = '<div id="headings">%s</div>' % title
+    headings = self._GenerateHeadings()
 
     # Generate the list of validators and their scores
     validator_list_title = '<h2 class="section_title">Validator Scores</h1>'
@@ -365,6 +377,6 @@ class Report:
                          (test_details_list_heading, test_details_list_inner))
 
     # Wrap everything in <body> tags and return that string
-    return '<body>%s%s%s%s</body>' % (title, validator_list, noise_test_results,
-                                      test_details_list)
+    return '<body>%s%s%s%s</body>' % (headings, validator_list,
+                                      noise_test_results, test_details_list)
 

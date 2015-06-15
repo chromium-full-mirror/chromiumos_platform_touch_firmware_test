@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 from event import MtEvent
-from state_machine import MtbStateMachine, MtaStateMachine, MtFinger, MtSnapshot
+from state_machine import *
 
 
 MTA = 'mta'

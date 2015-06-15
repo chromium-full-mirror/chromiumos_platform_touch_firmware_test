@@ -37,6 +37,16 @@ class RemoteTouchDevice:
   """
   not_implemented_msg = 'Must be implemented by a subclass.'
 
+  def __init__(self):
+    self.warnings = []
+
+  def Warn(self, warning_message):
+    """ Display a warning on stdout as well as storing it in a member variable
+    for later use.
+    """
+    print '\033[1;31mWARNING (remote touch device): %s\033[0m' % warning_message
+    self.warnings.append(warning_message)
+
   def FlushSnapshotBuffer(self, wait_until_no_fingers_present=False):
     while True:
       snapshot = self.NextSnapshot(timeout=self.flush_timeout)

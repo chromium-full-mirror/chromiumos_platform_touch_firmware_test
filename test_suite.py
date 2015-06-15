@@ -79,6 +79,7 @@ class TestSuite:
     # Create a new Report that will store all the test Results
     self.report = Report(title=self.options.title,
                          test_version=self.options.test_version)
+    self.report.warnings = self.touch_dev.warnings
 
   def RunNextTestAndVariation(self):
     """ Run the next test.

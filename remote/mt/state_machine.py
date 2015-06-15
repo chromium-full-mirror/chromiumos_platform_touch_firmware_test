@@ -15,6 +15,26 @@ class MtStateMachine(object):
   any actual state machines should derive from this class to guarantee that it
   conforms to the same interfaces.
   """
+  PRESSURE_FROM_MT_PRESSURE = 'from_mt_pressure'
+  PRESSURE_FROM_MT_TOUCH_MAJOR = 'from_mt_touch_major'
+  PRESSURE_FROM_NOWHERE = 'from_nowhere'
+  PRESSURE_SOURCES = [PRESSURE_FROM_MT_PRESSURE, PRESSURE_FROM_MT_TOUCH_MAJOR,
+                      PRESSURE_FROM_NOWHERE]
+
+  def __init__(self, pressure_src):
+    """ Setup the parts of the state machine that are uniform across all MT
+    protocol state machines.
+
+    Currently this is only one option: pressure source.  This tells the state
+    machine where to get the "pressure" readings from.  While, the default
+    way is to use MT_PRESSURE messages, some touchpads/screens use the
+    MT_TOUCH_MAJOR message instead or do not report it at all.  This parameter
+    allows you to specify which you want the state machine to use.
+    """
+    if pressure_src not in MtStateMachine.PRESSURE_SOURCES:
+      raise ValueError('The pressure source "%s" is not valid.')
+    self.pressure_src = pressure_src
+
   def add_event(self, event):
     raise NotImplementedError('Error: add_event() not implemented.')
 
@@ -32,17 +52,13 @@ class MtaStateMachine(MtStateMachine):
   and the fingers themselves are separated byt SYN_MT_REPORTS instead of a
   new SLOT.
 
-  On all the MTA devices I have tested, they use only TOUCH_MAJOR instead of
-  ABS_MT_PRESSURE, so the values are substituted here as they serve the same
-  purpose.  If this proves to be an issue, it can be addressed later.
-
   Note that because our system expects new fingers to have new TIDs and in MTA
   this is not the case (they reuse TIDs all the time) the MtaStateMachine
   keeps track of which TIDs have already been used and remaps them when
   it detects a repeated TID to an unused value to maintain transparency
   between MTB and MTA.
   """
-  def __init__(self):
+  def __init__(self, pressure_src=MtStateMachine.PRESSURE_FROM_MT_PRESSURE):
     # This dictionary maps the raw (non-unique) tids reported in the events to
     # new (unique) tids so we can easily differentiate any two fingers even if
     # there is a gap of time inbetween them.
@@ -53,6 +69,8 @@ class MtaStateMachine(MtStateMachine):
     self.last_snapshot = None
 
     self._clear()
+
+    MtStateMachine.__init__(self, pressure_src)
 
   def _clear(self):
     # Clear out the state for the current fingers
@@ -89,10 +107,15 @@ class MtaStateMachine(MtStateMachine):
     # If this is the end of a finger's information stash all the data about it
     # until the end of the data for all the fingers
     elif event.is_SYN_MT_REPORT():
-      if all([v is not None for v in (self.tid, self.x, self.y)]):
-        pressure = self.pressure if self.pressure is not None else self.touch_major
-        if pressure is not None:
-          self.fingers_data.append((self.tid, self.x, self.y, pressure))
+      if self.pressure_src == MtStateMachine.PRESSURE_FROM_MT_TOUCH_MAJOR:
+        pressure = self.touch_major
+      elif self.pressure_src == MtStateMachine.PRESSURE_FROM_NOWHERE:
+        pressure = 1
+      else:
+        pressure = self.pressure
+
+      if all([v is not None for v in (self.tid, self.x, self.y, pressure)]):
+        self.fingers_data.append((self.tid, self.x, self.y, pressure))
 
     # Otherwise, check what information it's giving us and store it
     elif event.is_ABS_MT_TRACKING_ID():
@@ -127,7 +150,7 @@ class MtbStateMachine(MtStateMachine):
   """
   DUMMY_TRACKING_ID = 999999
 
-  def __init__(self):
+  def __init__(self, pressure_src=MtStateMachine.PRESSURE_FROM_MT_PRESSURE):
     # Set the default slot to 0 as it may not be displayed in the MT events
     #
     # Some abnormal event files may not display the tracking ID in the
@@ -150,6 +173,8 @@ class MtbStateMachine(MtStateMachine):
     self.raw_events_since_last_syn = []
     self.last_snapshot = None
     self.is_first_event = True
+
+    MtStateMachine.__init__(self, pressure_src)
 
   def add_event(self, event):
     """ Update the internal states with the input MtEvent  """
@@ -204,10 +229,12 @@ class MtbStateMachine(MtStateMachine):
       tid = self.tid.get(slot, None)
       x = self.x.get(slot, None)
       y = self.y.get(slot, None)
-      pressure = self.pressure.get(slot, None)
-
-      if pressure is None and self.touch_major.get(slot, None) is not None:
+      if self.pressure_src == MtStateMachine.PRESSURE_FROM_MT_TOUCH_MAJOR:
         pressure = self.touch_major.get(slot, None)
+      elif self.pressure_src == MtStateMachine.PRESSURE_FROM_NOWHERE:
+        pressure = 1
+      else:
+        pressure = self.pressure.get(slot, None)
 
       data_ready = all([v is not None for v in
                         (x, y, pressure, tid, self.syn_time)])

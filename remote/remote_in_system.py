@@ -49,12 +49,15 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
   ]
 
   def __init__(self, addr, is_touchscreen=False, protocol='auto'):
+    RemoteTouchDevice.__init__(self)
+
     self.addr = addr
     self.is_touchscreen = is_touchscreen
     self.event_stream_process = None
     self.begin_event_stream_cmd = self.begin_event_stream_cmd or ''
     self.most_recent_snapshot = None
     self.flush_timeout = self.FLUSH_TIMEOUT
+    self.pressure_src = mt.MtStateMachine.PRESSURE_FROM_MT_PRESSURE
 
     # Probe to find out which device we want to connect to on the DUT
     self.device_num = self._GetDeviceNumber(self.is_touchscreen)
@@ -68,12 +71,36 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
     x, y, p = self._GetDimensions()
     self._x_min, self._x_max, self._x_res = x['min'], x['max'], x['resolution']
     self._y_min, self._y_max, self._y_res = y['min'], y['max'], y['resolution']
-    self._p_min, self._p_max = p['min'], p['max']
+    self._p_min, self._p_max = p.get('min', None), p.get('max', None)
 
     # Determine which kind of state machine should be used with this device
     self.protocol = self._GetMtProtocol() if protocol == 'auto' else protocol
-    self.state_machine = (mt.MtaStateMachine() if self.protocol == mt.MTA
-                          else mt.MtbStateMachine())
+    if self.protocol == mt.MTA:
+      self.state_machine = mt.MtaStateMachine(self.pressure_src)
+    else:
+      self.state_machine = mt.MtbStateMachine(self.pressure_src)
+
+
+  def _CheckForAlternativePressureSources(self, p, touch_major):
+    """ Given dimensional dictionaries for the min/max values for p and touch
+    major, this function returns the best guess of what this touch device
+    should use for "pressure."  If p is already known, simply return that,
+    otherwise try to use the touch_major values instead, and finally as a last
+    resort just assume a constant pressure of 1.
+    """
+    if p:
+      return p
+
+    if touch_major:
+      self.Warn('This device does NOT report "pressure". Using the contact '
+                'size (TOUCH_MAJOR) instead, so we can continue!')
+      self.pressure_src = mt.MtStateMachine.PRESSURE_FROM_MT_TOUCH_MAJOR
+      return touch_major
+
+    self.Warn('This device does NOT report "pressure" and no substitue '
+              'was found.  Using a constant value of 1 so we can continue!')
+    self.pressure_src = mt.MtStateMachine.PRESSURE_FROM_NOWHERE
+    return {'min': 0, 'max': 1}
 
   def _InitializeEventGatheringSubprocess(self):
     """ Initiate a stream of MTB events from the DUT
@@ -340,8 +367,7 @@ class AndroidTouchDevice(RemoteInSystemTouchDevice):
     separate step before returning.  To see how we compute resolution
     information for Android, look in that function.
     """
-    x = y = p = None
-    pressure_found = False
+    x = y = p = touch_major = None
     cmd = 'getevent -p /dev/input/event%d' % self.device_num
     output = self._RunRemoteCmd(cmd).stdout.read()
     for line in output.split('\n'):
@@ -358,13 +384,10 @@ class AndroidTouchDevice(RemoteInSystemTouchDevice):
         y = {'min': min_value, 'max': max_value}
       elif code in [linux_input.ABS_MT_PRESSURE, linux_input.ABS_PRESSURE]:
         p = {'min': min_value, 'max': max_value}
-        pressure_found = True
-      elif p is None and code is linux_input.ABS_MT_TOUCH_MAJOR:
-        p = {'min': min_value, 'max': max_value}
+      elif code is linux_input.ABS_MT_TOUCH_MAJOR:
+        touch_major = {'min': min_value, 'max': max_value}
 
-    if not pressure_found and p is not None:
-      print ('\033[1;31mWARNING! This device does NOT report "pressure". Using '
-             'the contact size instead (TOUCH_MAJOR)\033[0m\n')
+    p = self._CheckForAlternativePressureSources(p, touch_major)
 
     resolution = self._GetResolution()
     x['resolution'] = resolution
@@ -453,15 +476,22 @@ class ChromeOSTouchDevice(RemoteInSystemTouchDevice):
             dim[attribute] = value
       return dim
 
-    x = y = p = None
+    x = y = p = touch_major = None
     while not all([x, y, p]):
-      line = self._GetNextLine()
+      line = self._GetNextLine(timeout=2)
+      if line is None:
+        break
+
       if 'Event code 53 (ABS_MT_POSITION_X)' in line:
         x = _GetDimensions_Aux(['min', 'max', 'resolution'])
       elif 'Event code 54 (ABS_MT_POSITION_Y)' in line:
         y = _GetDimensions_Aux(['min', 'max', 'resolution'])
       elif 'Event code 58 (ABS_MT_PRESSURE)' in line:
         p = _GetDimensions_Aux(['min', 'max'])
+      elif 'Event code 48 (ABS_MT_TOUCH_MAJOR)' in line:
+        touch_major = _GetDimensions_Aux(['min', 'max'])
+
+    p = self._CheckForAlternativePressureSources(p, touch_major)
 
     return x, y, p
 

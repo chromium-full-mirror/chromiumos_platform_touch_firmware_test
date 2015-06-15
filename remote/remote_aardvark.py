@@ -50,6 +50,8 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
       print 'https://www.totalphase.com/downloadable/download/sample/sample_id/16/'
       sys.exit()
 
+    RemoteTouchDevice.__init__(self)
+
     self._addr = addr
     self.state_machine = mt.MtaStateMachine()
     self.flush_timeout = self.AARDVARK_FLUSH_TIMEOUT

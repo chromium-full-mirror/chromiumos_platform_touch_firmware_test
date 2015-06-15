@@ -8,15 +8,23 @@ body {
   text-align: center
 }
 
-h2.section_title, h3.prompt {
-  text-align: center;
+#headings div {
+  font-size: small;
+  border: 1px solid #b2afa8;
+  padding: 5px;
 }
 
 div.test_version, div.test_title {
   background: #fffaf0;
-  font-size: small;
-  border: 1px solid #b2afa8;
-  padding: 5px;
+}
+
+div.warning {
+  background: #ff9999;
+  margin: 10px;
+}
+
+h2.section_title, h3.prompt {
+  text-align: center;
 }
 
 ul.validators {
