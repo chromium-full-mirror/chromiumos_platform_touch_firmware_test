@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import base64
+import cgi
 import io
 import os
 import pickle
@@ -23,10 +24,11 @@ class Report:
   CSS_FILE = 'report.css'
   JS_FILE = 'report.js'
 
-  def __init__(self, title=None):
+  def __init__(self, title=None, test_version=None):
     """ Construct a new, empty Report """
     self.results = []
-    self.title = title
+    self.title = cgi.escape(title) if title else None
+    self.test_version = cgi.escape(test_version) if test_version else None
 
   @classmethod
   def FromFile(self, filename):
@@ -241,7 +243,7 @@ class Report:
     single TestResult object.  This include the test's prompt, an image of the
     gesture, and the full results for each validator run on this test.
     """
-    prompt_html = ('<h3><a href="#%s">%s</a></h3>' %
+    prompt_html = ('<h3 class="prompt"><a href="#%s">%s</a></h3>' %
                    (test_result.test_id, test_result.prompt))
     img_html = self._GenerateInlinePngTag(test_result.image)
     validators_html = ''.join([self._GenerateValidatorDetails(vr)
@@ -324,7 +326,7 @@ class Report:
     image_html = self._GenerateInlinePngTag(image, css_class='noise_results')
 
     #Finally wrap it in some formatting HTML to make it fit nicely
-    image_header = '<h2>Noise Test Results</h2>'
+    image_header = '<h2 class="section_title">Noise Test Results</h2>'
     return '%s%s' % (image_header, image_html)
 
   def _GenerateHtmlBody(self):
@@ -335,10 +337,14 @@ class Report:
     # Generate the Heading for the top of the page
     title = '<h1>Touch FW Testing Results</h1>'
     if self.title is not None:
-      title += '<h2>%s</h2>' % self.title
+      title += '<div class="test_title"><b>Test Title:</b> %s</div>' % self.title
+    if self.test_version is not None:
+      title += ('<div class="test_version"><b>Test Version:</b> %s</div>' %
+                self.test_version)
+    title = '<div id="headings">%s</div>' % title
 
     # Generate the list of validators and their scores
-    validator_list_title = '<h2>Validator Scores</h1>'
+    validator_list_title = '<h2 class="section_title">Validator Scores</h1>'
     validator_names = set([vr.name for tr in self.results
                            for vr in tr.validator_results])
     validator_list_inner = ''.join([self._GenerateValidatorHtml(name)
@@ -352,7 +358,7 @@ class Report:
     noise_test_results = self._GenerateNoiseTestResults()
 
     # Generate the detailed view of each gesture
-    test_details_list_heading = '<h2>Test Details</h2>'
+    test_details_list_heading = '<h2 class="section_title">Test Details</h2>'
     test_details_list_inner = ''.join([self._GenerateTestDetailsHtml(tr)
                                        for tr in self.results])
     test_details_list = ('%s<ul class="test_details">%s</ul>' %

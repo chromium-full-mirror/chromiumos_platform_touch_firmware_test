@@ -2,9 +2,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import inspect
 import optparse
 import os
 import sys
+from subprocess import Popen, PIPE
 
 import colorama as color
 
@@ -63,6 +65,11 @@ def parse_arguments():
                     type=int, help=('The number of test iterations to run.'))
   parser.add_option('--title', dest='title', default=None,
                     help='An optional title to put at the top of the report.')
+  parser.add_option('--test_version', dest='test_version', default=None,
+                    help=('An optionally overridden test version string.  This '
+                          'string will appear at the top of the report.  If '
+                          'left undefined the most recent git commit hash is '
+                          'used by default.'))
 
   (options, args) = parser.parse_args()
 
@@ -81,6 +88,15 @@ def parse_arguments():
     print 'ERROR: invalid mode "%s"' % options.mode
     print 'valid modes are: %s' % str(VALID_MODES)
     sys.exit(1)
+
+  # If they didn't manually specify a test_version string, generate the default
+  # By looking up the most recent commit in the touch_firmware_test git repo.
+  if options.test_version is None:
+    src_file = inspect.getfile(inspect.currentframe())
+    root_path = os.path.dirname(os.path.realpath(src_file))
+    git_path = os.path.join(root_path, '.git')
+    args = ['git', '--git-dir', git_path, 'log', '--oneline', '-n1']
+    options.test_version = Popen(args, stdout=PIPE).communicate()[0]
 
   return options, args
 
