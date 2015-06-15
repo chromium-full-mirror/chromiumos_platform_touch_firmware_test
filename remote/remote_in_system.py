@@ -413,6 +413,8 @@ class ChromeOSTouchDevice(RemoteInSystemTouchDevice):
     self.begin_event_stream_cmd = program + '/dev/input/event%d'
     self.kill_remote_process_cmd = 'killall evtest'
     RemoteInSystemTouchDevice.__init__(self, addr, is_touchscreen, protocol)
+    # Stop ChromeOS's power daemon to prevent the laptop going to sleep
+    self._RunRemoteCmd('stop powerd')
 
   def _GetMtProtocol(self):
     """ ChromeOS devices always use mtb, so we can simply return that. """
