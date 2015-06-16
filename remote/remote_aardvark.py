@@ -176,7 +176,9 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
   def __init__(self, addr):
     RemoteAardvarkTouchDevice.__init__(self, ElanTouchDevice.I2C_ETP_ADDRESS)
     self._eventQ = Queue.Queue()
-
+    
+    self._last_event_time = time.time()
+    self._event_started = False
   def _CheckReturnVal(self, val, expected, description):
     if val != expected:
       print 'Error: The device does not reply to get', description, 'command.'
@@ -224,9 +226,6 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
     self._iap_version = iap_version[0]
 
   def _GetDimensions(self):
-    handle = self._handle
-    slave_addr = self._addr
-
     self._i2c_write(ElanTouchDevice.I2C_XY_TRACENUM_CMD)
     data_len, data_val = self._i2c_read(2)
     self.trace_x = data_val[0] - 1
@@ -261,8 +260,6 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
     return x, y, p
 
   def _NextEvent(self, timeout=None):
-    handle = self._handle
-    slave_addr = self._addr
     if not self._eventQ.empty():
       return self._eventQ.get()
     timestamp = time.time()
@@ -276,6 +273,7 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
         print '        Maybe your device is not isolated and has noise'
       else:
         if time.time() - timestamp > timeout:
+          timestamp = time.time()
           self._event_started = False
           return None
         tp_info = data[ElanTouchDevice.TAP_INFO_INDEX]
@@ -372,7 +370,7 @@ class ElanTouchScreenDevice(RemoteAardvarkTouchDevice):
   def __init__(self, addr):
     RemoteAardvarkTouchDevice.__init__(self,
                                        ElanTouchScreenDevice.I2C_ETS_ADDRESS)
-    self.flush_timeout = 0.5
+    self.flush_timeout = self.AARDVARK_FLUSH_TIMEOUT
     self._eventQ = Queue.Queue()
     self._last_event_time = time.time()
     self._event_started = False
@@ -459,11 +457,8 @@ class ElanTouchScreenDevice(RemoteAardvarkTouchDevice):
     sys.exit()
 
   def _NextEvent(self, timeout=None):
-    handle = self._handle
-    slave_addr = self._addr
     if not self._eventQ.empty():
       return self._eventQ.get()
-    ct = time.time()
 
     while True:
       timestamp = time.time()
@@ -543,3 +538,197 @@ class ElanTouchScreenDevice(RemoteAardvarkTouchDevice):
       finger_state = finger_state >> 1
     self._eventQ.put(mt.MtEvent(timestamp, linux_input.EV_SYN,
                                 linux_input.SYN_REPORT, 0))
+
+class SynapticsTouchDevice(RemoteAardvarkTouchDevice):
+  I2C_SNPTCS_ADDRESS = 0x20
+
+  MAX_F11_TOUCH_WIDTH = 15
+  MAX_RETRIES = 10
+  PAGE_SELECT_LEN = 2
+  PAGES_TO_SERVICE = 10
+
+  MASK_8BIT = 0xFF
+  MASK_4BIT = 0x0F
+  MASK_3BIT = 0x07
+  MASK_2BIT = 0x03
+
+  PDT_END = 0x00D0
+  PDT_ENTRY_SIZE = 0x0006
+  PDT_START = 0x00E9
+
+  def __init__(self, addr):
+    RemoteAardvarkTouchDevice.__init__(self,
+                                SynapticsTouchDevice.I2C_SNPTCS_ADDRESS,
+                                mt.MtStateMachine.PRESSURE_FROM_MT_TOUCH_MAJOR)
+    self.flush_timeout = self.AARDVARK_FLUSH_TIMEOUT
+    self._eventQ = Queue.Queue()
+    self._last_event_time = time.time()
+    self._event_started = False
+
+  def _Initialize_Device(self):
+    print 'initializing the device'
+    self.synaptics_rmi4_query_device()
+    return None
+
+  """ f-functions have different rmi function implementations.
+  SynapticsTouchDevice is designed to support the touchscreens. Therefore,
+  only the functions f01 and f11 should be used. Other function are exist
+  """
+  def synaptics_rmi4_query_device(self):
+    SYNAPTICS_RMI4_F = {
+        0x01 : self.f01,
+        0x11 : self.f11,
+        0x12 : self.f12,
+        0x1A : self.f1A,
+        0x35 : self.f35,
+    }
+    intr_count = 0
+    for page_number in xrange(self.PAGES_TO_SERVICE):
+      pdt_entry_addr = self.PDT_START
+      for pdt_entry_addr in xrange(self.PDT_START, self.PDT_END,
+                                   -self.PDT_ENTRY_SIZE):
+        read_addr = pdt_entry_addr | (page_number << 8)
+        read_result = self._rmi_i2c_read(read_addr, 6)
+        fn_number = read_result[5]
+        if fn_number in SYNAPTICS_RMI4_F.keys():
+          SYNAPTICS_RMI4_F[fn_number](read_result, page_number)
+        intr_count += (fn_number & MASK_3BIT)
+
+  """ Before any read or write operation the page address
+  is set using this function.
+
+  Every address consist of a page and an offset.
+  In order to perform a read/write function on an address, first the page
+  should be set, and then the read/write command only contains the offset.
+  """
+  def _rmi_i2c_set_page(self, rmi_addr):
+    data_out = self.adapter.array_u08(self.PAGE_SELECT_LEN)
+    data_out[0] = self.MASK_8BIT
+    data_out[1] = ((rmi_addr >> 8) & self.MASK_8BIT)
+
+    for i in xrange(self.MAX_RETRIES):
+      retVal = self.adapter.aa_i2c_write(self._handle,
+                                         self._addr, self.I2C_NO_FLAGS,
+                                         data_out)
+      if retVal == self.PAGE_SELECT_LEN:
+        return retVal
+
+    print 'Page Select Error. Was not able to write all the bytes.'
+    sys.exit()
+
+  def _rmi_i2c_read(self, rmi_addr, length):
+    self._rmi_i2c_set_page(rmi_addr)
+
+    msg = self.adapter.array_u08(1)
+    msg[0] = rmi_addr & self.MASK_8BIT
+
+    for i in xrange(self.MAX_RETRIES):
+      self.adapter.aa_i2c_write(self._handle, self._addr,
+                                self.I2C_NO_FLAGS, msg)
+      temp_len, tmp_data = self.adapter.aa_i2c_read(self._handle, self._addr,
+                                                self.I2C_NO_FLAGS,
+                                                self.adapter.array_u08(length))
+      if temp_len == length:
+        return tmp_data
+
+    print 'I2C Read Error. Was not able to read all the bytes.'
+    sys.exit()
+
+  def _rmi_i2c_write(self, rmi_addr, data_out, length):
+    self._rmi_i2c_set_page(rmi_addr)
+
+    msg = self.adapter.array_u08(length + 1)
+    msg[0] = rmi_addr & self.MASK_8BIT
+    for i in xrange(length):
+      msg[i + 1] = data_out[i]
+    for i in xrange(self.MAX_RETRIES):
+      retVal = self.adapter.aa_i2c_write(self._handle,
+                                         self._addr, self.I2C_NO_FLAGS, msg)
+      if retVal > 0:
+        return retVal
+
+    print 'I2C Write Error. Was not able to write all the bytes.'
+    sys.exit()
+
+
+  def _GetDimensions(self):
+    # TODO (asimjour): resolution values are temporary
+    x = {'min': 0, 'max': self._max_x, 'resolution': self._max_x}
+    y = {'min': 0, 'max': self._max_y, 'resolution': self._max_y}
+    p = {'min': 0, 'max': self.MAX_F11_TOUCH_WIDTH}
+    return x, y, p
+
+  def f01(self, data, page_number):
+    self.data_base_addr = (data[3] | (page_number << 8)) + 2
+    self.f01_found = True
+
+  def f11(self, data, page_number):
+    query_0_5 = self._rmi_i2c_read(data[0] | (page_number << 8), 6)
+    self._max_fingers = query_0_5[1] & self.MASK_3BIT
+    control_6_9 = self._rmi_i2c_read((data[2] + 6) | (page_number << 8), 4)
+    self._max_y = control_6_9[0] | ((control_6_9[1] & self.MASK_4BIT) << 8)
+    self._max_x = control_6_9[2] | ((control_6_9[3] & self.MASK_4BIT) << 8)
+    self.f11_found = True
+
+  # These functions weren't supposed to be used with touch panels.
+  # But we should add the support of these functions in the future.
+  def f12(self, data, page_number):
+    print 'f12 found. This functionality is not supported.'
+    sys.exit()
+  def f1A(self, data, page_number):
+    print 'f1A found. This functionality is not supported.'
+    sys.exit()
+  def f35(self, data, page_number):
+    print 'f35 found. This functionality is not supported.'
+    sys.exit()
+
+  def _NextEvent(self, timeout=None):
+    if not self._eventQ.empty():
+      return self._eventQ.get()
+
+    while True:
+      timestamp = time.time()
+      if (self._event_started and
+          timestamp - self._last_event_time > self.AARDVARK_FLUSH_TIMEOUT):
+        self._event_started = False
+        return None
+      fingers_supported = self._max_fingers
+      num_of_finger_status_regs = (fingers_supported + 3) / 4
+      sensor_data = self._rmi_i2c_read(self.data_base_addr,
+                                       num_of_finger_status_regs)
+      if sensor_data[0] or (sensor_data[1] & self.MASK_2BIT):
+        break
+    self._last_event_time = time.time()
+    if not self._event_started:
+      self._event_started = True
+      return None
+    for finger in xrange(self._max_fingers):
+      finger_index = finger // 4
+      finger_shift = (finger % 4) * 2
+      finger_status = (sensor_data[finger_index] >> finger_shift) & self.MASK_2BIT
+      # Each 2-bit finger status field represents the following:
+      # 00 = finger not present
+      # 01 = finger present and data accurate
+      # 10 = finger present but data may be inaccurate
+      # 11 = reserved
+      if finger_status:
+        data_offset = (self.data_base_addr + 1 +
+                       num_of_finger_status_regs + (finger * 5))
+        sensor_finger_data = self._rmi_i2c_read(data_offset, 5)
+        y = (sensor_finger_data[0] << 4) | (sensor_finger_data[2] & self.MASK_4BIT)
+        x = (sensor_finger_data[1] << 4) | (sensor_finger_data[2] >> 4)
+        wx = sensor_finger_data[3] & self.MASK_4BIT
+        wy = sensor_finger_data[3] >> 4
+        self._eventQ.put(mt.MtEvent(timestamp, linux_input.EV_ABS,
+                                  linux_input.ABS_MT_TRACKING_ID, finger + 1))
+        self._eventQ.put(mt.MtEvent(timestamp, linux_input.EV_ABS,
+                                  linux_input.ABS_MT_POSITION_X, x))
+        self._eventQ.put(mt.MtEvent(timestamp, linux_input.EV_ABS,
+                                  linux_input.ABS_MT_POSITION_Y, y))
+        self._eventQ.put(mt.MtEvent(timestamp, linux_input.EV_ABS,
+                                  linux_input.ABS_MT_TOUCH_MAJOR, max(wx, wy)))
+        self._eventQ.put(mt.MtEvent(timestamp, linux_input.EV_SYN,
+                                  linux_input.SYN_MT_REPORT, 0))
+    self._eventQ.put(mt.MtEvent(timestamp, linux_input.EV_SYN,
+                                linux_input.SYN_REPORT, 0))
+    return self._eventQ.get()

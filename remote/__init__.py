@@ -4,4 +4,5 @@
 
 from remote_in_system import AndroidTouchDevice, ChromeOSTouchDevice
 from remote_aardvark import ElanTouchDevice, ElanTouchScreenDevice
+from remote_aardvark import SynapticsTouchDevice
 import mt
