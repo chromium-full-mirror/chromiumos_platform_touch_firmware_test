@@ -431,14 +431,15 @@ tests_dict = {
   FAT_FINGER_MOVE_WITH_RESTING_FINGER:
   Test(
     name=FAT_FINGER_MOVE_WITH_RESTING_FINGER,
-    variations=(GV.LR, GV.RL, GV.TB, GV.BT),
+    variations=((GV.LR, GV.RL, GV.TB, GV.BT),
+                (GV.NORMAL,)),
     prompt='With a stationary finger on the {0} of the touch surface, '
            'draw a straight line with a FAT finger {1} {2} it.',
     subprompt={
-      GV.LR: ('center', 'from left to right', 'below'),
+      GV.LR: ('top edge', 'from left to right', 'below'),
       GV.RL: ('bottom edge', 'from right to left', 'above'),
-      GV.TB: ('center', 'from top to bottom', 'on the right to'),
-      GV.BT: ('center', 'from bottom to top', 'on the left to'),
+      GV.TB: ('left edge', 'from top to bottom', 'on the right to'),
+      GV.BT: ('right edge', 'from bottom to top', 'on the left to'),
     },
     validators=(
       FingerCountValidator('== 2'),

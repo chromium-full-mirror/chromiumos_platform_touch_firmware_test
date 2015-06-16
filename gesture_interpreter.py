@@ -68,6 +68,13 @@ LINE_DIRECTION_COORDINATES = {
     tests.GV.CLR: ((CENTER, CENTER), (OVER_RIGHT, OVER_BOTTOM)),
 }
 
+STATIONARY_FINGER_LOCATION = {
+    tests.GV.LR: LOCATION_COORDINATES[tests.GV.TS],
+    tests.GV.RL: LOCATION_COORDINATES[tests.GV.BS],
+    tests.GV.TB: LOCATION_COORDINATES[tests.GV.LS],
+    tests.GV.BT: LOCATION_COORDINATES[tests.GV.RS],
+}
+
 SPEEDS = {
     tests.GV.NORMAL: Touchbot.SPEED_MEDIUM,
     tests.GV.SLOW: Touchbot.SPEED_SLOW,
@@ -189,7 +196,19 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
                                            fingertips, spacing, is_swipe)
 
   elif test.name == tests.RESTING_FINGER_PLUS_2ND_FINGER_MOVE:
-    fn = lambda: _PerformRestingFingerTest(variation, robot, device_spec)
+    moving_fingertip = robot.fingertips[STANDARD_SECONDARY_FINGERTIP]
+    stationary_location = LOCATION_COORDINATES[tests.GV.BL]
+    fn = lambda: _PerformRestingFingerTest(variation, robot, device_spec,
+                                           moving_fingertip,
+                                           stationary_location)
+
+  elif test.name == tests.FAT_FINGER_MOVE_WITH_RESTING_FINGER:
+    moving_fingertip = robot.fingertips[FAT_SECONDARY_FINGERTIP]
+    direction, speed = variation
+    stationary_location = STATIONARY_FINGER_LOCATION[direction]
+    fn = lambda: _PerformRestingFingerTest(variation, robot, device_spec,
+                                           moving_fingertip,
+                                           stationary_location)
 
   elif test.name == tests.PINCH_TO_ZOOM:
     fn = lambda: _PerformPinchTest(variation, robot, device_spec)
@@ -253,13 +272,12 @@ def _PerformTwoFingerLineTest(variation, robot, device_spec, fingertips,
   robot.PopSpeed()
 
 
-def _PerformRestingFingerTest(variation, robot, device_spec):
+def _PerformRestingFingerTest(variation, robot, device_spec, moving_fingertip,
+                              stationary_location):
   direction, speed = variation
   start, end = LINE_DIRECTION_COORDINATES[direction]
-  stationary_location = LOCATION_COORDINATES[tests.GV.BL]
 
   stationary_fingertip = robot.fingertips[STANDARD_FINGERTIP]
-  moving_fingertip = robot.fingertips[STANDARD_SECONDARY_FINGERTIP]
 
   robot.PushSpeed(SPEEDS[speed])
   robot.LineWithStationaryFinger(device_spec, stationary_fingertip,
