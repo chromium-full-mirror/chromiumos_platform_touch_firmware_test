@@ -266,9 +266,11 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
     if not self._eventQ.empty():
       return self._eventQ.get()
     timestamp = time.time()
-    self._event_started = False;
+    self._event_started = False
     while True:
       input_len, data = self._i2c_read(ElanTouchDevice.EVENT_LEN)
+      if input_len < ElanTouchDevice.EVENT_LEN:
+        continue
       if data[ElanTouchDevice.REPORT_ID_INDEX] != ElanTouchDevice.REPORT_ID:
         print ' Incompatible format'
         print '        Maybe your device is not isolated and has noise'
@@ -310,6 +312,8 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
         self._eventQ.put(mt.MtEvent(timestamp, linux_input.EV_ABS,
                                     linux_input.ABS_MT_POSITION_Y, pos_y))
         self._eventQ.put(mt.MtEvent(timestamp, linux_input.EV_ABS,
+                                    linux_input.ABS_MT_PRESSURE, pressure))
+        self._eventQ.put(mt.MtEvent(timestamp, linux_input.EV_ABS,
                                     linux_input.ABS_MT_TOUCH_MAJOR, major))
         finger_offset += ElanTouchDevice.FINGER_DATA_LEN
         self._eventQ.put(mt.MtEvent(timestamp, linux_input.EV_SYN,
@@ -323,10 +327,10 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
     # Unfortunately, exactly the same function appears in the driver.
     # So I don't have any explanation for these numbers at this time.
     if val & 0x80:
-      val = ~val + 1;
-      res = (790 - val * 10) * 10 / 254;
+      val = ~val + 1
+      res = (790 - val * 10) * 10 / 254
     else:
-      res = (val * 10 + 790) * 10 / 254;
+      res = (val * 10 + 790) * 10 / 254
     return res
 
 class ElanTouchScreenDevice(RemoteAardvarkTouchDevice):
@@ -371,7 +375,7 @@ class ElanTouchScreenDevice(RemoteAardvarkTouchDevice):
     self.flush_timeout = 0.5
     self._eventQ = Queue.Queue()
     self._last_event_time = time.time()
-    self._event_started = False;
+    self._event_started = False
 
   def _Initialize_Device(self):
     # Reset command
