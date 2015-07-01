@@ -577,10 +577,10 @@ tests_dict = {
     name=DRUMROLL,
     variations=(GV.FAST, ),
     prompt='Use the index and middle finger of one hand to make a '
-           '"drum roll" {0} by alternately tapping each finger '
+           '"drum roll" by alternately tapping both fingers {0} '
            'for 5 seconds.',
     subprompt={
-      GV.FAST: ('as fast as possible',),
+      GV.FAST: ('as quickly as possible',),
     },
     validators=(
       FingerCountValidator('>= 10'),

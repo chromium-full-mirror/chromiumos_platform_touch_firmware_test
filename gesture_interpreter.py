@@ -175,6 +175,9 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
     fn = lambda: _PerformPhysicalClickTest(variation, robot, device_spec,
                                            fingertips)
 
+  elif test.name == tests.DRUMROLL:
+    fn = lambda: _PerformDrumroll(variation, robot, device_spec)
+
   elif test.name in SINGLE_FINGER_LINE_TESTS:
     pause = 1 if test.name == tests.ONE_FINGER_TRACKING_FROM_CENTER else 0
     is_swipe = (test.name == tests.ONE_FINGER_SWIPE)
@@ -319,3 +322,9 @@ def _PerformPhysicalClickTest(variation, robot, device_spec, fingertips):
   location, = variation
   click_position = LOCATION_COORDINATES[location]
   robot.Click(device_spec, fingertips, click_position)
+
+def _PerformDrumroll(variation, robot, device_spec):
+  fingertips = [robot.fingertips[STANDARD_FINGERTIP],
+                robot.fingertips[STANDARD_SECONDARY_FINGERTIP]]
+  location = LOCATION_COORDINATES[tests.GV.CENTER]
+  robot.Drumroll(device_spec, fingertips, location)

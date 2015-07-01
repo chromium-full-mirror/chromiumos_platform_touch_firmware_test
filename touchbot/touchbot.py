@@ -65,6 +65,7 @@ class Touchbot:
   CALIBRATION_EXTENSION = 1500
   MIN_FINGER_SPACING = 12
   DEFAULT_FINGER_SPACING = 20
+  DRUMROLL_SPACING = 8
   FINGER_ACCEL_MM_S_S = 500
   FINGER_DECEL_MM_S_S = 2000
   FINGER_PD_CONTROLLER_P = 20
@@ -895,4 +896,42 @@ class Touchbot:
                                    contact_current_ma=Touchbot.CLICK_CURRENT_MA)
 
     # Lift up
+    self._MoveBothFingersAbsolute(0, 0)
+
+  def Drumroll(self, device_spec, fingertips, location, num_taps=20):
+    """ This gesture performs a 'drumroll' at the specified location by tapping
+    with two fingertips alternating quickly.
+    """
+    self._RequireFingertips(device_spec, fingertips)
+    if len(fingertips) != 2:
+        print 'WARNING, a drumroll should always use TWO fingertips'
+
+    # Get into position
+    abs_pos = device_spec.RelativePosToAbsolutePos(location)
+    abs_pos.ax_5 = Touchbot.DRUMROLL_SPACING
+    self._MoveBothFingersAbsolute(0, 0)
+    self._SetCartesian(abs_pos, finger_distance=abs_pos.ax_5)
+
+    # Increasing the accelleration and speed temporarily on the fingertips
+    for finger in Touchbot.FINGER_NUMBERS:
+      self._SetFingerAcceleration(finger, 3 * Touchbot.FINGER_ACCEL_MM_S_S)
+      self._SetFingerDeceleration(finger, 3 * Touchbot.FINGER_DECEL_MM_S_S)
+    self._PushFingerSpeed_mm_per_s(2000)
+
+    # Actually perform the taps
+    # Start with finger 1 down, and then alternate
+    self._MoveFingerAbsolute(1, Touchbot.CALIBRATION_EXTENSION)
+    for tap in range(num_taps):
+      self._MoveFingerAbsolute(2, Touchbot.CALIBRATION_EXTENSION, blocking=False)
+      self._MoveFingerRelative(1, -Touchbot.TAP_LIFT_DISTANCE, blocking=True)
+      self._MoveFingerAbsolute(1, Touchbot.CALIBRATION_EXTENSION, blocking=False)
+      self._MoveFingerRelative(2, -Touchbot.TAP_LIFT_DISTANCE, blocking=True)
+
+    # Slowing everything back down to normal before continuing
+    for finger in Touchbot.FINGER_NUMBERS:
+      self._SetFingerAcceleration(finger, Touchbot.FINGER_ACCEL_MM_S_S)
+      self._SetFingerDeceleration(finger, Touchbot.FINGER_DECEL_MM_S_S)
+    self._PopFingerSpeed()
+
+    # Lift up both fingers before finishing, to end in a known state
     self._MoveBothFingersAbsolute(0, 0)
