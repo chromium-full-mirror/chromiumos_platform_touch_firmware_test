@@ -164,6 +164,14 @@ class Report:
     contents = '%s%s%s' % (min_score, max_score, avg_score)
     scores_div = '<div class="scores">%s</div>' % contents
 
+    # Make a div with the text description of what this validator was testing.
+    # This assumes that all the validators that report the same name, will all
+    # have the same description, which is a safe assumption only because if two
+    # validators use the same name, but have different descriptions of how they
+    # work, then something is wrong.
+    validator_description = ('<div class="description">%s</div>' %
+                             results[0].description)
+
     # Build up the HTML for this validator's details.  (This is the part
     # that is usually hidden until you click on a validator)
     details_heading = ('<li class="heading">'
@@ -172,8 +180,8 @@ class Report:
                        '</li>')
     details = ''.join([self._GetResultDetailsHtml(r)
                  for r in sorted(results, key=lambda r: (r.score, r.observed))])
-    details = ('<ul class="result_details">%s%s</ul>' %
-               (details_heading, details))
+    details = ('<ul class="result_details">%s%s%s</ul>' %
+               (validator_description, details_heading, details))
 
     # Compose them all together into one content div element for the Validator
     content_div = ('<div onclick="expandResultDetails(this)" '

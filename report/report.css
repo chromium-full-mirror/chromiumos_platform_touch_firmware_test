@@ -41,6 +41,15 @@ ul.validators > li {
   overflow: hidden;
 }
 
+ul.result_details > div.description {
+  font-size: small;
+  background-color: rgba(255, 255, 255, 0.3);
+  margin-top: 0.75cm;
+  margin-bottom: 0.25cm;
+  margin-right: 0.5cm;
+  padding: 0.125cm;
+}
+
 ul.validators > li.heading {
   font-weight: bold;
   height: 2cm;

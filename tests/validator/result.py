@@ -12,6 +12,7 @@ class Result:
   """ A class to hold the results from running a single validator. """
   def __init__(self):
     self.name = None
+    self.description = None
     self.criteria = None
     self.observed = None
     self.units = None
