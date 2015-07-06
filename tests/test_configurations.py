@@ -62,6 +62,8 @@ PERFORMANCE_TESTS = [ONE_FINGER_TRACKING, ONE_FINGER_TO_EDGE,
 # These tests require a function generator connected to a probe so the
 # test suite can simulate electrical noise conditions.
 NOISE_TESTS = [NOISE_STATIONARY]
+# These tests are only applicable to touchPADs and not touchSCREENS
+TOUCHPAD_ONLY_TESTS = [ONE_FINGER_PHYSICAL_CLICK, TWO_FINGER_PHYSICAL_CLICK]
 
 
 # Define the pass/fail criteria for the various validators
@@ -665,6 +667,11 @@ def generate_test_list(options):
           sys.exit(1)
 
       test_names.extend(NOISE_TESTS)
+
+  # Remove any tests that are for touchpads only if this is a touchscreen
+  if options.is_touchscreen:
+    test_names = [name for name in test_names
+                  if name not in TOUCHPAD_ONLY_TESTS]
 
   # Take that generated list of names and lookup the actual Test objects.
   return [tests_dict[test_name] for test_name in test_names]

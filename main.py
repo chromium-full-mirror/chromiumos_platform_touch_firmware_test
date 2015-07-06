@@ -78,9 +78,12 @@ def parse_arguments():
     print 'ERROR: invalid dut type "%s"' % options.dut_type
     print 'valid dut types are: %s' % str(VALID_DUT_TYPES)
     sys.exit(1)
-  if options.dut_type == 'chromeos' and not options.addr:
+  elif options.dut_type == 'chromeos' and not options.addr:
     print 'ERROR: You must supply an IP address for ChromeOS DUTs'
     sys.exit(1)
+  elif options.dut_type in ['android', 'elan_ts_i2c']:
+    options.is_touchscreen = True
+
   if options.protocol not in VALID_PROTOCOLS:
     print 'ERROR: invalid protocol "%s"' % options.protocol
     print 'valid protocols are: %s' % str(VALID_PROTOCOLS)
