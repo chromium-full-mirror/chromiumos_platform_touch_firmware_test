@@ -11,6 +11,7 @@ import base64
 import json
 import logging
 import os
+import pwd
 import re
 import subprocess
 import time
@@ -30,8 +31,9 @@ from remote import ChromeOSTouchDevice, AndroidTouchDevice
 state = None
 
 # The touch events are saved in this file as default.
-SAVED_FILE = '/tmp/webplot.dat'
-SAVED_IMAGE = '/tmp/webplot.png'
+current_username = pwd.getpwuid(os.getuid()).pw_name
+SAVED_FILE = '/tmp/webplot_%s.dat' % current_username
+SAVED_IMAGE = '/tmp/webplot_%s.png' % current_username
 
 
 def SimpleSystem(cmd):
@@ -451,9 +453,9 @@ class Webplot(threading.Thread):
     """
     state.QuitAndShutdown()
 
-  def Save(self, wait_for_image=False):
-    """Notify clients to save the screen, then wait for the file to appear
-    on disk and return it.
+  def Save(self):
+    """Notify clients to save the screen, then wait for the image file to be
+    created, and return the image.
     """
     global image_lock
     global image_string
