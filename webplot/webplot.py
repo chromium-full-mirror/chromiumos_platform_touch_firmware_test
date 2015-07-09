@@ -16,6 +16,7 @@ import re
 import subprocess
 import time
 import threading
+import webbrowser
 
 import cherrypy
 
@@ -514,6 +515,10 @@ def _ParseArguments():
                       help='the address the webplot http server listens to')
   parser.add_argument('-t', '--dut_type', default='chromeos', type=str.lower,
                       help='dut type: chromeos, android')
+  parser.add_argument('--automatically_start_browser', action='store_true',
+                      help=('When this flag is set the script will try to '
+                            'start a web browser automatically once webplot '
+                            'is ready, instead of waiting for the user to.'))
   args = parser.parse_args()
 
   args.grab = not args.nograb
@@ -543,9 +548,9 @@ def Main():
   print '-' * 70 + '\n\n'
 
   if args.server_port == 80:
-    url = args.server_addr
+    url = 'http://%s' % args.server_addr
   else:
-    url = '%s:%d' % (args.server_addr, args.server_port)
+    url = 'http://%s:%d' % (args.server_addr, args.server_port)
 
   msg = 'Type "%s" in browser %s to see finger traces.\n'
   if args.server_addr == '127.0.0.1':
@@ -570,6 +575,16 @@ def Main():
   webplot = Webplot(args.server_addr, args.server_port, device, logging=True,
                     is_behind_iptables_firewall=args.behind_firewall)
   webplot.start()
+
+  if args.automatically_start_browser:
+    opened_successfully = webbrowser.open(url)
+    if opened_successfully:
+      print 'Web browser opened successfully!'
+    else:
+      print '!' * 80
+      print 'Sorry, we were unable to automatically open a web browser for you'
+      print 'Please navigate to "%s" in a browser manually, instead' % url
+      print '!' * 80
 
   # Get touch snapshots from the touch device and have clients plot them.
   webplot.GetAndPlotSnapshots()
