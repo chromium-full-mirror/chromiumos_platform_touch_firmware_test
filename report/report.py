@@ -378,9 +378,18 @@ class Report:
     noise_test_results = self._GenerateNoiseTestResults()
 
     # Generate the detailed view of each gesture
+    # We separate the noise results and sort them by frequency to make
+    # the reports more readable.
     test_details_list_heading = '<h2 class="section_title">Test Details</h2>'
+    performance_results = [result for result in self.results
+                           if 'noise' not in result.prompt]
+    noise_results = [result for result in self.results
+                     if 'noise' in result.prompt]
+    noise_results = sorted(noise_results,
+                           key=lambda x: int(x.variation[0][:-2]))
+    sorted_results = performance_results + noise_results
     test_details_list_inner = ''.join([self._GenerateTestDetailsHtml(tr)
-                                       for tr in self.results])
+                                       for tr in sorted_results])
     test_details_list = ('%s<ul class="test_details">%s</ul>' %
                          (test_details_list_heading, test_details_list_inner))
 
