@@ -4,6 +4,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+# This script is deployed derectly onto Chromebooks, and is only inteded
+# to be run from a ChromeOS device.  It is a wrapper for webplot.py that
+# makes it simpler to run webplot on the DUT itself.  If you are attempting
+# to plot touch events on a remote DUT (such as one connected to your
+# computer via ssh) this script is NOT what you want, you should look into
+# running webplot.py directly.
+
 # This script may or may not come with a suffix.
 # If this script is installed with emerge, the suffix has been removed.
 # If this script is installed with scp, there still exists the suffix.
@@ -76,5 +83,5 @@ else
 
   echo "Start $PROG server..."
   [ "$FLAGS_grab" = "$FLAGS_FALSE" ] && grab_option="--nograb"
-  exec python "${PROG_DIR}/${PROG}".py $grab_option
+  exec python "${PROG_DIR}/${PROG}".py $grab_option --behind_firewall -p80
 fi

@@ -73,7 +73,8 @@ def EnableDestinationPort(port):
   if IsDestinationPortEnabled(port):
     cherrypy.log('Port %d has been already enabled in iptables.' % port)
   else:
-    cherrypy.log('To enable port %d in iptables.' % port)
+    cherrypy.log('Adding a rule to accept incoming connections on port %d in '
+                 'iptables.' % port)
     cmd = ('sudo iptables -A INPUT -p tcp -m conntrack --ctstate NEW '
            '--dport %d -j ACCEPT' % port)
     if SimpleSystem(cmd) != 0:
@@ -293,7 +294,7 @@ class Webplot(threading.Thread):
   """
 
   def __init__(self, server_addr, server_port, device, saved_file=SAVED_FILE,
-               logging=False):
+               logging=False, is_behind_iptables_firewall=False):
     self._server_addr = server_addr
     self._server_port = server_port
     self._device = device
@@ -308,8 +309,11 @@ class Webplot(threading.Thread):
     if not logging:
       cherrypy.log.screen = None
 
-    # Allow input traffic in iptables.
-    EnableDestinationPort(self._server_port)
+    # Allow input traffic in iptables, if the user has specified.  This setting
+    # should be used if webplot is being run directly on a chromebook, but it
+    # requires root access, so we don't want to use it all the time.
+    if is_behind_iptables_firewall:
+      EnableDestinationPort(self._server_port)
 
     # Create a ws connection state object to wait for the condition to
     # shutdown the whole process.
@@ -497,9 +501,14 @@ def _ParseArguments():
 
   parser.add_argument('--is_touchscreen', help='the DUT is touchscreen',
                       action='store_true')
-  parser.add_argument('-p', '--server_port', default=80, type=int,
-                      help='the port the web server to listen to (default: 80)')
-  parser.add_argument('-s', '--server_addr', default='localhost',
+  parser.add_argument('-p', '--server_port', default=8080, type=int,
+                      help='the port the web server listens to (default: 8080)')
+  parser.add_argument('--behind_firewall', action='store_true',
+                      help=('With this flag set, you tell webplot to add a '
+                            'rule to iptables to allow incoming traffic to '
+                            'the webserver.  If you are running webplot on '
+                            'a chromebook, this is needed.'))
+  parser.add_argument('-s', '--server_addr', default='127.0.0.1',
                       help='the address the webplot http server listens to')
   parser.add_argument('-t', '--dut_type', default='chromeos', type=str.lower,
                       help='dut type: chromeos, android')
@@ -537,7 +546,7 @@ def Main():
     url = '%s:%d' % (args.server_addr, args.server_port)
 
   msg = 'Type "%s" in browser %s to see finger traces.\n'
-  if args.server_addr == 'localhost':
+  if args.server_addr == '127.0.0.1':
     which_machine = 'on the webplot server machine'
   else:
     which_machine = 'on any machine'
@@ -556,7 +565,8 @@ def Main():
 
 
   # Instantiate a webplot server daemon and start it.
-  webplot = Webplot(args.server_addr, args.server_port, device, logging=True)
+  webplot = Webplot(args.server_addr, args.server_port, device, logging=True,
+                    is_behind_iptables_firewall=args.behind_firewall)
   webplot.start()
 
   # Get touch snapshots from the touch device and have clients plot them.
