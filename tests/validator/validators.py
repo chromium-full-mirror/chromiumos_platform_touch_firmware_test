@@ -1092,7 +1092,7 @@ class DiscardInitialSecondsValidatorWrapper(BaseValidator):
             "the electrical noise being injected.  The underlying validator's "
             "description reads: %s")
     super(DiscardInitialSecondsValidatorWrapper, self).__init__(
-                                              validator.criteria_str, mf, name)
+                                        validator.criteria_str, mf, name, desc)
   def Validate(self, snapshots):
     """ Remove the first few snapshots from the list then pass them on to the
     sub-validator for validation.
