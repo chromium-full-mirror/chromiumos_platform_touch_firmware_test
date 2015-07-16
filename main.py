@@ -81,7 +81,9 @@ def parse_arguments():
   elif options.dut_type == 'chromeos' and not options.addr:
     print 'ERROR: You must supply an IP address for ChromeOS DUTs'
     sys.exit(1)
-  elif options.dut_type in ['android', 'elan_ts_i2c']:
+  # Aardvark setup does not support the physical button
+  elif options.dut_type in ['android', 'elan_ts_i2c',
+                            'elan_i2c', 'synaptics_ts_i2c']:
     options.is_touchscreen = True
 
   if options.protocol not in VALID_PROTOCOLS:

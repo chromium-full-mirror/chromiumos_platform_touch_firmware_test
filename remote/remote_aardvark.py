@@ -41,7 +41,8 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
   I2C_AARDVARK_PORT = 0
   AARDVARK_FLUSH_TIMEOUT = 0.5
 
-  def __init__(self, addr):
+  def __init__(self, addr,
+               pressure_src = mt.MtStateMachine.PRESSURE_FROM_MT_PRESSURE):
     try:
       self.adapter = import_module('aardvark_py')
     except ImportError:
@@ -53,7 +54,7 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
     RemoteTouchDevice.__init__(self)
 
     self._addr = addr
-    self.state_machine = mt.MtaStateMachine()
+    self.state_machine = mt.MtaStateMachine(pressure_src)
     self.flush_timeout = self.AARDVARK_FLUSH_TIMEOUT
 
     self._Initialize_Aardvark()
@@ -592,7 +593,7 @@ class SynapticsTouchDevice(RemoteAardvarkTouchDevice):
         fn_number = read_result[5]
         if fn_number in SYNAPTICS_RMI4_F.keys():
           SYNAPTICS_RMI4_F[fn_number](read_result, page_number)
-        intr_count += (fn_number & MASK_3BIT)
+        intr_count += (fn_number & self.MASK_3BIT)
 
   """ Before any read or write operation the page address
   is set using this function.
