@@ -38,7 +38,6 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
 
   # Constants
   I2C_BITRATE = 400
-  I2C_AARDVARK_PORT = 0
   AARDVARK_FLUSH_TIMEOUT = 0.5
 
   def __init__(self, addr,
@@ -75,7 +74,7 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
                                  self.adapter.AA_TARGET_POWER_NONE)
 
   def _Initialize_Aardvark(self):
-    self._port = self.I2C_AARDVARK_PORT
+    self._port = self._detect_port()
     handle = self.adapter.aa_open(self._port)
     self._handle = handle
     if handle <= 0:
@@ -90,6 +89,16 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
     self.adapter.aa_target_power(handle, self.adapter.AA_TARGET_POWER_BOTH)
     # Set the bitrate
     bitrate = self.adapter.aa_i2c_bitrate(handle, self.I2C_BITRATE)
+
+  def _detect_port(self):
+    (num, ports, unique_ids) = self.adapter.aa_find_devices_ext(16, 16)
+    for port in ports:
+      # Determine if the device is in-use
+      if (port & self.adapter.AA_PORT_NOT_FREE):
+        port &= ~self.adapter.AA_PORT_NOT_FREE
+      return port
+    print 'No Aardvark devices found.'
+    sys.exit()
 
   def _Initialize_Device(self):
     """ This function should initialize the TP or TS device.
