@@ -633,7 +633,6 @@ tests_dict = {
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
       NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM),
-      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
     ),
   ),
 }
