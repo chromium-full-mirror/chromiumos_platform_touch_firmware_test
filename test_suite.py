@@ -168,7 +168,7 @@ class TestSuite:
         return True
 
     # Save the image displayed by the plotter
-    plot_image_png = self.plotter.Save(wait_for_image=True)
+    plot_image_png = self.plotter.Save()
 
     # Bundle the Validator results with some details of which gesture was used
     # during the test for easier debugging.
