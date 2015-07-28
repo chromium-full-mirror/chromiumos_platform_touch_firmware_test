@@ -299,7 +299,7 @@ class Touchbot:
     true location of the finger and the target location are sufficiently
     close together.
     """
-    CORRIDOR = 1
+    CORRIDOR = 20
 
     if finger_number in Touchbot.FINGER_NUMBERS:
       required_fingers = [finger_number]
