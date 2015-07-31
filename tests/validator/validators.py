@@ -1103,8 +1103,20 @@ class DiscardInitialSecondsValidatorWrapper(BaseValidator):
       start_time = snapshots[0].syn_time
       new_start_time = start_time + self.initial_seconds_to_discard
 
-      # Filter out any events that occurred before the cutoff
-      trimmed_snapshots = [s for s in snapshots if s.syn_time >= new_start_time]
+      # Separate the snapshots that occurred before/after the cutoff
+      snapshots_before_cutoff = [s for s in snapshots
+                                 if s.syn_time <= new_start_time]
+      snapshots_after_cutoff = [s for s in snapshots
+                                if s.syn_time > new_start_time]
+
+      # Compress the first 1 second's events and insert a new, fake event
+      # exactly at the new time cutoff so we don't ignore contacts already on
+      # the pad before.
+      last_snapshot_before_cutoff = snapshots_before_cutoff[-1]
+      flattened_snapshot = last_snapshot_before_cutoff._replace(
+                               **{'syn_time': new_start_time})
+
+      trimmed_snapshots = [flattened_snapshot] + snapshots_after_cutoff
 
       # Finally pass the trimmed snapshots on to the sub-validator
       result = self.validator.Validate(trimmed_snapshots)
