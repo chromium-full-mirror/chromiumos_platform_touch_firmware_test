@@ -61,7 +61,7 @@ PERFORMANCE_TESTS = [ONE_FINGER_TRACKING, ONE_FINGER_TO_EDGE,
 ]
 # These tests require a function generator connected to a probe so the
 # test suite can simulate electrical noise conditions.
-NOISE_TESTS = [NOISE_STATIONARY]
+NOISE_TESTS = [NOISE_STATIONARY, NOISE_LINE]
 # These tests are only applicable to touchPADs and not touchSCREENS
 TOUCHPAD_ONLY_TESTS = [ONE_FINGER_PHYSICAL_CLICK, TWO_FINGER_PHYSICAL_CLICK]
 
@@ -87,7 +87,7 @@ tests_dict = {
   NOISE_STATIONARY:
   Test(
     name=NOISE_STATIONARY,
-    variations=(tuple(GV.NOISE_EXTENDED_FREQUENCIES),
+    variations=(tuple(GV.NOISE_FREQUENCIES),
                 (GV.MAX_AMPLITUDE,),
                 (GV.SQUARE_WAVE,),
                 (GV.CENTER,),
@@ -95,10 +95,7 @@ tests_dict = {
     prompt='Hold one finger on the {3} of the touch surface with a '
            '{0} {1} {2} in noise.',
     subprompt={
-        GV.TL: ('top left corner',),
-        GV.BR: ('bottom right corner',),
         GV.CENTER: ('center',),
-        GV.HALF_AMPLITUDE: ('%spp' % GV.HALF_AMPLITUDE,),
         GV.MAX_AMPLITUDE: ('%spp' % GV.MAX_AMPLITUDE,),
         GV.SQUARE_WAVE: ('square wave',),
     },
@@ -111,16 +108,16 @@ tests_dict = {
   NOISE_LINE:
   Test(
     name=NOISE_LINE,
-    variations=(tuple(GV.NOISE_SHORT_FREQUENCIES),
-                (GV.HALF_AMPLITUDE, GV.MAX_AMPLITUDE,),
+    variations=(tuple(GV.NOISE_FREQUENCIES),
+                (GV.MAX_AMPLITUDE,),
                 (GV.SQUARE_WAVE,),
                 (GV.BLTR,),
     ),
     prompt='Draw a straight line from {3} with a {0} {1} {2} in noise.',
     subprompt={
+      GV.BLTR: ('bottom left to top right',),
       GV.MAX_AMPLITUDE: ('%spp' % GV.MAX_AMPLITUDE,),
       GV.SQUARE_WAVE: ('square wave',),
-      GV.BLTR: ('bottom left to top right',),
     },
     validators=(
       DiscardInitialSecondsValidatorWrapper(FingerCountValidator('== 1')),

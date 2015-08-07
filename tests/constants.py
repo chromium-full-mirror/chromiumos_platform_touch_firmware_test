@@ -74,10 +74,9 @@ GV.NORMAL = 'normal'
 GV.FAST = 'fast'
 GV.FULL_SPEED = 'full_speed'
 GV.GESTURE_SPEED = [GV.SLOW, GV.NORMAL, GV.FAST, GV.FULL_SPEED]
-# constants used in the extended frequency sweep.
-GV.NOISE_SHORT_FREQUENCIES = ['%dHz' % f for f in range(0, 1000000, 100000)]
-GV.NOISE_EXTENDED_FREQUENCIES = ['%dHz' % f for f in range(0, 1000000, 400)]
-random.shuffle(GV.NOISE_EXTENDED_FREQUENCIES)
+# constants used in the frequency sweep.
+GV.NOISE_FREQUENCIES = ['%dHz' % f for f in range(0, 1000000, 400)]
+random.shuffle(GV.NOISE_FREQUENCIES)
 # constants about noise waveform
 GV.SQUARE_WAVE = FunctionGenerator.SQUARE_WAVE
 GV.SINE_WAVE = FunctionGenerator.SIN_WAVE

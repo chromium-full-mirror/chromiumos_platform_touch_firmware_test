@@ -63,7 +63,7 @@ class Test:
     for value in variation:
       if value in GV.NOISE_WAVEFORMS:
         form = value
-      elif value in GV.NOISE_SHORT_FREQUENCIES + GV.NOISE_EXTENDED_FREQUENCIES:
+      elif value in GV.NOISE_FREQUENCIES:
         frequency = int(value.replace('Hz', ''))
       elif value in GV.NOISE_AMPLITUDES:
         amplitude = int(value.replace('V', ''))

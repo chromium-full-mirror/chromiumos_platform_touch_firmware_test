@@ -286,46 +286,56 @@ class Report:
         results_by_frequency[freq].append(validator_result)
 
     # Compute the average score for each frequency
-    avg_num_tids_by_frequency = {}
-    max_travel_by_frequency = {}
-    avg_score_by_frequency = {}
+    avg_observed_value_by_freq = {}
+    scores_by_freq = {}
+    units_by_validator_name = {}
     for freq in results_by_frequency:
-      num_tids = []
-      max_travel = []
-      scores = []
+      observed_values = {}
       for result in results_by_frequency[freq]:
-        if 'FingerCount' in result.name:
-          num_tids.append(result.observed)
-        if 'Stationary' in result.name:
-          max_travel.append(result.observed)
-        scores.append(result.score)
-      max_travel_by_frequency[freq] = max(max_travel)
-      avg_num_tids_by_frequency[freq] = sum(num_tids) / float(len(num_tids))
-      avg_score_by_frequency[freq] = sum(scores) / float(len(scores))
+        observed_values[result.name] = observed_values.get(result.name, [])
+        observed_values[result.name].append(result.observed)
+
+        scores_by_freq[freq] = scores_by_freq.get(freq, [])
+        scores_by_freq[freq].append(result.score)
+
+        units_by_validator_name[result.name] = result.units
+
+      for validator_name in observed_values:
+        avg_observed_value_by_freq[validator_name] = \
+            avg_observed_value_by_freq.get(validator_name, {})
+
+        avg_observed_value_by_freq[validator_name][freq] = \
+            (sum(observed_values[validator_name]) /
+             float(len(observed_values[validator_name])))
 
     # Generate the graphics here.
-    f, axarr = plt.subplots(3, sharex=True)
-    f.set_size_inches(12, 10)
+    num_noisy_validators = len(observed_values)
+
+    f, axarr = plt.subplots(num_noisy_validators + 1, sharex=True)
+    f.set_size_inches(12, 5 * num_noisy_validators)
     f.suptitle('Touch Noise Test Results')
 
-    # Build a subplot for the number of TIDS for each frequency
-    freqs = sorted(int(f.replace('Hz', '')) for f in avg_num_tids_by_frequency)
-    num_tids = [avg_num_tids_by_frequency['%dHz' % freq] for freq in freqs]
-    axarr[0].set_ylabel('Number of Tracking IDs')
-    axarr[0].plot(freqs, num_tids)
-
-    # Build a subplot for the max distance moved for each frequency
-    freqs = sorted(int(f.replace('Hz', '')) for f in max_travel_by_frequency)
-    max_travel = [max_travel_by_frequency['%dHz' % freq] for freq in freqs]
-    axarr[1].set_ylabel('Maximum Distance Traveled (mm)')
-    axarr[1].plot(freqs, max_travel)
+    first_freq = observed_values.keys()[0]
+    freq_strings = sorted([f for f in avg_observed_value_by_freq[first_freq]],
+                          key=lambda x: int(x.replace('Hz', '')))
+    freqs = [int(f.replace('Hz', '')) for f in freq_strings]
+    for i, validator_name in enumerate(observed_values):
+      values = [avg_observed_value_by_freq[validator_name][f]
+                for f in freq_strings]
+      axarr[i].set_title(validator_name)
+      axarr[i].set_ylabel(units_by_validator_name[validator_name])
+      axarr[i].plot(freqs, values)
 
     # Build a subplot clearly marking which frequencies showed errors
-    scores = [1.0 - avg_score_by_frequency['%dHz' % freq] for freq in freqs]
-    axarr[2].set_ylabel('Overall Error Level')
-    axarr[2].plot(freqs, scores, color='black', linewidth='0.25')
-    axarr[2].fill_between(freqs, scores, 0.0, color='red')
-    axarr[2].set_xlabel('Frequency (Hz)')
+    avg_scores = [1.0 - sum(scores_by_freq[f]) / float(len(scores_by_freq[f]))
+                  for f in freq_strings]
+    axarr[num_noisy_validators].set_title('Overall Error Level')
+    axarr[num_noisy_validators].set_ylabel('Error')
+    axarr[num_noisy_validators].plot(freqs, avg_scores,
+                                     color='black', linewidth='0.25')
+    axarr[num_noisy_validators].fill_between(freqs, avg_scores, 0.0,
+                                             color='red')
+    axarr[num_noisy_validators].set_xlabel('Frequency (Hz)')
 
     image_buffer = io.BytesIO()
     plt.savefig(image_buffer, format='png', transparent=True)
