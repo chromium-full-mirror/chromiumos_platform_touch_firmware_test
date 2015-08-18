@@ -935,3 +935,70 @@ class Touchbot:
 
     # Lift up both fingers before finishing, to end in a known state
     self._MoveBothFingersAbsolute(0, 0)
+
+  def Quickstep(self, device_spec, fingertips, num_passes, speed):
+    """ Move a finger back and forth vertically on the touch device as it
+    slowly works it's way down, covering the whole area in vertical lines at
+    a constant speed.  This is used by the Quickstep latency measurement
+    device, which needs a finger to cross a laser beam repeatedly at a fixed
+    speed to measure the drag latency on a touch sensor.
+    """
+    # Prepare for the gesture, by getting the required fingertips
+    self._RequireFingertips(device_spec, fingertips)
+
+    # First, move the robot into position over the top left corner
+    self.PushSpeed(speed)
+    init_abs_pos = device_spec.RelativePosToAbsolutePos((0.0, 0.0))
+    init_abs_pos.ax_5 = self._SuggestSpacing(fingertips)
+    init_abs_pos = self._CenterForFingertip(fingertips[0], init_abs_pos)
+    self._MoveBothFingersAbsolute(0, 0)
+    self._SetCartesian(init_abs_pos, finger_distance=init_abs_pos.ax_5)
+    self._ExtendFingerUntilContact(1)
+
+    # Then draw a series of vertical lines evenly spaced over the sensor
+    for i in xrange(num_passes):
+      # Draw a down stroke
+      downstroke_x = float(i) / float(num_passes)
+      downstroke_start = (downstroke_x, 0.0)
+      downstroke_start_abs_pos = device_spec.RelativePosToAbsolutePos(
+                                                downstroke_start)
+      downstroke_start_abs_pos.ax_5 = self._SuggestSpacing(fingertips)
+      downstroke_start_abs_pos = self._CenterForFingertip(
+                                         fingertips[0],
+                                         downstroke_start_abs_pos)
+      self._SetCartesian(downstroke_start_abs_pos,
+                         finger_distance=downstroke_start_abs_pos.ax_5)
+
+      downstroke_end = (downstroke_x, 1.0)
+      downstroke_end_abs_pos = device_spec.RelativePosToAbsolutePos(
+                                               downstroke_end)
+      downstroke_end_abs_pos.ax_5 = self._SuggestSpacing(fingertips)
+      downstroke_end_abs_pos = self._CenterForFingertip(
+                                       fingertips[0],
+                                       downstroke_end_abs_pos)
+      self._SetCartesian(downstroke_end_abs_pos,
+                         finger_distance=downstroke_end_abs_pos.ax_5)
+
+      # Draw an upstroke
+      upstroke_x = float(i + 0.5) / float(num_passes)
+      upstroke_start = (upstroke_x, 1.0)
+      upstroke_start_abs_pos = device_spec.RelativePosToAbsolutePos(
+                                              upstroke_start)
+      upstroke_start_abs_pos.ax_5 = self._SuggestSpacing(fingertips)
+      upstroke_start_abs_pos = self._CenterForFingertip(
+                                       fingertips[0],
+                                       upstroke_start_abs_pos)
+      self._SetCartesian(upstroke_start_abs_pos,
+                         finger_distance=upstroke_start_abs_pos.ax_5)
+
+      upstroke_end = (upstroke_x, 0.0)
+      upstroke_end_abs_pos = device_spec.RelativePosToAbsolutePos(upstroke_end)
+      upstroke_end_abs_pos.ax_5 = self._SuggestSpacing(fingertips)
+      upstroke_end_abs_pos = self._CenterForFingertip(fingertips[0],
+                                                      upstroke_end_abs_pos)
+      self._SetCartesian(upstroke_end_abs_pos,
+                         finger_distance=upstroke_end_abs_pos.ax_5)
+
+    # Lift the fingers both up and return the robot to its original speed
+    self._MoveBothFingersAbsolute(0, 0)
+    self.PopSpeed()
