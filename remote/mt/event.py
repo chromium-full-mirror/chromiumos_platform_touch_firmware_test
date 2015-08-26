@@ -56,8 +56,14 @@ class MtEvent(object):
     return self.event_type == EV_SYN and self.event_code == SYN_REPORT
 
   def __str__(self):
+    """ Return a human-readable string version of the event.  If the event codes
+    are not found in the translation list, simply use the even code numbers.
+    """
     if self.is_SYN_REPORT():
       return '%0.5f\t-- SYN --' % self.timestamp
-    return '%0.5f\t%s\t%s\t%d' % (self.timestamp, EV_TYPES[self.event_type],
-                                  EV_STRINGS[self.event_type][self.event_code],
+    ev_type = EV_TYPES.get(self.event_type, str(self.event_type))
+    ev_string = str(self.event_code)
+    if self.event_type in EV_STRINGS:
+      ev_string = EV_STRINGS[self.event_type].get(self.event_code, ev_string)
+    return '%0.5f\t%s\t%s\t%d' % (self.timestamp, ev_type, ev_string,
                                   self.value)
