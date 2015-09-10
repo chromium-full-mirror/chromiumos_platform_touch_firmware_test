@@ -41,6 +41,9 @@ class Touchbot:
   SPEED_VERY_FAST = 85.0
   MAX_SPEED = 100.0
 
+  # How much area around the edge should be avoided for quickstep
+  QUICKSTEP_BUFFER = 0.1
+
   # Limits on how far the robot hand can move the fingers in and out
   MIN_FINGER_DISTANCE = 0.5
   MAX_FINGER_DISTANCE = 140
@@ -948,7 +951,8 @@ class Touchbot:
 
     # First, move the robot into position over the top left corner
     self.PushSpeed(speed)
-    init_abs_pos = device_spec.RelativePosToAbsolutePos((0.0, 0.0))
+    init_abs_pos = device_spec.RelativePosToAbsolutePos(
+        (self.QUICKSTEP_BUFFER, self.QUICKSTEP_BUFFER))
     init_abs_pos.ax_5 = self._SuggestSpacing(fingertips)
     init_abs_pos = self._CenterForFingertip(fingertips[0], init_abs_pos)
     self._MoveBothFingersAbsolute(0, 0)
@@ -958,8 +962,9 @@ class Touchbot:
     # Then draw a series of vertical lines evenly spaced over the sensor
     for i in xrange(num_passes):
       # Draw a down stroke
-      downstroke_x = float(i) / float(num_passes)
-      downstroke_start = (downstroke_x, 0.0)
+      downstroke_x = ((float(i) / float(num_passes)) *
+                      (1.0 - self.QUICKSTEP_BUFFER * 2) + self.QUICKSTEP_BUFFER)
+      downstroke_start = (downstroke_x, self.QUICKSTEP_BUFFER)
       downstroke_start_abs_pos = device_spec.RelativePosToAbsolutePos(
                                                 downstroke_start)
       downstroke_start_abs_pos.ax_5 = self._SuggestSpacing(fingertips)
@@ -969,7 +974,7 @@ class Touchbot:
       self._SetCartesian(downstroke_start_abs_pos,
                          finger_distance=downstroke_start_abs_pos.ax_5)
 
-      downstroke_end = (downstroke_x, 1.0)
+      downstroke_end = (downstroke_x, 1.0 - self.QUICKSTEP_BUFFER)
       downstroke_end_abs_pos = device_spec.RelativePosToAbsolutePos(
                                                downstroke_end)
       downstroke_end_abs_pos.ax_5 = self._SuggestSpacing(fingertips)
@@ -980,8 +985,9 @@ class Touchbot:
                          finger_distance=downstroke_end_abs_pos.ax_5)
 
       # Draw an upstroke
-      upstroke_x = float(i + 0.5) / float(num_passes)
-      upstroke_start = (upstroke_x, 1.0)
+      upstroke_x = ((float(i + 0.5) / float(num_passes)) *
+                    (1.0 - self.QUICKSTEP_BUFFER * 2) + self.QUICKSTEP_BUFFER)
+      upstroke_start = (upstroke_x, 1.0 - self.QUICKSTEP_BUFFER)
       upstroke_start_abs_pos = device_spec.RelativePosToAbsolutePos(
                                               upstroke_start)
       upstroke_start_abs_pos.ax_5 = self._SuggestSpacing(fingertips)
@@ -991,7 +997,7 @@ class Touchbot:
       self._SetCartesian(upstroke_start_abs_pos,
                          finger_distance=upstroke_start_abs_pos.ax_5)
 
-      upstroke_end = (upstroke_x, 0.0)
+      upstroke_end = (upstroke_x, self.QUICKSTEP_BUFFER)
       upstroke_end_abs_pos = device_spec.RelativePosToAbsolutePos(upstroke_end)
       upstroke_end_abs_pos.ax_5 = self._SuggestSpacing(fingertips)
       upstroke_end_abs_pos = self._CenterForFingertip(fingertips[0],
