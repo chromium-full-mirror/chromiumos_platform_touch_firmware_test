@@ -19,7 +19,6 @@ class HP33120A(FunctionGenerator):
   Protocol Manual:
   http://sdphca.ucsd.edu/Lab_Equip_Manuals/Agilent_33120a_Users.pdf
   """
-  HIGH_Z_THRESHOLD = 10
   RESPONSE_DELAY_S = 0.5
 
   WAVEFORM_CODES = {FunctionGenerator.SQUARE_WAVE: 'SQU',
@@ -53,13 +52,13 @@ class HP33120A(FunctionGenerator):
     # Put the generator in "remote mode" so it accepts our commands
     self._SendMessage('SYST:REM')
 
-    if (amplitude > HP33120A.HIGH_Z_THRESHOLD):
-        # Puts the generator into high impedance (high Z) mode so it can reach
-        # the higher voltages (up to 20Vpp).
-        self._SendMessage('OUTP:LOAD INF')
-    else:
-        # Keep the generator in low impedance mode (default) for lower voltages.
-        self._SendMessage('OUTP:LOAD 50')
+    # Always set it to Hi-Z mode so we don't accidentally double our voltages.
+    # The function generator will otherwise assume there is a 50 Ohm load on the
+    # line, and match it internally effectively making a voltage divider of 1/2.
+    # Therefore it will compensate by outputting 2x the voltage you expect.
+    # In Hi-Z mode this doesn't happen, which is what we want since there is no
+    # 50 Ohm load to divide the voltage back down.
+    self._SendMessage('OUTP:LOAD INF')
 
     # Convert the generic waveforms into this generator's code for them
     form_code = HP33120A.WAVEFORM_CODES[form]
