@@ -30,6 +30,9 @@ def parse_arguments():
                           'for Android, or a filename to replay old results).'))
   parser.add_option('-t', '--type', dest='dut_type', default=None,
                     help='The type of DUT (android, chromeos, or replay).')
+  parser.add_option('-d', '--device_num', dest='device_num',
+                    default=None, type=int,
+                    help='The device number of the touch sensor if you know it')
   parser.add_option('--touchscreen', dest='is_touchscreen',
                     default=False, action='store_true',
                     help=('Use the touchscreen (instead of touchpad) on '
@@ -115,9 +118,10 @@ def initialize_touch_device(options):
   print 'Connecting to remote touch device...'
   if options.dut_type == 'chromeos':
     touch_dev = ChromeOSTouchDevice(options.addr, options.is_touchscreen,
-                                    options.protocol)
+                                    options.protocol, options.device_num)
   elif options.dut_type == 'android':
-    touch_dev = AndroidTouchDevice(options.addr, True, options.protocol)
+    touch_dev = AndroidTouchDevice(options.addr, True, options.protocol,
+                                   options.device_num)
   elif options.dut_type == 'elan_i2c':
     touch_dev = ElanTouchDevice(options.addr)
   elif options.dut_type == 'elan_ts_i2c':

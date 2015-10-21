@@ -48,7 +48,8 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
     'trackpad',
   ]
 
-  def __init__(self, addr, is_touchscreen=False, protocol='auto'):
+  def __init__(self, addr, is_touchscreen=False, protocol='auto',
+               device_num=None):
     RemoteTouchDevice.__init__(self)
 
     self.addr = addr
@@ -60,7 +61,9 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
     self.pressure_src = mt.MtStateMachine.PRESSURE_FROM_MT_PRESSURE
 
     # Probe to find out which device we want to connect to on the DUT
-    self.device_num = self._GetDeviceNumber(self.is_touchscreen)
+    self.device_num = device_num
+    if self.device_num is None:
+      self.device_num = self._GetDeviceNumber(self.is_touchscreen)
     if self.device_num is None:
       print 'ERROR: Unable to determind the device number!'
 
@@ -278,7 +281,8 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
 
 
 class AndroidTouchDevice(RemoteInSystemTouchDevice):
-  def __init__(self, addr, is_touchscreen=False, protocol='auto'):
+  def __init__(self, addr, is_touchscreen=False, protocol='auto',
+               device_num=None):
     self.begin_event_stream_cmd = 'getevent -tv /dev/input/event%d'
     self.kill_remote_process_cmd = (
         'for f in `ls /proc/`; do'
@@ -287,7 +291,8 @@ class AndroidTouchDevice(RemoteInSystemTouchDevice):
         '    kill $f;'
         '  fi;'
         'done')
-    RemoteInSystemTouchDevice.__init__(self, addr, is_touchscreen, protocol)
+    RemoteInSystemTouchDevice.__init__(self, addr, is_touchscreen, protocol,
+                                       device_num)
 
   def _GetMtProtocol(self):
     """ Android devices usually use mtb, but for some devices they still use
@@ -431,11 +436,13 @@ class AndroidTouchDevice(RemoteInSystemTouchDevice):
 
 
 class ChromeOSTouchDevice(RemoteInSystemTouchDevice):
-  def __init__(self, addr, is_touchscreen=False, protocol='auto', grab=True):
+  def __init__(self, addr, is_touchscreen=False, protocol='auto', grab=True,
+               device_num=None):
     program = '/usr/local/bin/evtest %s ' % ('--grab' if grab else '')
     self.begin_event_stream_cmd = program + '/dev/input/event%d'
     self.kill_remote_process_cmd = 'killall evtest'
-    RemoteInSystemTouchDevice.__init__(self, addr, is_touchscreen, protocol)
+    RemoteInSystemTouchDevice.__init__(self, addr, is_touchscreen, protocol,
+                                       device_num)
     # Stop ChromeOS's power daemon to prevent the laptop going to sleep
     self._RunRemoteCmd('stop powerd')
 
