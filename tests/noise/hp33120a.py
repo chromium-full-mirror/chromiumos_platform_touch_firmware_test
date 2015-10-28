@@ -115,6 +115,7 @@ class HP33120A(FunctionGenerator):
     if '?' in msg:
       # The function generator only responds to commands with a '?'  If this
       # message has one, we have to wait for the response and return it.
+      time.sleep(0.1)
       return serial_connection.readline()
     else:
       # Otherwise, we need to delay for a moment to allow the function generator
