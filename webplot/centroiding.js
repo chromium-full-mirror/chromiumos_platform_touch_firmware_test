@@ -14,6 +14,8 @@
  *                         [4]: y-sigma of contact gaussian model
  *                         [5]: theta of contact gaussian model
  *                         [6]: tracking ID of contact
+ *                         [7]: thumb likelihood
+ *                         [8]: palm indicator (0: finger, 1: palm)
  */
 function Contact(paramArray) {
   this.amp = paramArray[0];
@@ -23,6 +25,12 @@ function Contact(paramArray) {
   this.ySigma = paramArray[4];
   this.theta = paramArray[5];
   this.trackId = paramArray[6];
+  this.thumbLikelihood = 0;
+  this.isPalm = 0;
+  if (paramArray.length > 7)
+    this.thumbLikelihood = paramArray[7];
+  if (paramArray.length > 8)
+    this.isPalm = paramArray[8];
 }
 
 
@@ -126,7 +134,10 @@ Webplot.prototype.drawContactArea = function(contact) {
   this.ctx.arc(0, 0, 1, 0, 2 * Math.PI, false);
   this.ctx.restore();  // restore to original state
   this.ctx.lineWidth = this.contactLineWidth;
-  this.ctx.strokeStyle = 'deeppink';
+  if (contact.isPalm)
+    this.ctx.strokeStyle = 'gold';
+  else
+    this.ctx.strokeStyle = 'deeppink';
   this.ctx.stroke();
 }
 
@@ -151,6 +162,19 @@ Webplot.prototype.drawContactCenter = function(contact) {
   this.ctx.arc(cx, cy, this.pointRadius, 0, 2 * Math.PI, false);
   this.ctx.fillStyle = colors[contact.trackId % colors.length];
   this.ctx.fill();
+
+  if (contact.isPalm) {
+    var text = 'PALM';
+    var text_color = 'blue';
+  } else {
+    var text = contact.thumbLikelihood.toFixed(4);
+    var green = parseInt(255 * (1 - contact.thumbLikelihood)).toString(16);
+    green = (green.length < 2) ? '0' + green : green;
+    var red = parseInt(255 * contact.thumbLikelihood).toString(16);
+    red = (red.length < 2) ? '0' + red : red;
+    var text_color = '#' + red + green + '00';
+  }
+  this.fillText(text, cx + 4, cy + 20, '18px Arial', text_color);
 }
 
 
@@ -187,14 +211,16 @@ Webplot.prototype.captureCanvasImage = function() {
  * A snapshot received from python server looks like:
  * Snapshot(
  *   data=[125,123,90,0,0, ... 230,231],
- *   contact=[[337.311, 1.55013, 6.43009, 0.747915, 0.97476, -0.026596, 1]],
+ *   contact=[[337.311, 1.55013, 6.43009, 0.747915, 0.97476, -0.026596, 1,
+ *             0.13422, 0]],
  *   fps=[128.234, 49.992]
  * )
  *
  * data: a total length of width * height integers array of heatmap raw data.
  * contact: an array of contact arrays, each contact array has the following
  *          elements [amplitude, x-position, y-position, x-sigma, y-sigma,
- *          theta, track-ID], and they are all floating numbers.
+ *          theta, track-ID, thumb likelihood, palm indicator], and they are
+ *          all floating numbers.
  * fps: an 2-element array of float for receiver FPS and plot FPS.
  */
 Webplot.prototype.processSnapshot = function(snapshot) {
