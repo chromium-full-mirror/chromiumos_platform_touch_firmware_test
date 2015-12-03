@@ -14,9 +14,9 @@ def parse_arguments():
   parser.add_option('-n', '--name', dest='name', default='unknown_device',
                     help='The name of this DUT.  This is used by the robot to '
                          'store calibration info')
-  parser.add_option('--num_passes', dest='num_passes', default=32, type=int,
+  parser.add_option('--num_passes', dest='num_passes', default=30, type=int,
                     help='How many passes to make over the laser')
-  parser.add_option('-s', '--speed', dest='speed', default=30,
+  parser.add_option('-s', '--speed', dest='speed', default=60,
                     type=int, help='How fast to move the finger (0-100)')
 
   (options, args) = parser.parse_args()

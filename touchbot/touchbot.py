@@ -950,13 +950,15 @@ class Touchbot:
     self._RequireFingertips(device_spec, fingertips)
 
     # First, move the robot into position over the top left corner
-    self.PushSpeed(speed)
     init_abs_pos = device_spec.RelativePosToAbsolutePos(
         (self.QUICKSTEP_BUFFER, self.QUICKSTEP_BUFFER))
     init_abs_pos.ax_5 = self._SuggestSpacing(fingertips)
     init_abs_pos = self._CenterForFingertip(fingertips[0], init_abs_pos)
+    self.PushSpeed(self.SPEED_SLOW)
     self._MoveBothFingersAbsolute(0, 0)
     self._SetCartesian(init_abs_pos, finger_distance=init_abs_pos.ax_5)
+    self.PopSpeed()
+    self.PushSpeed(speed)
     self._ExtendFingerUntilContact(1)
 
     # Then draw a series of vertical lines evenly spaced over the sensor
