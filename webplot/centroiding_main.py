@@ -76,7 +76,7 @@ def EstablishADBConnectionTunnel(port):
         print 'Timeout polling for testing device (%.1f seconds)...' % (
             0.2 * ADB_GETSTATE_RETRIES)
         return False
-      
+
   print '\nDevice is attached.\n'
   print 'Try to build tunnel port %d between device and server...' % port
 

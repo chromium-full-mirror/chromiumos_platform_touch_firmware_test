@@ -25,7 +25,6 @@ from ws4py.messaging import TextMessage
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
 from ws4py.websocket import WebSocket
 
-from centroiding import CentroidingDataReceiver, CentroidingDevice
 from remote import ChromeOSTouchDevice, AndroidTouchDevice
 
 
@@ -600,8 +599,11 @@ def Main():
   configure_logger(level=logging.ERROR)
   args = _ParseArguments()
 
+  # Specify Webplot for centroiding purpose.
+  is_centroiding = args.dut_type == 'centroiding'
+
   print '\n' + '-' * 70
-  if args.dut_type == 'centroiding':
+  if is_centroiding:
     cherrypy.log('**** Centroiding Data Visualizing Tool ****')
     cherrypy.log('dut config file: %s' % args.config)
     cherrypy.log('dut address: %s' % args.dut_addr)
@@ -642,11 +644,13 @@ def Main():
     device = ChromeOSTouchDevice(addr, args.is_touchscreen, grab=args.grab)
   elif args.dut_type == 'android':
     device = AndroidTouchDevice(args.dut_addr, True)
-  else:  # args.dut_type == 'centroiding'
+  elif is_centroiding:  # args.dut_type == 'centroiding'
+    # Import centroiding library conditionally to avoid missing dependency.
+    from centroiding import CentroidingDataReceiver, CentroidingDevice
     device = CentroidingDevice(args.config)
-
-  # Specify Webplot for centroiding purpose.
-  is_centroiding = args.dut_type == 'centroiding'
+  else:
+    print 'Unrecognized dut_type: %s. Webplot is aborted...' % args.dut_type
+    exit(1)
 
   # Instantiate a webplot server daemon and start it.
   webplot = Webplot(args.server_addr, args.server_port, device, logging=True,
