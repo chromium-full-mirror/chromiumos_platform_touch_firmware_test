@@ -367,7 +367,7 @@ class NoGapValidator(BaseValidator):
 
 
 class LinearityValidator(BaseValidator):
-  """ Validator to verify linearity based on x vs t and y vs t
+  """ Validator to verify linearity based on x vs y
 
   Example:
       To check the linearity of the line drawn by the first finger:
@@ -381,14 +381,9 @@ class LinearityValidator(BaseValidator):
     name += ('Finger%d' % finger) if finger is not None else 'AllFingers'
     desc = ("How straight is the line?  This validator measures how much "
             "the line drawn in the gesture deviates from perfectly straight. "
-            "This is done by performing a linear regression in X vs. time and "
-            "Y vs. time (instead of the typical X vs. Y space) and then "
+            "This is done by performing a linear regression in X vs. Y, then "
             "computing the distance from this ideal line for each point. "
-            "The maximum deviation, serves as the observed value. "
-            "We choose to not use the simpler X vs Y space so as to also catch "
-            "non-linearities in speed while drawing the line, which have been "
-            "detected in many devices.  This works based on the assumption "
-            "that the finger is moving at a roughly constant speed.  Note: "
+            "The maximum deviation, serves as the observed value.  Note: "
             "this validator may be run on any one or all of the fingers in "
             "the gesture.  If a finger number is indicated in the name, that "
             "corresponds to the order they touched the pad, otherwise all "
@@ -472,7 +467,7 @@ class LinearityValidator(BaseValidator):
     if self.finger is not None:
       paths = self._PathOfNthFinger(self.finger, paths)
 
-    max_err_mm = float('-inf')
+    global_max_err_mm = float('-inf')
     for path in paths:
       start, middle, end = self._SegmentPath(path)
       path = middle
@@ -481,26 +476,23 @@ class LinearityValidator(BaseValidator):
       ys_mm = [BaseValidator._device.PxToMm_Y(finger.y) for finger in path]
       times = [finger.syn_time for finger in path]
 
-      max_err_x_mm, rms_err_x_mm = self._ErrorsForSingleAxis(times, xs_mm)
-      max_err_mm = max(max_err_mm, max_err_x_mm)
-
-      max_err_y_mm, rms_err_y_mm = self._ErrorsForSingleAxis(times, ys_mm)
-      max_err_mm = max(max_err_mm, max_err_y_mm)
+      max_err_mm, rms_err_mm = self._ErrorsForSingleAxis(xs_mm, ys_mm)
+      global_max_err_mm = max(global_max_err_mm, max_err_mm)
 
     result = Result()
     result.name = self.name
     result.description = self.description
     result.units = 'mm'
     result.criteria = self.criteria_str
-    if max_err_mm < 0:
-      max_err_mm = float('inf')
+    if global_max_err_mm < 0:
+      global_max_err_mm = float('inf')
       if not paths and self.finger is not None:
         result.error = ('There was no finger #%d as far as we can tell.' %
                         self.finger)
       else:
         result.error = ('Unable to compute linearity.  Perhaps there were '
                         'not enough events collected.')
-    result.observed = max_err_mm
+    result.observed = global_max_err_mm
     result.score = self.fc.mf.grade(result.observed)
     return result
 
