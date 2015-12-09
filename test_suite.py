@@ -133,14 +133,19 @@ class TestSuite:
     snapshots = []
     print 'Waiting for 1st snapshot...',
     snapshot = None
+    finger_count = 0
     if not robot_thread or not robot_thread.isAlive():
       snapshot = self.touch_dev.NextSnapshot(TestSuite.FIRST_SNAPSHOT_TIMEOUT_S)
+      snapshots.append(snapshot)
+      finger_count = len(snapshot.fingers)
       if not snapshot:
         print '\rNo MT snapshots collected before timeout!'
-    while snapshot or (robot_thread and robot_thread.isAlive()):
+    while (snapshot or (robot_thread and robot_thread.isAlive()) or
+           finger_count > 0):
       if snapshot:
         self.plotter.AddSnapshot(snapshot)
         snapshots.append(snapshot)
+        finger_count = len(snapshot.fingers)
         print '\rCollected %d MT snapshots' % len(snapshots),
       snapshot = self.touch_dev.NextSnapshot(test.timeout)
     print
