@@ -476,8 +476,15 @@ class LinearityValidator(BaseValidator):
       ys_mm = [BaseValidator._device.PxToMm_Y(finger.y) for finger in path]
       times = [finger.syn_time for finger in path]
 
-      max_err_mm, rms_err_mm = self._ErrorsForSingleAxis(xs_mm, ys_mm)
-      global_max_err_mm = max(global_max_err_mm, max_err_mm)
+      # Linear fitting becomes numerically unstable when lines approach
+      # vertical.  To combat this, we fit in both x vs y as well was y vs x
+      # and then select whichever fits better (less error) as the correct
+      # fit.
+      max_xy_err_mm, rms_xy_err_mm = self._ErrorsForSingleAxis(xs_mm, ys_mm)
+      max_yx_err_mm, rms_yx_err_mm = self._ErrorsForSingleAxis(ys_mm, xs_mm)
+      err_mm = min(max_xy_err_mm, max_yx_err_mm)
+
+      global_max_err_mm = max(global_max_err_mm, err_mm)
 
     result = Result()
     result.name = self.name
