@@ -118,7 +118,8 @@ def initialize_touch_device(options):
   print 'Connecting to remote touch device...'
   if options.dut_type == 'chromeos':
     touch_dev = ChromeOSTouchDevice(options.addr, options.is_touchscreen,
-                                    options.protocol, options.device_num)
+                                    options.protocol,
+                                    device_num=options.device_num)
   elif options.dut_type == 'android':
     touch_dev = AndroidTouchDevice(options.addr, True, options.protocol,
                                    options.device_num)
