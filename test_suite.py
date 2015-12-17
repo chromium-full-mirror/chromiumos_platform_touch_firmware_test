@@ -136,8 +136,6 @@ class TestSuite:
     finger_count = 0
     if not robot_thread or not robot_thread.isAlive():
       snapshot = self.touch_dev.NextSnapshot(TestSuite.FIRST_SNAPSHOT_TIMEOUT_S)
-      snapshots.append(snapshot)
-      finger_count = len(snapshot.fingers)
       if not snapshot:
         print '\rNo MT snapshots collected before timeout!'
     while (snapshot or (robot_thread and robot_thread.isAlive()) or
