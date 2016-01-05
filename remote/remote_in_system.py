@@ -518,8 +518,15 @@ class ChromeOSTouchDevice(RemoteInSystemTouchDevice):
 
     if 'SYN_REPORT' in contents:
       return mt.MtEvent(timestamp, linux_input.EV_SYN, linux_input.SYN_REPORT)
+
     pattern = '^.*type (\d+) .*, code (\d+) .*, value (-?\d+).*$'
     matches = re.match(pattern, contents)
+    if matches is None:
+      print 'ERROR: Unable to parse event!'
+      print '\tline: (%s)' % line
+      print '\ttimestamp: (%f)' % timestamp
+      print '\tcontents: (%s)' % contents
+
     event_type = int(matches.group(1))
     event_code = int(matches.group(2))
     value = int(matches.group(3))

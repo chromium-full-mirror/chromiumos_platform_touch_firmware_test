@@ -134,8 +134,13 @@ class TestSuite:
     print 'Waiting for 1st snapshot...',
     snapshot = None
     finger_count = 0
+    log = open('debug.log', 'w')
     if not robot_thread or not robot_thread.isAlive():
       snapshot = self.touch_dev.NextSnapshot(TestSuite.FIRST_SNAPSHOT_TIMEOUT_S)
+      snapshots.append(snapshot)
+      log.write('\n'.join([str(r) for r in snapshot.raw_events]) + '\n')
+      log.flush()
+      finger_count = len(snapshot.fingers)
       if not snapshot:
         print '\rNo MT snapshots collected before timeout!'
     while (snapshot or (robot_thread and robot_thread.isAlive()) or
@@ -143,9 +148,12 @@ class TestSuite:
       if snapshot:
         self.plotter.AddSnapshot(snapshot)
         snapshots.append(snapshot)
+        log.write('\n'.join([str(r) for r in snapshot.raw_events]) + '\n')
+        log.flush()
         finger_count = len(snapshot.fingers)
-        print '\rCollected %d MT snapshots' % len(snapshots),
+        print '\rCollected %d MT snapshots (%d fingers on pad)' % (len(snapshots), finger_count),
       snapshot = self.touch_dev.NextSnapshot(test.timeout)
+    log.close()
     print
 
     # Cleanup the robot gesture thread, if it existed
