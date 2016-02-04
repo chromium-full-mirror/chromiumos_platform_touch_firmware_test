@@ -24,6 +24,7 @@ class TestSuite:
   the entire suite.
   """
   FIRST_SNAPSHOT_TIMEOUT_S = 60
+  MAX_EMPTY_SNAPSHOTS = 20
   WEBPLOT_ADDR = '127.0.0.1'
   WEBPLOT_PORT = 8080
 
@@ -135,6 +136,7 @@ class TestSuite:
     snapshot = None
     finger_count = 0
     log = open('debug.log', 'w')
+    num_empty_snapshots = 0
     if not robot_thread or not robot_thread.isAlive():
       snapshot = self.touch_dev.NextSnapshot(TestSuite.FIRST_SNAPSHOT_TIMEOUT_S)
       snapshots.append(snapshot)
@@ -143,7 +145,8 @@ class TestSuite:
       finger_count = len(snapshot.fingers)
       if not snapshot:
         print '\rNo MT snapshots collected before timeout!'
-    while (snapshot or (robot_thread and robot_thread.isAlive()) or
+    while ((snapshot and num_empty_snapshots < TestSuite.MAX_EMPTY_SNAPSHOTS) or
+           (robot_thread and robot_thread.isAlive()) or
            finger_count > 0):
       if snapshot:
         self.plotter.AddSnapshot(snapshot)
@@ -151,7 +154,13 @@ class TestSuite:
         log.write('\n'.join([str(r) for r in snapshot.raw_events]) + '\n')
         log.flush()
         finger_count = len(snapshot.fingers)
-        print '\rCollected %d MT snapshots (%d fingers on pad)' % (len(snapshots), finger_count),
+        print ('\rCollected %d MT snapshots (%d fingers on pad)' %
+               (len(snapshots), finger_count)),
+
+        if len(snapshot.fingers) == 0:
+          num_empty_snapshots += 1
+        else:
+          num_empty_snapshots = 0
       snapshot = self.touch_dev.NextSnapshot(test.timeout)
     log.close()
     print

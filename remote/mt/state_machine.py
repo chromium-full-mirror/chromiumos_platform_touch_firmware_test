@@ -165,6 +165,7 @@ class MtbStateMachine(MtStateMachine):
     self.tid = {}
     self.x = {}
     self.y = {}
+    self.distance = {}
     self.pressure = {}
     self.touch_major = {}
     self.syn_time = None
@@ -213,6 +214,8 @@ class MtbStateMachine(MtStateMachine):
       self.pressure[self.slot] = event.value
     elif event.is_ABS_MT_TOUCH_MAJOR():
       self.touch_major[self.slot] = event.value
+    elif event.is_ABS_MT_DISTANCE():
+      self.distance[self.slot] = event.value
 
     # Use the SYN_REPORT time as the snapshot time
     elif event.is_SYN_REPORT():
@@ -229,6 +232,12 @@ class MtbStateMachine(MtStateMachine):
       tid = self.tid.get(slot, None)
       x = self.x.get(slot, None)
       y = self.y.get(slot, None)
+      distance = self.distance.get(slot, None)
+
+      # Skip any fingers that are hovering (they have a distance)
+      if distance:
+        continue
+
       if self.pressure_src == MtStateMachine.PRESSURE_FROM_MT_TOUCH_MAJOR:
         pressure = self.touch_major.get(slot, None)
       elif self.pressure_src == MtStateMachine.PRESSURE_FROM_NOWHERE:
