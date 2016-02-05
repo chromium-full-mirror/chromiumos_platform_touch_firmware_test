@@ -923,11 +923,11 @@ class Touchbot:
 
     # Actually perform the taps
     # Start with finger 1 down, and then alternate
-    self._MoveFingerAbsolute(1, Touchbot.CALIBRATION_EXTENSION)
+    distance_to_pad = self._ExtendFingerUntilContact(1)
     for tap in range(num_taps):
-      self._MoveFingerAbsolute(2, Touchbot.CALIBRATION_EXTENSION, blocking=False)
+      self._MoveFingerAbsolute(2, distance_to_pad, blocking=False)
       self._MoveFingerRelative(1, -Touchbot.TAP_LIFT_DISTANCE, blocking=True)
-      self._MoveFingerAbsolute(1, Touchbot.CALIBRATION_EXTENSION, blocking=False)
+      self._MoveFingerAbsolute(1, distance_to_pad, blocking=False)
       self._MoveFingerRelative(2, -Touchbot.TAP_LIFT_DISTANCE, blocking=True)
 
     # Slowing everything back down to normal before continuing
