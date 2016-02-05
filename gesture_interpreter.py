@@ -222,6 +222,9 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
   elif test.name == tests.DRAG_THUMB_EDGE:
     fn = lambda: _PerformThumbEdgeTest(variation, robot, device_spec)
 
+  elif test.name == tests.SQUARE_RESOLUTION:
+    fn = lambda: _PerformSquareResolutionTest(variation, robot, device_spec)
+
   if fn is None:
     print color.Fore.RED + 'Robot unable to perform gesture! Skipping...'
     return None
@@ -336,3 +339,8 @@ def _PerformDrumroll(variation, robot, device_spec):
                 robot.fingertips[STANDARD_SECONDARY_FINGERTIP]]
   location = LOCATION_COORDINATES[tests.GV.CENTER]
   robot.Drumroll(device_spec, fingertips, location)
+
+def _PerformSquareResolutionTest(variation, robot, device_spec):
+  fingertip = robot.fingertips[STANDARD_FINGERTIP]
+  location = LOCATION_COORDINATES[tests.GV.CENTER]
+  robot.Draw45DegreeLineSegment(device_spec, [fingertip], location)

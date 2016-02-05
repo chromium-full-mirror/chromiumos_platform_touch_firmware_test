@@ -1010,3 +1010,42 @@ class Touchbot:
     # Lift the fingers both up and return the robot to its original speed
     self._MoveBothFingersAbsolute(0, 0)
     self.PopSpeed()
+
+  def Draw45DegreeLineSegment(self, device_spec, fingertips, location):
+    """ Draw a short line segment 45 degrees off from the x axis of
+    the touch device.  This gesture is slightly different than the others,
+    in that it uses real measurements instead of reletive to the dimensions
+    of the sensor.  This is to allow us to test and see if the resolution
+    of the touch device is configured squarely.  ie: if the robot draws
+    what we know is a 45 degree angle, and the touchpad reports it as
+    45, then we know the resolution is configured correctly, otherwise
+    motion is being compressed on one of the axes.
+    """
+    LINE_LENGTH_MM = 10
+    # Prepare for the gesture, by getting the required fingertips
+    self._RequireFingertips(device_spec, fingertips)
+
+    # Compute the positions of the corners of the square
+    center = device_spec.RelativePosToAbsolutePos(location)
+    center.ax_5 = self._SuggestSpacing(fingertips)
+    center = self._CenterForFingertip(fingertips[0], center)
+
+    start = copy.copy(center)
+    start.x -= LINE_LENGTH_MM // 2
+    start.y -= LINE_LENGTH_MM // 2
+
+    end = copy.copy(center)
+    end.x += LINE_LENGTH_MM // 2
+    end.y += LINE_LENGTH_MM // 2
+
+    # Get the robot into position, touching the starting position
+    self.PushSpeed(self.SPEED_MEDIUM)
+    self._SetCartesian(start, finger_distance=start.ax_5)
+    self._ExtendFingerUntilContact(1)
+    self.PopSpeed()
+
+    # Have the robot trace slowly between the computer points
+    self.PushSpeed(self.SPEED_SLOW)
+    self._SetCartesian(end, finger_distance=end.ax_5)
+    self.PopSpeed()
+    self._MoveBothFingersAbsolute(0, 0)

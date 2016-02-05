@@ -90,6 +90,34 @@ class FuzzySingletonMemberFunction(FuzzyMemberFunctions):
       return (0.5 + 0.5 * math.cos((x - self.middle) / self.width_left *
               math.pi))
 
+class FuzzyPiMemberFunction(FuzzyMemberFunctions):
+  """A class provides fuzzy Pi Membership Function.
+  This is implemented as a generalized bell membership function with
+  parameters to make the top of the bell flattened, producing the "pi"
+  shape we're looking for.
+
+  Pi Membership Function:
+      parameters: (target, acceptable_deviation)
+      grade(x) = 1  for x very close to the target
+               = 0  for x farther than acceptable_deviation away from target
+      E.g., FuzzyPiMemberFunction((1.0, 0.2))
+            Usage: when we want the x == 1, but between 0.8 and 1.2 is okay
+                   grade =  1.0,      when x == 1.0
+                         >  0.0,      when 0.8 <= x <= 1.2
+                         ~= 0.0,      when x < 0.8 or x > 1.2
+  """
+
+  def __init__(self, para):
+    super(FuzzyPiMemberFunction, self).__init__(para)
+    self.target, self.acceptable_deviation = self.para_values
+
+  def grade(self, x):
+    """The grading method of the fuzzy membership function."""
+    def gbellmf(x, width, flatness_on_top, center):
+      return 1.0 / (1.0 + (abs((x - center) / width) ** (2 * flatness_on_top)))
+
+    PI_MF_FLATNESS = 4
+    return gbellmf(x, self.acceptable_deviation, PI_MF_FLATNESS, self.target)
 
 class FuzzySMemberFunction(FuzzyMemberFunctions):
   """A class provides fuzzy S Membership Function.
@@ -163,8 +191,8 @@ class FuzzyZMemberFunction(FuzzyMemberFunctions):
 
 # Mapping from membership functions to the fuzzy member function classes.
 MF_DICT = {
-  # TODO(josephsih): PI, TRAPEZ, and TRIANGLE functions are to be implemented.
-  # PI_FUNCTION: FuzzyPiMemberFunction,
+  # TODO(josephsih): TRAPEZ, and TRIANGLE functions are to be implemented.
+  PI_FUNCTION: FuzzyPiMemberFunction,
   SINGLETON_FUNCTION: FuzzySingletonMemberFunction,
   S_FUNCTION: FuzzySMemberFunction,
   # TRAPEZ_FUNCTION: FuzzyTrapezMemberFunction,
@@ -203,8 +231,7 @@ class FuzzyCriteria:
     op_value = None
     for c in criteria_list:
       op, value = c.split()
-      # TODO(josephsih): should support and '~=' later.
-      if op in ['<=', '<', '>=', '>', '==']:
+      if op in ['<=', '<', '>=', '>', '==', '~=']:
         primary_op = op
         self.default_mf_name = DEFAULT_MEMBERSHIP_FUNCTION[op]
         op_value = float(value)
@@ -227,6 +254,8 @@ class FuzzyCriteria:
 
     if primary_op in ['<=', '<', '>=', '>']:
       self.value_range = (range_min, range_max)
+    elif primary_op == '~=':
+      self.value_range = (op_value, tolerable_delta[0])
     elif primary_op == '==':
       self.value_range = (range_min, op_value, range_max)
     else:

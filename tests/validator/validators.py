@@ -148,6 +148,53 @@ class FingerCountValidator(BaseValidator):
     return result
 
 
+class LineAngleValidator(BaseValidator):
+  """ Validator to check the angle formed between a line drawn on the
+  pad, and the bottom edge of the sensor.  This is intended to detect
+  when the resolution is compressed or stretched in one direction.  In
+  such a situation, the angle will be distorted.
+
+  Example:
+      To verify that the angle is close to 45 degrees:
+        FingerCountValidator('~= 45.0, ~ 5')
+  """
+  def __init__(self, criteria_str, mf=None):
+    name = self.__class__.__name__
+    desc = ("What angle does the reported line form with the bottom edge "
+            "of the sensor?  If a device fails this test, it means that "
+            "movement appears to be compressed along x or y, resulting "
+            "in a distorted angle.")
+
+    super(LineAngleValidator, self).__init__(criteria_str, mf, name, desc)
+
+  def Validate(self, snapshots):
+    # Sort the paths by length, to find the main one
+    paths = sorted(self._SeparatePaths(snapshots), key=lambda x: len(x))
+    angle = float('inf')
+    if paths:
+      longest_path = paths[-1]
+      # Segment the path to find the straightest parts (in the middle)
+      start, middle, end = self._SegmentPath(longest_path)
+      xs = [finger.x for finger in middle]
+      ys = [finger.y for finger in middle]
+      x_delta = max(xs) - min(xs)
+      y_delta = max(ys) - min(ys)
+      if x_delta or y_delta:
+        angle = math.degrees(np.arctan2(y_delta, x_delta))
+
+    result = Result()
+    result.name = self.name
+    result.description = self.description
+    result.units = 'degrees'
+    result.criteria = self.criteria_str
+    result.observed = angle
+    result.score = self.fc.mf.grade(result.observed)
+    if not paths:
+      result.error = 'Cannot measure unless at least one moving finger is seen.'
+
+    return result
+
+
 class ReportRateValidator(BaseValidator):
   """ Validator to check the report rate.
 

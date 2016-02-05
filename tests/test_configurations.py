@@ -45,6 +45,7 @@ TWO_FAT_FINGERS_TRACKING = 'two_fat_fingers_tracking'
 FIRST_FINGER_TRACKING_AND_SECOND_FINGER_TAPS = \
         'first_finger_tracking_and_second_finger_taps'
 DRUMROLL = 'drumroll'
+SQUARE_RESOLUTION = 'square_resolution'
 REPEATED_TAPS = 'repeated_taps_20'
 ONE_FINGER_TRACKING_FROM_CENTER = 'one_finger_tracking_from_center'
 
@@ -54,7 +55,7 @@ PERFORMANCE_TESTS = [ONE_FINGER_TRACKING, ONE_FINGER_TO_EDGE,
   PINCH_TO_ZOOM, ONE_FINGER_TAP, TWO_FINGER_TAP, THREE_FINGER_TAP,
   FOUR_FINGER_TAP, FIVE_FINGER_TAP, ONE_FINGER_PHYSICAL_CLICK,
   TWO_FINGER_PHYSICAL_CLICK, STATIONARY_FINGER_NOT_AFFECTED_BY_2ND_FINGER_TAPS,
-  FAT_FINGER_MOVE_WITH_RESTING_FINGER, DRAG_THUMB_EDGE,
+  FAT_FINGER_MOVE_WITH_RESTING_FINGER, DRAG_THUMB_EDGE, SQUARE_RESOLUTION,
   TWO_CLOSE_FINGERS_TRACKING, RESTING_FINGER_PLUS_2ND_FINGER_MOVE,
   TWO_FAT_FINGERS_TRACKING, FIRST_FINGER_TRACKING_AND_SECOND_FINGER_TAPS,
   DRUMROLL, REPEATED_TAPS, ONE_FINGER_TRACKING_FROM_CENTER
@@ -78,12 +79,31 @@ LINEARITY_CRITERIA_MM = '<= 0.8, ~ +2.4'
 PINCH_CRITERIA_MM = '>= 15, ~ -5'
 RELAXED_LINEARITY_CRITERIA_MM = '<= 1.5, ~ +3.0'
 STATIONARY_FINGER_CRITERIA_MM = '<= 1.0'
+SQUARENESS_CRITERIA_RATIO = '~= 45.0, ~ +4'
 RELAXED_STATIONARY_FINGER_CRITERIA_MM = '<= 3.0'
 TAP_ACCURACY_CRITERIA_MM = '<= 0.5, ~ +0.5'
 
 
 # Definitions for the test specifics
 tests_dict = {
+  SQUARE_RESOLUTION:
+  Test(
+    name=SQUARE_RESOLUTION,
+    variations=(GV.CENTER,),
+    prompt='Use one finger and a jig to draw ~2cm 45 degree line segment in '
+           'the center of the pad. Make sure it is exactly 45 degrees away '
+           'from the bottom edge of the sensor and keep all lines in the '
+           'center of the pad -- lines drawn near/off edges can cause false '
+           'negatives for this test.',
+    subprompt={
+      GV.CENTER: ('center',),
+    },
+    validators=(
+      FingerCountValidator('== 1'),
+      ReportRateValidator(REPORT_RATE_CRITERIA_HTZ),
+      LineAngleValidator(SQUARENESS_CRITERIA_RATIO),
+    ),
+  ),
   NOISE_STATIONARY:
   Test(
     name=NOISE_STATIONARY,
