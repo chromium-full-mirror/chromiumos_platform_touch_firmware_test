@@ -75,7 +75,10 @@ NO_GAP_CRITERIA_RATIO = '<= 1.8, ~ +1.0'
 NO_REVERSED_MOTION_CRITERIA_MM = '<= 1, ~ +0.5'
 RANGE_CRITERIA_MM = '<= 0.5, ~ +1.0'
 REPORT_RATE_CRITERIA_HTZ = '>= 60'
-LINEARITY_CRITERIA_MM = '<= 0.8, ~ +2.4'
+LINEARITY_MAX_CRITERIA_MM = '<= 2, ~ +1.0'
+LINEARITY_RMS_CRITERIA_MM = '<= 0.5, ~ +0.5'
+RELAXED_LINEARITY_MAX_CRITERIA_MM = '<= 4, ~ +2.0'
+RELAXED_LINEARITY_RMS_CRITERIA_MM = '<= 1.0, ~ +1.0'
 PINCH_CRITERIA_MM = '>= 15, ~ -5'
 RELAXED_LINEARITY_CRITERIA_MM = '<= 1.5, ~ +3.0'
 STATIONARY_FINGER_CRITERIA_MM = '<= 1.0'
@@ -142,7 +145,9 @@ tests_dict = {
     validators=(
       DiscardInitialSecondsValidatorWrapper(FingerCountValidator('== 1')),
       DiscardInitialSecondsValidatorWrapper(
-              LinearityValidator(LINEARITY_CRITERIA_MM)),
+              LinearityValidator(LINEARITY_RMS_CRITERIA_MM, is_rms=True)),
+      DiscardInitialSecondsValidatorWrapper(
+              LinearityValidator(LINEARITY_MAX_CRITERIA_MM, is_rms=False)),
       DiscardInitialSecondsValidatorWrapper(
               NoGapValidator(NO_GAP_CRITERIA_RATIO)),
       DiscardInitialSecondsValidatorWrapper(
@@ -172,7 +177,8 @@ tests_dict = {
     },
     validators=(
       FingerCountValidator('== 1'),
-      LinearityValidator(LINEARITY_CRITERIA_MM),
+      LinearityValidator(LINEARITY_RMS_CRITERIA_MM, is_rms=True),
+      LinearityValidator(LINEARITY_MAX_CRITERIA_MM, is_rms=False),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
       NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM),
@@ -196,7 +202,6 @@ tests_dict = {
     },
     validators=(
       FingerCountValidator('== 1'),
-      LinearityValidator(LINEARITY_CRITERIA_MM),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
       NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM),
@@ -225,8 +230,8 @@ tests_dict = {
     },
     validators=(
       FingerCountValidator('== 2'),
-      LinearityValidator(LINEARITY_CRITERIA_MM, finger=0),
-      LinearityValidator(LINEARITY_CRITERIA_MM, finger=1),
+      LinearityValidator(LINEARITY_RMS_CRITERIA_MM, is_rms=True),
+      LinearityValidator(LINEARITY_MAX_CRITERIA_MM, is_rms=False),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
       NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM),
@@ -260,7 +265,8 @@ tests_dict = {
     },
     validators=(
       FingerCountValidator('== 2'),
-      LinearityValidator(LINEARITY_CRITERIA_MM, finger=1),
+      LinearityValidator(LINEARITY_RMS_CRITERIA_MM, is_rms=True),
+      LinearityValidator(LINEARITY_MAX_CRITERIA_MM, is_rms=False),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=1),
       NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=1),
@@ -462,7 +468,10 @@ tests_dict = {
     },
     validators=(
       FingerCountValidator('== 2'),
-      LinearityValidator(RELAXED_LINEARITY_CRITERIA_MM, finger=1),
+      LinearityValidator(RELAXED_LINEARITY_RMS_CRITERIA_MM, finger=1,
+                         is_rms=True),
+      LinearityValidator(RELAXED_LINEARITY_MAX_CRITERIA_MM, finger=1,
+                         is_rms=False),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=1),
       NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=1),
@@ -488,7 +497,8 @@ tests_dict = {
     },
     validators=(
       FingerCountValidator('== 1'),
-      LinearityValidator(RELAXED_LINEARITY_CRITERIA_MM),
+      LinearityValidator(RELAXED_LINEARITY_RMS_CRITERIA_MM, is_rms=True),
+      LinearityValidator(RELAXED_LINEARITY_MAX_CRITERIA_MM, is_rms=False),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
       NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM),
@@ -513,8 +523,8 @@ tests_dict = {
     },
     validators=(
       FingerCountValidator('== 2'),
-      LinearityValidator(RELAXED_LINEARITY_CRITERIA_MM, finger=0),
-      LinearityValidator(RELAXED_LINEARITY_CRITERIA_MM, finger=1),
+      LinearityValidator(RELAXED_LINEARITY_RMS_CRITERIA_MM, is_rms=True),
+      LinearityValidator(RELAXED_LINEARITY_MAX_CRITERIA_MM, is_rms=False),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
       NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM),
@@ -537,7 +547,8 @@ tests_dict = {
     },
     validators=(
       FingerCountValidator('== 2'),
-      LinearityValidator(LINEARITY_CRITERIA_MM, finger=1),
+      LinearityValidator(LINEARITY_RMS_CRITERIA_MM, finger=1, is_rms=True),
+      LinearityValidator(LINEARITY_MAX_CRITERIA_MM, finger=1, is_rms=False),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=1),
       NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=1),
@@ -561,8 +572,8 @@ tests_dict = {
     },
     validators=(
       FingerCountValidator('== 2'),
-      LinearityValidator(RELAXED_LINEARITY_CRITERIA_MM, finger=0),
-      LinearityValidator(RELAXED_LINEARITY_CRITERIA_MM, finger=1),
+      LinearityValidator(RELAXED_LINEARITY_RMS_CRITERIA_MM, is_rms=True),
+      LinearityValidator(RELAXED_LINEARITY_MAX_CRITERIA_MM, is_rms=False),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
       NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM),
@@ -583,7 +594,8 @@ tests_dict = {
     },
     validators=(
       FingerCountValidator('== 4'),
-      LinearityValidator(LINEARITY_CRITERIA_MM, finger=0),
+      LinearityValidator(LINEARITY_RMS_CRITERIA_MM, finger=0, is_rms=True),
+      LinearityValidator(LINEARITY_MAX_CRITERIA_MM, finger=0, is_rms=False),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=0),
       NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM, finger=0),
@@ -646,7 +658,6 @@ tests_dict = {
     validators=(
       FingerCountValidator('== 1'),
       HysteresisValidator(HYSTERESIS_CRITERIA_RATIO),
-      LinearityValidator(LINEARITY_CRITERIA_MM),
       NoGapValidator(NO_GAP_CRITERIA_RATIO),
       NoReversedMotionMiddleValidator(NO_REVERSED_MOTION_CRITERIA_MM),
       NoReversedMotionEndsValidator(NO_REVERSED_MOTION_CRITERIA_MM),

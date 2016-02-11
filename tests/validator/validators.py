@@ -423,19 +423,20 @@ class LinearityValidator(BaseValidator):
   # Define the partial group size for calculating Mean Squared Error
   MSE_PARTIAL_GROUP_SIZE = 1
 
-  def __init__(self, criteria_str, mf=None, finger=None):
-    name = self.__class__.__name__
+  def __init__(self, criteria_str, mf=None, finger=None, is_rms=False):
+    name = "%s%s" % ('RMS' if is_rms else "Max", self.__class__.__name__)
     name += ('Finger%d' % finger) if finger is not None else 'AllFingers'
     desc = ("How straight is the line?  This validator measures how much "
             "the line drawn in the gesture deviates from perfectly straight. "
             "This is done by performing a linear regression in X vs. Y, then "
             "computing the distance from this ideal line for each point. "
-            "The maximum deviation, serves as the observed value.  Note: "
-            "this validator may be run on any one or all of the fingers in "
+            "The maximum or RMS deviation, serves as the observed value."
+            "Note: this validator may be run on any one or all of the fingers in "
             "the gesture.  If a finger number is indicated in the name, that "
             "corresponds to the order they touched the pad, otherwise all "
             "fingers are checked.")
     self.finger = finger
+    self.is_rms = is_rms
     super(LinearityValidator, self).__init__(criteria_str, mf, name, desc)
 
   def _CalculateResiduals(self, line, times, values):
@@ -457,8 +458,7 @@ class LinearityValidator(BaseValidator):
     return [float(line(t) - v) for t, v in zip(times, values)]
 
   def _SimpleLinearRegression(self, times, values):
-    """Calculate the simple linear regression line and returns the
-    sum of squared residuals.
+    """Calculate the simple linear regression line and returns the residuals.
 
     @param times: the list of time instants
     @param values: the list of corresponding x or y coordinates
@@ -492,29 +492,13 @@ class LinearityValidator(BaseValidator):
     # Compute the fitting errors of the specified segments.
     return self._CalculateResiduals(regress_line, mid_segment_t, mid_segment_y)
 
-  def _ErrorsForSingleAxis(self, times, values):
-    """ Calculate linearity errors for one set of data points vs time """
-    # It is fine if axis-time is a horizontal line.
-    errors_px = self._SimpleLinearRegression(times, values)
-    if not errors_px:
-      return (0, 0)
-
-    # Calculate the max errors
-    max_err_px = max(map(abs, errors_px))
-
-    # Calculate the root mean square errors
-    e2 = [e * e for e in errors_px]
-    rms_err_px = (float(sum(e2)) / len(e2)) ** 0.5
-
-    return (max_err_px, rms_err_px)
-
   def Validate(self, snapshots):
     """ Check if the fingers conform to specified criteria. """
     paths = self._SeparatePaths(snapshots)
     if self.finger is not None:
       paths = self._PathOfNthFinger(self.finger, paths)
 
-    global_max_err_mm = float('-inf')
+    err_mm = []
     for path in paths:
       start, middle, end = self._SegmentPath(path)
       path = middle
@@ -527,26 +511,41 @@ class LinearityValidator(BaseValidator):
       # vertical.  To combat this, we fit in both x vs y as well was y vs x
       # and then select whichever fits better (less error) as the correct
       # fit.
-      max_xy_err_mm, rms_xy_err_mm = self._ErrorsForSingleAxis(xs_mm, ys_mm)
-      max_yx_err_mm, rms_yx_err_mm = self._ErrorsForSingleAxis(ys_mm, xs_mm)
-      err_mm = min(max_xy_err_mm, max_yx_err_mm)
+      best_err_mm = []
+      xy_err_mm = self._SimpleLinearRegression(xs_mm, ys_mm)
+      yx_err_mm = self._SimpleLinearRegression(ys_mm, xs_mm)
+      if xy_err_mm:
+        if not yx_err_mm or max(xy_err_mm) < max(yx_err_mm):
+          best_err_mm = xy_err_mm
+        else:
+          best_err_mm = yx_err_mm
+      elif yx_err_mm:
+          best_err_mm = yx_err_mm
 
-      global_max_err_mm = max(global_max_err_mm, err_mm)
+      if len(best_err_mm) > 0:
+        err_mm.append(best_err_mm)
 
     result = Result()
     result.name = self.name
     result.description = self.description
-    result.units = 'mm'
+    result.units = 'mm %s' % 'rms' if self.is_rms else 'max'
     result.criteria = self.criteria_str
-    if global_max_err_mm < 0:
-      global_max_err_mm = float('inf')
+
+    max_err_mm = rms_err_mm = float('inf')
+    if len(err_mm) > 0:
+      max_err_mm = max([max(errors) for errors in err_mm])
+      rms_errs_mm = [(sum([err ** 2 for err in errors]) /
+                     float(len(errors))) ** 0.5 for errors in err_mm]
+      rms_err_mm = max(rms_errs_mm)
+    else:
       if not paths and self.finger is not None:
         result.error = ('There was no finger #%d as far as we can tell.' %
                         self.finger)
       else:
         result.error = ('Unable to compute linearity.  Perhaps there were '
                         'not enough events collected.')
-    result.observed = global_max_err_mm
+
+    result.observed = rms_err_mm if self.is_rms else max_err_mm
     result.score = self.fc.mf.grade(result.observed)
     return result
 
