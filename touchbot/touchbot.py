@@ -84,13 +84,21 @@ class Touchbot:
   REQUIRE_RESPONSES = 2
   FINGER_RESPONSE_LEVELS = [NO_RESPONSES, REQUIRE_RESPONSES]
 
+  # The parameter number of the robot's name in the controller's memory
+  TOUCHBOT_NAME_PARAM_NUM = 2002
+
   def __init__(self, ip_address=TOUCHBOT_IP_ADDR, port=TOUCHBOT_PORT):
     self.speed_stack = []
     self.finger_speed_stack = []
     self.comm = TouchbotComm(ip_address, port)
 
     # Load all the fingertip locations from disk
-    self.fingertips = LoadFingertips('nest_locations')
+    robot_name = self._GetRobotName()
+    print 'Robot name "%s" detected.' % robot_name
+    self.nest_locations_dir = 'nest_locations/%s' % robot_name
+    self.fingertips = LoadFingertips(self.nest_locations_dir)
+    if not self.fingertips:
+      print 'ERROR: Unable to load fingertip locations for that robot!'
     self.attached_fingertips = set()
 
     # Lift up and center the wrist to prevent it starting twisted
@@ -141,7 +149,8 @@ class Touchbot:
 
     # Move the robot's hand over a known, flat surface to "zero" them on
     self._MoveToNest()
-    zeroing_pos= Position.FromPickledFile('nest_locations/zeroing_position.p')
+    zeroing_file = os.path.join(self.nest_locations_dir, 'zeroing_position.p')
+    zeroing_pos= Position.FromPickledFile(zeroing_file)
     self._SetCartesian(zeroing_pos, finger_distance=5)
 
     # Now lower the fingers slowly until they hit the surface.  This will
@@ -457,6 +466,15 @@ class Touchbot:
     if blocking:
       self._Wait()
     return response
+
+  def _GetRobotName(self):
+    """ Query the robot for its name.  This value is used to determine which
+    set of trained nest positions to use. """
+    error, name = self.comm.SendCmd('pd', Touchbot.TOUCHBOT_NAME_PARAM_NUM)
+    if error:
+      return ''
+    # Remove the carrage return at the end, to get a cleaner string
+    return name.rstrip()
 
   def _SetCartesian(self, pos, finger_distance=None, blocking=True):
     """ Move the robot to pos by Cartesian coordinates. """
