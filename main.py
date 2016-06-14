@@ -15,7 +15,7 @@ from remote import ElanTouchScreenDevice, ElanTouchDevice, SynapticsTouchDevice
 from report import Report
 from test_suite import TestSuite
 
-REPORT_LOCATION = 'report.html'
+REPORT_LOCATION_FORMAT = '%s_report.html'
 
 def parse_arguments():
   VALID_DUT_TYPES = ['chromeos', 'android', 'elan_i2c', 'elan_ts_i2c',
@@ -165,10 +165,11 @@ def main():
     report = Report.FromFile(options.addr)
 
   # Generate an HTML version of the Report and write it to disk
+  report_filename = REPORT_LOCATION_FORMAT % options.mode
   print (color.Fore.MAGENTA + 'FW Testing Complete.  Report is being generated '
-         'now, and will be stored on disk as "%s"' % REPORT_LOCATION)
+         'now, and will be stored on disk as "%s"' % report_filename)
   html_report = report.GenerateHtml()
-  with open(REPORT_LOCATION, 'w') as fo:
+  with open(report_filename, 'w') as fo:
     fo.write(html_report)
 
   return 0

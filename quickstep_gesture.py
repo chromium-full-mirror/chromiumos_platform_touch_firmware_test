@@ -7,8 +7,6 @@ import os
 import sys
 from touchbot import Touchbot, DeviceSpec
 
-REPORT_LOCATION = 'report.html'
-
 def parse_arguments():
   parser = optparse.OptionParser()
   parser.add_option('-n', '--name', dest='name', default='unknown_device',
