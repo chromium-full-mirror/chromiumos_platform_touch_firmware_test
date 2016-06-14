@@ -804,7 +804,7 @@ class Touchbot:
 
     # If this is NOT a swipe, extend the fingers now (before anything moves)
     if not swipe:
-      self._ExtendFingerUntilContact(fingers_to_extend, speed=100)
+      self._ExtendFingerUntilContact(fingers_to_extend, speed=10)
       time.sleep(pause_s)
 
     # Move to the end position
