@@ -27,6 +27,10 @@ h2.section_title, h3.prompt {
   text-align: center;
 }
 
+h2.section_title, h4.timestamp {
+  text-align: right;
+}
+
 ul.validators {
   list-style-type: none;
   padding: 0px;

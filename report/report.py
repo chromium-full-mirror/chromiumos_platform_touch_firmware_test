@@ -252,13 +252,16 @@ class Report:
     single TestResult object.  This include the test's prompt, an image of the
     gesture, and the full results for each validator run on this test.
     """
+    timestamp_html = ('<h4 class="timestamp">%s</h4>' %
+                      test_result.timestamp.strftime('%b %d %Y - %H:%M:%S'))
     prompt_html = ('<h3 class="prompt"><a href="#%s">%s</a></h3>' %
                    (test_result.test_id, test_result.prompt))
     img_html = self._GenerateInlinePngTag(test_result.image)
     validators_html = ''.join([self._GenerateValidatorDetails(vr)
                                for vr in test_result.validator_results])
-    content = '<a name="%s">%s%s%s</a>' % (test_result.test_id, prompt_html,
-                                           img_html, validators_html)
+    content = ('<a name="%s">%s%s%s%s</a>' %
+               (test_result.test_id, timestamp_html, prompt_html, img_html,
+                validators_html))
     return '<li>%s</li>' % content
 
   def _GenerateNoiseTestResults(self):
