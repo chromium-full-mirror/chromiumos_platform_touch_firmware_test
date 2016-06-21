@@ -8,6 +8,7 @@ from state_machine import *
 
 MTA = 'mta'
 MTB = 'mtb'
+STYLUS = 'stylus'
 
 
 class SnapshotStream(object):
@@ -15,7 +16,12 @@ class SnapshotStream(object):
   """
 
   def __init__(self, device, protocol=MTB):
-    self.sm = MtaStateMachine() if protocol == MTA else MtbStateMachine()
+    self.sm = MtbStateMachine()
+    if protocol == MTA:
+        self.sm = MtaStateMachine()
+    elif protocol == STYLUS:
+        self.sm = StylusStateMachine()
+
     self.device = device
 
   def Get(self):

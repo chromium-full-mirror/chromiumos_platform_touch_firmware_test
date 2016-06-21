@@ -21,7 +21,7 @@ def parse_arguments():
   VALID_DUT_TYPES = ['chromeos', 'android', 'elan_i2c', 'elan_ts_i2c',
                      'synaptics_ts_i2c', 'replay']
   VALID_MODES = ['performance', 'noise', 'full']
-  VALID_PROTOCOLS = [mt.MTA, mt.MTB, 'auto']
+  VALID_PROTOCOLS = [mt.MTA, mt.MTB, mt.STYLUS, 'auto']
   parser = optparse.OptionParser()
 
   # DUT specification information
@@ -41,8 +41,8 @@ def parse_arguments():
   parser.add_option('--protocol', dest='protocol', default='auto',
                     help=('Manually specify the multitouch protocol for the '
                           'DUT.  This should be detected automatically, but '
-                          'in the event that fails, you may specify "mtb" or '
-                          '"mta" with this flag to over-ride it.'))
+                          'in the event that fails, you may specify "mtb", '
+                          '"mta", or "stylus" with this flag to over-ride it.'))
   parser.add_option('-n', '--name', dest='name', default='unknown_device',
                     help='The name of this DUT.  This is used by the robot to '
                          'store calibration data and is only needed if you are '

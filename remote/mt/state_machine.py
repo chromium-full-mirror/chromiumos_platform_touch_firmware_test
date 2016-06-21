@@ -258,3 +258,56 @@ class MtbStateMachine(MtStateMachine):
 
   def get_current_snapshot(self):
     return self.last_snapshot
+
+
+class StylusStateMachine(MtStateMachine):
+  """ State machine for parsing simplified stylus protocol.
+  This only supports a single stylus, and ignores any hovering reports, just
+  reporting snapshots when the stylus is touching the surface.
+  """
+  def __init__(self, pressure_src):
+    self.x = self.y = self.p = self.last_snapshot = None
+    self.btn_touch = self.btn_tool_pen = self.is_hovering = False
+    self.raw_events_since_last_syn = []
+    self.last_report_was_empty = True
+    MtStateMachine.__init__(self, pressure_src)
+
+  def __update_hover_state(self):
+      self.is_hovering = not self.btn_touch and self.btn_tool_pen
+
+  def add_event(self, event):
+    self.raw_events_since_last_syn.append(event)
+
+    if event.is_ABS_X():
+      self.x = event.value
+    elif event.is_ABS_Y():
+      self.y = event.value
+    elif event.is_ABS_PRESSURE():
+      self.p = event.value
+    elif event.is_BTN_TOUCH():
+      self.btn_touch = (event.value == 1)
+      self.__update_hover_state()
+    elif event.is_BTN_TOOL_PEN():
+      self.btn_tool_pen = (event.value == 1)
+      self.__update_hover_state()
+      if event.value == 0:
+        self.x = self.y = self.p = None
+
+    elif event.is_SYN_REPORT():
+      current_fingers = None
+      if self.btn_touch:
+        current_fingers = [MtFinger(0, event.timestamp, self.x, self.y, self.p)]
+        self.last_report_was_empty = False
+      elif not self.last_report_was_empty:
+        current_fingers = []
+        self.last_report_was_empty = True
+
+      if current_fingers is not None:
+        self.last_snapshot = MtSnapshot(event.timestamp, False, current_fingers,
+                                        self.raw_events_since_last_syn)
+        self.raw_events_since_last_syn = []
+      else:
+        self.last_snapshot = None
+
+  def get_current_snapshot(self, request_data_ready=True):
+    return self.last_snapshot

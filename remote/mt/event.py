@@ -27,13 +27,25 @@ class MtEvent(object):
     """ Is this event ABS_MT_POSITION_X? """
     return self.event_type == EV_ABS and self.event_code == ABS_MT_POSITION_X
 
+  def is_ABS_X(self):
+    """ Is this event ABS_X? """
+    return self.event_type == EV_ABS and self.event_code == ABS_X
+
   def is_ABS_MT_POSITION_Y(self):
     """ Is this event ABS_MT_POSITION_Y? """
     return self.event_type == EV_ABS and self.event_code == ABS_MT_POSITION_Y
 
+  def is_ABS_Y(self):
+    """ Is this event ABS_Y? """
+    return self.event_type == EV_ABS and self.event_code == ABS_Y
+
   def is_ABS_MT_PRESSURE(self):
     """ Is this event ABS_MT_PRESSURE? """
     return self.event_type == EV_ABS and self.event_code == ABS_MT_PRESSURE
+
+  def is_ABS_PRESSURE(self):
+    """ Is this event ABS_PRESSURE? """
+    return self.event_type == EV_ABS and self.event_code == ABS_PRESSURE
 
   def is_ABS_MT_TOUCH_MAJOR(self):
     """ Is this event ABS_MT_TOUCH_MAJOR? """
@@ -50,6 +62,14 @@ class MtEvent(object):
   def is_BTN_LEFT(self):
     """ Is this event BTN_LEFT? """
     return self._is_EV_KEY() and self.event_code == BTN_LEFT
+
+  def is_BTN_TOOL_PEN(self):
+    """ Is this event BTN_TOOL_PEN? """
+    return self._is_EV_KEY() and self.event_code == BTN_TOOL_PEN
+
+  def is_BTN_TOUCH(self):
+    """ Is this event BTN_TOUCH? """
+    return self._is_EV_KEY() and self.event_code == BTN_TOUCH
 
   def is_SYN_MT_REPORT(self):
     """ is this event is SYN_REPORT? """

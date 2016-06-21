@@ -34,20 +34,6 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
   """
   FLUSH_TIMEOUT = 0.1
 
-  # Unfortunately the device names are not very standardized on Android.
-  # For android devices you may need to check /proc/bus/input/devices
-  # and add the correct device name to this list.
-  touchscreen_device_names = [
-    'touchscreen',
-    'max1187x_touchscreen_0',
-    'synaptics_dsx_i2c',
-    'mtk-tpd',
-  ]
-  touchpad_device_names = [
-    'touchpad',
-    'trackpad',
-  ]
-
   def __init__(self, addr, is_touchscreen=False, protocol='auto',
                device_num=None):
     RemoteTouchDevice.__init__(self)
@@ -80,8 +66,10 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
     self.protocol = self._GetMtProtocol() if protocol == 'auto' else protocol
     if self.protocol == mt.MTA:
       self.state_machine = mt.MtaStateMachine(self.pressure_src)
-    else:
+    elif self.protocol == mt.MTB:
       self.state_machine = mt.MtbStateMachine(self.pressure_src)
+    else:
+      self.state_machine = mt.StylusStateMachine(self.pressure_src)
 
 
   def _CheckForAlternativePressureSources(self, p, touch_major):
@@ -245,21 +233,8 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
     # First find all the device names/numbers on the DUT
     device_names_by_number = GetAllDeviceNumberMappings()
 
-    # Determine the list of known names for touchpads/touchscreens
-    name_strings = RemoteInSystemTouchDevice.touchpad_device_names
-    if is_touchscreen:
-      name_strings = RemoteInSystemTouchDevice.touchscreen_device_names
-
-    # If we found one that matches already just return it
-    for name_string in name_strings:
-      for device_number, device_name in device_names_by_number.items():
-        if name_string in device_name.lower():
-          return device_number
-
-    # If we haven't found it yet, we'll have to ask the user to pick it
-    # from the list for us, because we can't tell which device it is.
-    print ('Sorry, we were unable to autodetect the %s device.' %
-           'touchscreen' if is_touchscreen else 'touchpad')
+    # Ask the user to pick an input device from the list provided by evtest.
+    # It's difficult/impossible to autodetect this reliably
     print 'Please select the correct device from the list below'
     sorted_devices = sorted(device_names_by_number.items(), key=lambda x:x[0])
     for device_number, device_name in sorted_devices:
@@ -447,7 +422,11 @@ class ChromeOSTouchDevice(RemoteInSystemTouchDevice):
     self._RunRemoteCmd('stop powerd')
 
   def _GetMtProtocol(self):
-    """ ChromeOS devices always use mtb, so we can simply return that. """
+    """ ChromeOS devices generally use mtb, so we can simply return that. In
+    the rare case where this is invalid, the operator will know and can
+    specify the protocol manually. """
+    print ('\033[1;32mAssuming MTB is used.  If this is a different kind, '
+           'please rerun the script with --protocol to specify.\033[0m')
     return mt.MTB
 
   def _GetDimensions(self):
@@ -489,11 +468,11 @@ class ChromeOSTouchDevice(RemoteInSystemTouchDevice):
       if line is None:
         break
 
-      if 'Event code 53 (ABS_MT_POSITION_X)' in line:
+      if '(ABS_MT_POSITION_X)' in line or '(ABS_X)' in line:
         x = _GetDimensions_Aux(['min', 'max', 'resolution'])
-      elif 'Event code 54 (ABS_MT_POSITION_Y)' in line:
+      elif '(ABS_MT_POSITION_Y)' in line or '(ABS_Y)' in line:
         y = _GetDimensions_Aux(['min', 'max', 'resolution'])
-      elif 'Event code 58 (ABS_MT_PRESSURE)' in line:
+      elif '(ABS_MT_PRESSURE)' in line or '(ABS_PRESSURE)' in line:
         p = _GetDimensions_Aux(['min', 'max'])
       elif 'Event code 48 (ABS_MT_TOUCH_MAJOR)' in line:
         touch_major = _GetDimensions_Aux(['min', 'max'])

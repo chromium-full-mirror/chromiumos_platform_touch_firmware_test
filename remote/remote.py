@@ -73,7 +73,8 @@ class RemoteTouchDevice:
       self.state_machine.add_event(event)
       if event.is_SYN_REPORT():
         self.most_recent_snapshot = self.state_machine.get_current_snapshot()
-        return self.most_recent_snapshot
+        if self.most_recent_snapshot:
+          return self.most_recent_snapshot
       event = self._NextEvent(timeout)
     return None
 
