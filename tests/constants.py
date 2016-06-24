@@ -82,9 +82,7 @@ GV.SQUARE_WAVE = FunctionGenerator.SQUARE_WAVE
 GV.SINE_WAVE = FunctionGenerator.SIN_WAVE
 GV.NOISE_WAVEFORMS = [GV.SQUARE_WAVE, GV.SINE_WAVE]
 # constants about noise amplitude
-GV.MAX_AMPLITUDE = '20V'
-GV.HALF_AMPLITUDE = '10V'
-GV.NOISE_AMPLITUDES = [GV.HALF_AMPLITUDE, GV.MAX_AMPLITUDE]
+GV.MAX_AMPLITUDE = '10V'
 # constants about thumb sizes
 GV.SMALL_THUMB = 'thumb_small'
 GV.LARGE_THUMB = 'thumb_large'
