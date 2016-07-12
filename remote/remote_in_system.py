@@ -498,7 +498,7 @@ class ChromeOSTouchDevice(RemoteInSystemTouchDevice):
     if 'SYN_REPORT' in contents:
       return mt.MtEvent(timestamp, linux_input.EV_SYN, linux_input.SYN_REPORT)
 
-    pattern = '^.*type (\d+) .*, code (\d+) .*, value (-?\d+).*$'
+    pattern = '^.*type (\d+) .*, code (\d+) .*, value (-?[0-9a-fA-F]+).*$'
     matches = re.match(pattern, contents)
     if matches is None:
       print 'ERROR: Unable to parse event!'
@@ -508,7 +508,14 @@ class ChromeOSTouchDevice(RemoteInSystemTouchDevice):
 
     event_type = int(matches.group(1))
     event_code = int(matches.group(2))
-    value = int(matches.group(3))
+
+    # evtest reports all values in decimal except 2 events, which are in hex
+    # Depending on the event type and code, parse using a different base
+    value_base = 10
+    if (event_type == linux_input.EV_MSC and
+        event_code in [linux_input.MSC_RAW, linux_input.MSC_SCAN]):
+      value_base = 16
+    value = int(matches.group(3), value_base)
 
     return mt.MtEvent(timestamp, event_type, event_code, value)
 
