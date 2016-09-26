@@ -571,6 +571,10 @@ def _ParseArguments():
                       help=('When this flag is set the script will try to '
                             'start a web browser automatically once webplot '
                             'is ready, instead of waiting for the user to.'))
+  parser.add_argument('--protocol',type=str, default='auto',
+                      choices=['auto', 'stylus', 'MTB', 'MTA'],
+                      help=('Which protocol does the device use? Choose from '
+                            'auto, MTB, MTA, or stylus'))
 
   # Arguments especial for centroiding visualizing tool.
   # Please set "--dut_type centroiding" for centroiding utility.
@@ -641,9 +645,10 @@ def Main():
   # Instantiate a touch device.
   if args.dut_type == 'chromeos':
     addr = args.dut_addr if args.dut_addr else '127.0.0.1'
-    device = ChromeOSTouchDevice(addr, args.is_touchscreen, grab=args.grab)
+    device = ChromeOSTouchDevice(addr, args.is_touchscreen, grab=args.grab,
+                                 protocol=args.protocol)
   elif args.dut_type == 'android':
-    device = AndroidTouchDevice(args.dut_addr, True)
+    device = AndroidTouchDevice(args.dut_addr, True, protocol=args.protocol)
   elif is_centroiding:  # args.dut_type == 'centroiding'
     # Import centroiding library conditionally to avoid missing dependency.
     from centroiding import CentroidingDataReceiver, CentroidingDevice
