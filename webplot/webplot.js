@@ -84,9 +84,14 @@ Color.prototype.remove = function(tid) {
  * @param {int} touchMaxY the max y value of the touch device.
  * @param {int} touchMinPressure the min pressure value of the touch device.
  * @param {int} touchMaxPressure the max pressure value of the touch device.
+ * @param {int} tiltMinX the min tilt x value of the touch device.
+ * @param {int} tiltMaxX the max tilt x value of the touch device.
+ * @param {int} tiltMinY the min tilt y value of the touch device.
+ * @param {int} tiltMaxY the max tilt y value of the touch device.
  */
 function Webplot(canvas, touchMinX, touchMaxX, touchMinY, touchMaxY,
-                 touchMinPressure, touchMaxPressure) {
+                 touchMinPressure, touchMaxPressure, tiltMinX, tiltMaxX,
+                 tiltMinY, tiltMaxY) {
   this.canvas = canvas;
   this.ctx = canvas.getContext('2d');
   this.color = new Color();
@@ -96,6 +101,11 @@ function Webplot(canvas, touchMinX, touchMaxX, touchMinY, touchMaxY,
   this.maxY = touchMaxY;
   this.minPressure = touchMinPressure;
   this.maxPressure = touchMaxPressure;
+  this.tiltMinX = tiltMinX;
+  this.tiltMaxX = tiltMaxX;
+  this.tiltMinY = tiltMinY;
+  this.tiltMaxY = tiltMaxY;
+  this.showTilt = ! ((tiltMinX == tiltMaxX) && (tiltMinY == tiltMaxY))
   this.maxRadiusRatio = 0.03;
   this.maxRadius = null;
   this.clickEdge = null;
@@ -213,10 +223,10 @@ Webplot.prototype.captureCanvasImage = function() {
  *   MtbSnapshot(
  *     syn_time=1420522152.269537,
  *     button_pressed=False,
- *     fingers=[
- *       MtbFinger(tid=13, slot=0, syn_time=1420522152.269537, x=440, y=277,
+ *     points =[
+ *       TouchPoint(tid=13, slot=0, syn_time=1420522152.269537, x=440, y=277,
  *                 pressure=33),
- *       MtbFinger(tid=14, slot=1, syn_time=1420522152.269537, x=271, y=308,
+ *       TouchPoint(tid=14, slot=1, syn_time=1420522152.269537, x=271, y=308,
  *                 pressure=38)
  *     ]
  *   )
@@ -224,8 +234,8 @@ Webplot.prototype.captureCanvasImage = function() {
 Webplot.prototype.processSnapshot = function(snapshot) {
   var edge = this.clickEdge;
 
-  for (var i = 0; i < snapshot.fingers.length; i++) {
-    var finger = snapshot.fingers[i];
+  for (var i = 0; i < snapshot.points.length; i++) {
+    var finger = snapshot.points[i];
 
     // Update the color object if the finger is leaving.
     if (finger.leaving) {
@@ -259,7 +269,7 @@ Webplot.prototype.processSnapshot = function(snapshot) {
   // In some special situation, the click comes with no fingers.
   // This may happen if an insulated object is used to click the touchpad.
   // Just draw the click at a random position.
-  if (snapshot.fingers.length == 0 && snapshot.button_pressed == 1 &&
+  if (snapshot.points.length == 0 && snapshot.button_pressed == 1 &&
       !this.clickDown) {
     var x = Math.random() * this.canvas.innerWidth +
             this.canvas.innerOffsetLeft;
@@ -395,6 +405,11 @@ function createWS() {
   var touchMaxY = document.getElementById('touchMaxY').innerText;
   var touchMinPressure = document.getElementById('touchMinPressure').innerText;
   var touchMaxPressure = document.getElementById('touchMaxPressure').innerText;
+  var tiltMinX = document.getElementById('tiltMinX').innerText;
+  var tiltMaxX = document.getElementById('tiltMaxX').innerText;
+  var tiltMinY = document.getElementById('tiltMinY').innerText;
+  var tiltMaxY = document.getElementById('tiltMaxY').innerText;
+
   if (window.WebSocket) {
     ws = new WebSocket(websocket);
     ws.addEventListener("message", function(event) {

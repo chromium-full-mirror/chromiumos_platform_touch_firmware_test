@@ -47,6 +47,14 @@ class MtEvent(object):
     """ Is this event ABS_PRESSURE? """
     return self.event_type == EV_ABS and self.event_code == ABS_PRESSURE
 
+  def is_ABS_TILT_X(self):
+      """ Is this event ABS_TILT_X? """
+      return self.event_type == EV_ABS and self.event_code == ABS_TILT_X
+
+  def is_ABS_TILT_Y(self):
+      """ Is this event ABS_TILT_Y? """
+      return self.event_type == EV_ABS and self.event_code == ABS_TILT_Y
+
   def is_ABS_MT_TOUCH_MAJOR(self):
     """ Is this event ABS_MT_TOUCH_MAJOR? """
     return self.event_type == EV_ABS and self.event_code == ABS_MT_TOUCH_MAJOR

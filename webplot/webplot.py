@@ -220,7 +220,8 @@ class TouchRoot(object):
   """A class to handle requests about docroot."""
 
   def __init__(self, ip, port, touch_min_x, touch_max_x, touch_min_y,
-               touch_max_y, touch_min_pressure, touch_max_pressure):
+               touch_max_y, touch_min_pressure, touch_max_pressure,
+               tilt_min_x, tilt_max_x, tilt_min_y, tilt_max_y):
     self.ip = ip
     self.port = port
     self.touch_min_x = touch_min_x
@@ -229,6 +230,10 @@ class TouchRoot(object):
     self.touch_max_y = touch_max_y
     self.touch_min_pressure = touch_min_pressure
     self.touch_max_pressure = touch_max_pressure
+    self.tilt_min_x = tilt_min_x
+    self.tilt_max_x = tilt_max_x
+    self.tilt_min_y = tilt_min_y
+    self.tilt_max_y = tilt_max_y
     self.scheme = 'ws'
     cherrypy.log('Root address: (%s, %s)' % (ip, str(port)))
     cherrypy.log('scheme: %s' % self.scheme)
@@ -244,6 +249,10 @@ class TouchRoot(object):
       'touchMaxY': str(self.touch_max_y),
       'touchMinPressure': str(self.touch_min_pressure),
       'touchMaxPressure': str(self.touch_max_pressure),
+      'tiltMinX': str(self.tilt_min_x),
+      'tiltMaxX': str(self.tilt_max_x),
+      'tiltMinY': str(self.tilt_min_y),
+      'tiltMaxY': str(self.tilt_max_y),
     }
     root_page = os.path.join(os.path.abspath(os.path.dirname(__file__)),
                              'webplot.html')
@@ -387,15 +396,21 @@ class Webplot(threading.Thread):
       x_min, x_max = self._device.RangeX()
       y_min, y_max = self._device.RangeY()
       p_min, p_max = self._device.RangeP()
+      tilt_x_min, tilt_x_max = self._device.RangeTiltX()
+      tilt_y_min, tilt_y_max = self._device.RangeTiltY()
       root = TouchRoot(self._server_addr, self._server_port,
-                       x_min, x_max, y_min, y_max, p_min, p_max)
+                       x_min, x_max, y_min, y_max, p_min, p_max, tilt_x_min,
+                       tilt_x_max, tilt_y_min, tilt_y_max)
     else:
       data_scale = self._device.data_scale
       data_offset = self._device.data_offset
       data_width = self._device.width
       data_height = self._device.height
+      tilt_x_min, tilt_x_max = self._device.RangeTiltX()
+      tilt_y_min, tilt_y_max = self._device.RangeTiltY()
       root = CentroidingRoot(self._server_addr, self._server_port,
-                             data_scale, data_offset, data_width, data_height)
+                             data_scale, data_offset, data_width, data_height,
+                             tilt_x_min, tilt_x_max, tilt_y_min, tilt_y_max)
 
     cherrypy.quickstart(
         root,
@@ -424,11 +439,11 @@ class Webplot(threading.Thread):
       MtSnapshot(
           syn_time=1420524008.368854,
           button_pressed=False,
-          fingers=[
-              MtFinger(tid=162, slot=0, syn_time=1420524008.368854, x=524,
-                        y=231, pressure=45),
-              MtFinger(tid=163, slot=1, syn_time=1420524008.368854, x=677,
-                        y=135, pressure=57)
+          points=[
+              TouchPoint(tid=162, slot=0, syn_time=1420524008.368854, x=524,
+                        y=231, pressure=45, tilt_x=0, tilt_y=0),
+              TouchPoint(tid=163, slot=1, syn_time=1420524008.368854, x=677,
+                        y=135, pressure=57, tilt_x=0, tilt_y=0)
           ]
       )
 
@@ -440,16 +455,16 @@ class Webplot(threading.Thread):
     # Convert MtSnapshot.
     converted = dict(snapshot.__dict__.items())
 
-    # Convert MtFinger.
-    converted['fingers'] = [dict(finger.__dict__.items())
-                            for finger in converted['fingers']]
+    # Convert TouchPoint.
+    converted['points'] = [dict(point.__dict__.items())
+                            for point in converted['points']]
     converted['raw_events'] = [str(event) for event in converted['raw_events']]
 
     # Add leaving fingers to notify js for reclaiming the finger colors.
-    curr_tids = [finger['tid'] for finger in converted['fingers']]
+    curr_tids = [finger['tid'] for finger in converted['points']]
     for tid in set(self._prev_tids) - set(curr_tids):
       leaving_finger = {'tid': tid, 'leaving': True}
-      converted['fingers'].append(leaving_finger)
+      converted['points'].append(leaving_finger)
     self._prev_tids = curr_tids
 
     # Convert raw events from a list of classes to a list of its strings

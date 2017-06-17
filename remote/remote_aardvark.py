@@ -66,6 +66,10 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
     self._x_min, self._x_max, self._x_res = x['min'], x['max'], x['resolution']
     self._y_min, self._y_max, self._y_res = y['min'], y['max'], y['resolution']
     self._p_min, self._p_max = p['min'], p['max']
+    # Currently no Aardvark-compatible touch devices report tilt events, so
+    # these are just set to 0.
+    self._tx_min, self._tx_max = 0, 0
+    self._ty_min, self._ty_max = 0, 0
 
   def __del__(self):
     # Turning off the device

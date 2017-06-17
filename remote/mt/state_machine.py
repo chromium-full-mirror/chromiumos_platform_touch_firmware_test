@@ -5,9 +5,10 @@
 from collections import namedtuple
 from event import MtEvent, EV_ABS, ABS_MT_TRACKING_ID
 
-MtFinger = namedtuple('MtFinger', ['tid', 'syn_time', 'x', 'y', 'pressure'])
+TouchPoint = namedtuple('TouchPoint', ['tid', 'syn_time', 'x', 'y', 'pressure',\
+                                   'tilt_x', 'tilt_y'])
 MtSnapshot = namedtuple('MtSnapshot', ['syn_time', 'button_pressed',
-                                       'fingers', 'raw_events'])
+                                       'points', 'raw_events'])
 
 class MtStateMachine(object):
   """ This is an abstract base class that defines the interface of a multitouch
@@ -87,7 +88,8 @@ class MtaStateMachine(MtStateMachine):
       fingers = []
       for tid, x, y, touch_major in self.fingers_data:
         mapped_tid = self.tid_mappings[tid]
-        fingers.append(MtFinger(mapped_tid, event.timestamp, x, y, touch_major))
+        fingers.append(TouchPoint(mapped_tid, event.timestamp, x, y,
+                                  touch_major, 0, 0))
       self.last_snapshot = MtSnapshot(event.timestamp, self.button_pressed,
                                       fingers, self.raw_events_since_last_syn)
 
@@ -227,7 +229,7 @@ class MtbStateMachine(MtStateMachine):
     """Build current packet's data including x, y, pressure, and
     the syn_time for all tids.
     """
-    current_fingers = []
+    current_points = []
     for slot in self.slots_in_use:
       tid = self.tid.get(slot, None)
       x = self.x.get(slot, None)
@@ -248,11 +250,11 @@ class MtbStateMachine(MtStateMachine):
       data_ready = all([v is not None for v in
                         (x, y, pressure, tid, self.syn_time)])
       if data_ready:
-        finger = MtFinger(tid, self.syn_time, x, y, pressure)
-        current_fingers.append(finger)
+        finger = TouchPoint(tid, self.syn_time, x, y, pressure, 0, 0)
+        current_points.append(finger)
 
     current_snapshot = MtSnapshot(self.syn_time, self.button_pressed,
-                                  current_fingers,
+                                  current_points,
                                   self.raw_events_since_last_syn)
     return current_snapshot
 
@@ -267,6 +269,7 @@ class StylusStateMachine(MtStateMachine):
   """
   def __init__(self, pressure_src):
     self.x = self.y = self.p = self.last_snapshot = None
+    self.tilt_x = self.tilt_y = None
     self.btn_touch = self.btn_tool_pen = self.is_hovering = False
     self.raw_events_since_last_syn = []
     self.last_report_was_empty = True
@@ -282,6 +285,10 @@ class StylusStateMachine(MtStateMachine):
       self.x = event.value
     elif event.is_ABS_Y():
       self.y = event.value
+    elif event.is_ABS_TILT_X():
+      self.tilt_x = event.value
+    elif event.is_ABS_TILT_Y():
+      self.tilt_y = event.value
     elif event.is_ABS_PRESSURE():
       self.p = event.value
     elif event.is_BTN_TOUCH():
@@ -294,16 +301,17 @@ class StylusStateMachine(MtStateMachine):
         self.x = self.y = self.p = None
 
     elif event.is_SYN_REPORT():
-      current_fingers = None
+      current_points = None
       if self.btn_touch:
-        current_fingers = [MtFinger(0, event.timestamp, self.x, self.y, self.p)]
+        current_points = [TouchPoint(0, event.timestamp, self.x, self.y, self.p,
+                                    self.tilt_x, self.tilt_y)]
         self.last_report_was_empty = False
       elif not self.last_report_was_empty:
-        current_fingers = []
+        current_points = []
         self.last_report_was_empty = True
 
-      if current_fingers is not None:
-        self.last_snapshot = MtSnapshot(event.timestamp, False, current_fingers,
+      if current_points is not None:
+        self.last_snapshot = MtSnapshot(event.timestamp, False, current_points,
                                         self.raw_events_since_last_syn)
         self.raw_events_since_last_syn = []
       else:

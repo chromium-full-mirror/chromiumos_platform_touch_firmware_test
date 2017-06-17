@@ -57,10 +57,14 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
     self._InitializeEventGatheringSubprocess()
 
     # Determine the ranges/resolutions of the various attributes of fingers
-    x, y, p = self._GetDimensions()
+    x, y, p, tilt_x, tilt_y = self._GetDimensions()
     self._x_min, self._x_max, self._x_res = x['min'], x['max'], x['resolution']
     self._y_min, self._y_max, self._y_res = y['min'], y['max'], y['resolution']
     self._p_min, self._p_max = p.get('min', None), p.get('max', None)
+    self._tilt_x_min = tilt_x.get('min', 0);
+    self._tilt_x_max = tilt_x.get('max', 0);
+    self._tilt_y_min = tilt_y.get('min', 0);
+    self._tilt_y_max = tilt_y.get('max', 0);
 
     # Determine which kind of state machine should be used with this device
     self.protocol = self._GetMtProtocol() if protocol == 'auto' else protocol
@@ -372,7 +376,7 @@ class AndroidTouchDevice(RemoteInSystemTouchDevice):
     resolution = self._GetResolution()
     x['resolution'] = resolution
     y['resolution'] = resolution
-    return x, y, p
+    return x, y, p, {'min':0, 'max':0}, {'min':0, 'max':0}
 
   def _ToSignedInt(self, x, bits):
     return x if x & (1 << (bits - 1)) == 0 else x - (1 << bits)
@@ -454,7 +458,7 @@ class ChromeOSTouchDevice(RemoteInSystemTouchDevice):
       dim = {}
       while not all([(attrib in dim) for attrib in required_attributes]):
         line = self._GetNextLine()
-        matches = re.match('^\s*(\S+)\s*(\d+).*$', line)
+        matches = re.match('^\s*(\S+)\s*([-]?\d+).*$', line)
         if matches:
           attribute = matches.group(1).lower()
           value = int(matches.group(2))
@@ -462,8 +466,8 @@ class ChromeOSTouchDevice(RemoteInSystemTouchDevice):
             dim[attribute] = value
       return dim
 
-    x = y = p = touch_major = None
-    while not all([x, y, p]):
+    x = y = p = tilt_x = tilt_y = touch_major = None
+    while not all([x, y, p, tilt_x, tilt_y]):
       line = self._GetNextLine(timeout=2)
       if line is None:
         break
@@ -474,12 +478,21 @@ class ChromeOSTouchDevice(RemoteInSystemTouchDevice):
         y = _GetDimensions_Aux(['min', 'max', 'resolution'])
       elif '(ABS_MT_PRESSURE)' in line or '(ABS_PRESSURE)' in line:
         p = _GetDimensions_Aux(['min', 'max'])
+      elif '(ABS_TILT_X)' in line:
+        tilt_x = _GetDimensions_Aux(['min', 'max'])
+      elif '(ABS_TILT_Y)' in line:
+        tilt_y = _GetDimensions_Aux(['min', 'max'])
       elif 'Event code 48 (ABS_MT_TOUCH_MAJOR)' in line:
         touch_major = _GetDimensions_Aux(['min', 'max'])
 
     p = self._CheckForAlternativePressureSources(p, touch_major)
 
-    return x, y, p
+    if not tilt_x:
+        tilt_x = {'min':0, 'max':0}
+    if not tilt_y:
+        tilt_y = {'min':0, 'max':0}
+
+    return x, y, p, tilt_x, tilt_y
 
   def _ParseMtEvent(self, line):
     """ How to parse out the ChromeOS-specific event format

@@ -93,6 +93,12 @@ class RemoteTouchDevice:
   def RangeP(self):
     return self._p_min, self._p_max
 
+  def RangeTiltX(self):
+    return self._tilt_x_min, self._tilt_x_max
+
+  def RangeTiltY(self):
+    return self._tilt_y_min, self._tilt_y_max
+
   def _GetDimensions(self):
     """ Ask the device for the dimensions, the x/y resolution, and the range
     of pressure values should be reported.
