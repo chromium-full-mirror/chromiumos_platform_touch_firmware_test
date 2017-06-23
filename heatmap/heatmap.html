@@ -1,0 +1,36 @@
+<!--
+Copyright 2017 The Chromium OS Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<html>
+<head>
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  <script src="heatmap.js"></script>
+</head>
+
+<body onload="InitChart()">
+  <div>
+    <select onChange="setPole(this.selectedIndex)">
+      <option value=0>Normal</option>
+      <option value=1>Lower</option>
+      <option value=2>Higher</option>
+    </select>
+    <input onclick="
+           if (this.value === 'Start Record') {
+              this.value = 'Stop and Save';
+              window.heatMapChart.eventBuffer.startRecord();
+           } else {
+              this.value = 'Start Record';
+              window.heatMapChart.eventBuffer.stopRecordAndSave();
+           }
+    " type="button" value="Start Record">
+    </input>
+  </div>
+  <div id="xChart"> </div>
+  <div id="yChart"> </div>
+  <div id="websocketUrl" hidden>%(websocketUrl)s</div>
+
+</body>
+</html>
