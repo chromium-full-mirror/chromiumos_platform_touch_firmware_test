@@ -1,0 +1,34 @@
+<!--
+Copyright (c) 2017 The Chromium OS Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<html>
+<head>
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  <script src="linechart/linechart.js"></script>
+</head>
+
+<body style="margin:0; padding:0;"
+  onbeforeunload="quit()"
+  onload="InitChart()"
+  onkeyup="keyupHandler()">
+
+  <div id="websocketUrl" hidden>%(websocketUrl)s</div>
+  <div id="touchMinX" hidden>%(touchMinX)s</div>
+  <div id="touchMaxX" hidden>%(touchMaxX)s</div>
+  <div id="touchMinY" hidden>%(touchMinY)s</div>
+  <div id="touchMaxY" hidden>%(touchMaxY)s</div>
+  <div id="touchMinPressure" hidden>%(touchMinPressure)s</div>
+  <div id="touchMaxPressure" hidden>%(touchMaxPressure)s</div>
+  <div id="tiltMinX" hidden>%(tiltMinX)s</div>
+  <div id="tiltMaxX" hidden>%(tiltMaxX)s</div>
+  <div id="tiltMinY" hidden>%(tiltMinY)s</div>
+  <div id="tiltMaxY" hidden>%(tiltMaxY)s</div>
+  <div id="xyChart"> </div>
+  <div id="tiltChart"> </div>
+  <div id="pressureChart"> </div>
+
+</body>
+</html>

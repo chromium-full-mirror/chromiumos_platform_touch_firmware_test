@@ -260,6 +260,27 @@ class TouchRoot(object):
       return f.read() % websocket_dict
 
   @cherrypy.expose
+  def linechart(self):
+    """This is the default linechart.html page."""
+    websocket_dict = {
+      'websocketUrl': '%s://%s:%s/ws' % (self.scheme, self.ip, self.port),
+      'touchMinX': str(self.touch_min_x),
+      'touchMaxX': str(self.touch_max_x),
+      'touchMinY': str(self.touch_min_y),
+      'touchMaxY': str(self.touch_max_y),
+      'touchMinPressure': str(self.touch_min_pressure),
+      'touchMaxPressure': str(self.touch_max_pressure),
+      'tiltMinX': str(self.tilt_min_x),
+      'tiltMaxX': str(self.tilt_max_x),
+      'tiltMinY': str(self.tilt_min_y),
+      'tiltMaxY': str(self.tilt_max_y),
+    }
+    root_page = os.path.join(os.path.abspath(os.path.dirname(__file__)),
+                             'linechart/linechart.html')
+    with open(root_page) as f:
+      return f.read() % websocket_dict
+
+  @cherrypy.expose
   def ws(self):
     """This handles the request to create a new web socket per client."""
     cherrypy.log('A new client requesting for WS')
