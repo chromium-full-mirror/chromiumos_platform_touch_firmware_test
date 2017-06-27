@@ -439,10 +439,10 @@ class Webplot(threading.Thread):
       MtSnapshot(
           syn_time=1420524008.368854,
           button_pressed=False,
-          points=[
-              TouchPoint(tid=162, slot=0, syn_time=1420524008.368854, x=524,
+          fingers=[
+              MtFinger(tid=162, slot=0, syn_time=1420524008.368854, x=524,
                         y=231, pressure=45, tilt_x=0, tilt_y=0),
-              TouchPoint(tid=163, slot=1, syn_time=1420524008.368854, x=677,
+              MtFinger(tid=163, slot=1, syn_time=1420524008.368854, x=677,
                         y=135, pressure=57, tilt_x=0, tilt_y=0)
           ]
       )
@@ -455,16 +455,16 @@ class Webplot(threading.Thread):
     # Convert MtSnapshot.
     converted = dict(snapshot.__dict__.items())
 
-    # Convert TouchPoint.
-    converted['points'] = [dict(point.__dict__.items())
-                            for point in converted['points']]
+    # Convert MtFinger.
+    converted['fingers'] = [dict(finger.__dict__.items())
+                            for finger in converted['fingers']]
     converted['raw_events'] = [str(event) for event in converted['raw_events']]
 
     # Add leaving fingers to notify js for reclaiming the finger colors.
-    curr_tids = [finger['tid'] for finger in converted['points']]
+    curr_tids = [finger['tid'] for finger in converted['fingers']]
     for tid in set(self._prev_tids) - set(curr_tids):
       leaving_finger = {'tid': tid, 'leaving': True}
-      converted['points'].append(leaving_finger)
+      converted['fingers'].append(leaving_finger)
     self._prev_tids = curr_tids
 
     # Convert raw events from a list of classes to a list of its strings

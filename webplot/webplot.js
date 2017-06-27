@@ -223,19 +223,19 @@ Webplot.prototype.captureCanvasImage = function() {
  *   MtbSnapshot(
  *     syn_time=1420522152.269537,
  *     button_pressed=False,
- *     points =[
- *       TouchPoint(tid=13, slot=0, syn_time=1420522152.269537, x=440, y=277,
- *                 pressure=33),
- *       TouchPoint(tid=14, slot=1, syn_time=1420522152.269537, x=271, y=308,
- *                 pressure=38)
+ *     fingers =[
+ *       MtFinger(tid=13, slot=0, syn_time=1420522152.269537, x=440, y=277,
+ *                pressure=33),
+ *       MtFinger(tid=14, slot=1, syn_time=1420522152.269537, x=271, y=308,
+ *                pressure=38)
  *     ]
  *   )
  */
 Webplot.prototype.processSnapshot = function(snapshot) {
   var edge = this.clickEdge;
 
-  for (var i = 0; i < snapshot.points.length; i++) {
-    var finger = snapshot.points[i];
+  for (var i = 0; i < snapshot.fingers.length; i++) {
+    var finger = snapshot.fingers[i];
 
     // Update the color object if the finger is leaving.
     if (finger.leaving) {
@@ -269,7 +269,7 @@ Webplot.prototype.processSnapshot = function(snapshot) {
   // In some special situation, the click comes with no fingers.
   // This may happen if an insulated object is used to click the touchpad.
   // Just draw the click at a random position.
-  if (snapshot.points.length == 0 && snapshot.button_pressed == 1 &&
+  if (snapshot.fingers.length == 0 && snapshot.button_pressed == 1 &&
       !this.clickDown) {
     var x = Math.random() * this.canvas.innerWidth +
             this.canvas.innerOffsetLeft;
