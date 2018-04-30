@@ -408,9 +408,9 @@ class AndroidTouchDevice(RemoteInSystemTouchDevice):
 
   def _RunRemoteCmd(self, cmd):
     """ Run a command on the shell of a remote Android DUT """
-    args = ['adb', 'shell', cmd]
+    args = ['adb', 'shell', '-t', '-t', cmd]
     if self.addr:
-      args = ['adb', '-s', self.addr, 'shell', cmd]
+      args = ['adb', '-s', self.addr, 'shell', '-t', '-t', cmd]
     return Popen(args, shell=False, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 
 
