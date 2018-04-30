@@ -25,7 +25,7 @@ class TestSuite:
   """
   FIRST_SNAPSHOT_TIMEOUT_S = 60
   MAX_EMPTY_SNAPSHOTS = 20
-  WEBPLOT_ADDR = '127.0.0.1'
+  WEBPLOT_ADDR = '0.0.0.0'
   WEBPLOT_PORT = 8080
 
   def __init__(self, touch_dev, options, args):
