@@ -135,6 +135,8 @@ def initialize_touch_device(options):
   return touch_dev
 
 def main():
+  base_dir = os.getenv('TOUCH_REPORT_OUTPUT', '.')
+  print base_dir
   color.init(autoreset=True)
 
   # Parse and validate the command line arguments
@@ -158,7 +160,7 @@ def main():
 
     # Save this report into a default location as a backup in case you want
     # to replay it later.
-    report.SaveToDisk('last_report.p')
+    report.SaveToDisk(base_dir + '/last_report.p')
   else:
     # We are trying to replay an old report from a file on disk.  Load it
     # directly from the specified file instead of running the test over again.
@@ -166,10 +168,11 @@ def main():
 
   # Generate an HTML version of the Report and write it to disk
   report_filename = REPORT_LOCATION_FORMAT % options.mode
+  report_path = base_dir + "/" + report_filename;
   print (color.Fore.MAGENTA + 'FW Testing Complete.  Report is being generated '
-         'now, and will be stored on disk as "%s"' % report_filename)
+         'now, and will be stored on disk as "%s"' % report_path)
   html_report = report.GenerateHtml()
-  with open(report_filename, 'w') as fo:
+  with open(report_path, 'w') as fo:
     fo.write(html_report)
 
   return 0
