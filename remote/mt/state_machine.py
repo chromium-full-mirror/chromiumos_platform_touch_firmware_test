@@ -6,7 +6,8 @@ from collections import namedtuple
 from event import MtEvent, EV_ABS, ABS_MT_TRACKING_ID
 
 MtFinger = namedtuple('MtFinger', ['tid', 'syn_time', 'x', 'y', 'pressure',\
-                                   'tilt_x', 'tilt_y'])
+                                   'tilt_x', 'tilt_y', 'touch_major',\
+                                   'touch_minor'])
 MtSnapshot = namedtuple('MtSnapshot', ['syn_time', 'button_pressed',
                                        'fingers', 'raw_events'])
 
@@ -77,7 +78,8 @@ class MtaStateMachine(MtStateMachine):
     # Clear out the state for the current fingers
     self.fingers_data = []
     self.raw_events_since_last_syn = []
-    self.tid = self.x = self.y = self.pressure = self.touch_major = None
+    self.tid = self.x = self.y = self.pressure = self.touch_major \
+        = self.touch_minor = None
 
   def add_event(self, event):
     self.raw_events_since_last_syn.append(event)
@@ -86,10 +88,10 @@ class MtaStateMachine(MtStateMachine):
     if event.is_SYN_REPORT():
       # First build up the snapshot
       fingers = []
-      for tid, x, y, touch_major in self.fingers_data:
+      for tid, x, y, p, touch_major, touch_minor in self.fingers_data:
         mapped_tid = self.tid_mappings[tid]
         fingers.append(MtFinger(mapped_tid, event.timestamp, x, y,
-                                touch_major, 0, 0))
+                                p, 0, 0, touch_major, touch_minor))
       self.last_snapshot = MtSnapshot(event.timestamp, self.button_pressed,
                                       fingers, self.raw_events_since_last_syn)
 
@@ -117,7 +119,14 @@ class MtaStateMachine(MtStateMachine):
         pressure = self.pressure
 
       if all([v is not None for v in (self.tid, self.x, self.y, pressure)]):
-        self.fingers_data.append((self.tid, self.x, self.y, pressure))
+        touch_major = 0
+        touch_minor = 0
+        if self.touch_major is not None:
+          touch_major = self.touch_major
+        if self.touch_minor is not None:
+          touch_minor = self.touch_minor
+        self.fingers_data.append((self.tid, self.x, self.y, pressure,\
+                                  touch_major, touch_minor))
 
     # Otherwise, check what information it's giving us and store it
     elif event.is_ABS_MT_TRACKING_ID():
@@ -133,6 +142,8 @@ class MtaStateMachine(MtStateMachine):
       self.pressure = event.value
     elif event.is_ABS_MT_TOUCH_MAJOR():
       self.touch_major = event.value
+    elif event.is_ABS_MT_TOUCH_MINOR():
+      self.touch_minor = event.value
     elif event.is_BTN_LEFT():
       self.button_pressed = (event.value == 1)
 
@@ -170,6 +181,7 @@ class MtbStateMachine(MtStateMachine):
     self.distance = {}
     self.pressure = {}
     self.touch_major = {}
+    self.touch_minor = {}
     self.syn_time = None
     self.leaving_slots = []
     self.button_pressed = False
@@ -216,6 +228,8 @@ class MtbStateMachine(MtStateMachine):
       self.pressure[self.slot] = event.value
     elif event.is_ABS_MT_TOUCH_MAJOR():
       self.touch_major[self.slot] = event.value
+    elif event.is_ABS_MT_TOUCH_MINOR():
+      self.touch_minor[self.slot] = event.value
     elif event.is_ABS_MT_DISTANCE():
       self.distance[self.slot] = event.value
 
@@ -235,6 +249,8 @@ class MtbStateMachine(MtStateMachine):
       x = self.x.get(slot, None)
       y = self.y.get(slot, None)
       distance = self.distance.get(slot, None)
+      major = self.touch_major.get(slot, 0)
+      minor = self.touch_minor.get(slot, 0)
 
       # Skip any fingers that are hovering (they have a distance)
       if distance:
@@ -250,7 +266,8 @@ class MtbStateMachine(MtStateMachine):
       data_ready = all([v is not None for v in
                         (x, y, pressure, tid, self.syn_time)])
       if data_ready:
-        finger = MtFinger(tid, self.syn_time, x, y, pressure, 0, 0)
+        finger = MtFinger(tid, self.syn_time, x, y, pressure, 0, 0,
+                          major, minor)
         current_fingers.append(finger)
 
     current_snapshot = MtSnapshot(self.syn_time, self.button_pressed,
@@ -304,7 +321,7 @@ class StylusStateMachine(MtStateMachine):
       current_fingers = None
       if self.btn_touch:
         current_fingers = [MtFinger(0, event.timestamp, self.x, self.y, self.p,
-                                    self.tilt_x, self.tilt_y)]
+                                    self.tilt_x, self.tilt_y, 0, 0)]
         self.last_report_was_empty = False
       elif not self.last_report_was_empty:
         current_fingers = []

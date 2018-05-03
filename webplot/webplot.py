@@ -221,7 +221,8 @@ class TouchRoot(object):
 
   def __init__(self, ip, port, touch_min_x, touch_max_x, touch_min_y,
                touch_max_y, touch_min_pressure, touch_max_pressure,
-               tilt_min_x, tilt_max_x, tilt_min_y, tilt_max_y):
+               tilt_min_x, tilt_max_x, tilt_min_y, tilt_max_y,
+               major_min, major_max, minor_min, minor_max):
     self.ip = ip
     self.port = port
     self.touch_min_x = touch_min_x
@@ -234,6 +235,10 @@ class TouchRoot(object):
     self.tilt_max_x = tilt_max_x
     self.tilt_min_y = tilt_min_y
     self.tilt_max_y = tilt_max_y
+    self.major_min = major_min
+    self.major_max = major_max
+    self.minor_min = minor_min
+    self.minor_max = minor_max
     self.scheme = 'ws'
     cherrypy.log('Root address: (%s, %s)' % (ip, str(port)))
     cherrypy.log('scheme: %s' % self.scheme)
@@ -274,6 +279,10 @@ class TouchRoot(object):
       'tiltMaxX': str(self.tilt_max_x),
       'tiltMinY': str(self.tilt_min_y),
       'tiltMaxY': str(self.tilt_max_y),
+      'majorMin': str(self.major_min),
+      'majorMax': str(self.major_max),
+      'minorMin': str(self.minor_min),
+      'minorMax': str(self.minor_max),
     }
     root_page = os.path.join(os.path.abspath(os.path.dirname(__file__)),
                              'linechart/linechart.html')
@@ -419,9 +428,13 @@ class Webplot(threading.Thread):
       p_min, p_max = self._device.RangeP()
       tilt_x_min, tilt_x_max = self._device.RangeTiltX()
       tilt_y_min, tilt_y_max = self._device.RangeTiltY()
+      major_min, major_max = self._device.RangeMajor()
+      minor_min, minor_max = self._device.RangeMinor()
+
       root = TouchRoot(self._server_addr, self._server_port,
                        x_min, x_max, y_min, y_max, p_min, p_max, tilt_x_min,
-                       tilt_x_max, tilt_y_min, tilt_y_max)
+                       tilt_x_max, tilt_y_min, tilt_y_max,
+                       major_min, major_max, minor_min, minor_max,)
     else:
       data_scale = self._device.data_scale
       data_offset = self._device.data_offset
@@ -599,7 +612,7 @@ def _ParseArguments():
                             'rule to iptables to allow incoming traffic to '
                             'the webserver.  If you are running webplot on '
                             'a chromebook, this is needed.'))
-  parser.add_argument('-s', '--server_addr', default='127.0.0.1',
+  parser.add_argument('-s', '--server_addr', default='0.0.0.0',
                       help='the address the webplot http server listens to')
   parser.add_argument('-t', '--dut_type', default='chromeos', type=str.lower,
                       help='dut type: chromeos, android, centroiding')

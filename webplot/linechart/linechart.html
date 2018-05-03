@@ -8,6 +8,12 @@ found in the LICENSE file.
 <head>
   <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
   <script src="linechart/linechart.js"></script>
+  <style>
+    .buttons {
+        margin-top: 50px;
+        margin-left: 100px;
+    }
+  </style>
 </head>
 
 <body style="margin:0; padding:0;"
@@ -26,9 +32,31 @@ found in the LICENSE file.
   <div id="tiltMaxX" hidden>%(tiltMaxX)s</div>
   <div id="tiltMinY" hidden>%(tiltMinY)s</div>
   <div id="tiltMaxY" hidden>%(tiltMaxY)s</div>
+  <div id="majorMin" hidden>%(majorMin)s</div>
+  <div id="majorMax" hidden>%(majorMax)s</div>
+  <div id="minorMin" hidden>%(minorMin)s</div>
+  <div id="minorMax" hidden>%(minorMax)s</div>
+  <div class="buttons">
+    <button onclick="toggleChart('xyChart')">Toggle xy Chart</button>
+    <button onclick="toggleChart('tiltChart')">Toggle tilt Chart</button>
+    <button onclick="toggleChart('pressureChart')">Toggle pressure Chart</button>
+    <button onclick="toggleChart('touchMajorChart')">Toggle major Chart</button>
+    <button onclick="toggleChart('touchMinorChart')">Toggle minor Chart</button>
+  </div>
   <div id="xyChart"> </div>
   <div id="tiltChart"> </div>
   <div id="pressureChart"> </div>
-
+  <div id="touchMajorChart"> </div>
+  <div id="touchMinorChart"> </div>
+  <script>
+    function toggleChart(div) {
+      var x = document.getElementById(div);
+      if (x.style.display === "none") {
+        x.style.display = "block";
+      } else {
+        x.style.display = "none";
+      }
+    }
+  </script>
 </body>
 </html>

@@ -59,6 +59,10 @@ class MtEvent(object):
     """ Is this event ABS_MT_TOUCH_MAJOR? """
     return self.event_type == EV_ABS and self.event_code == ABS_MT_TOUCH_MAJOR
 
+  def is_ABS_MT_TOUCH_MINOR(self):
+    """ Is this event ABS_MT_TOUCH_MINOR? """
+    return self.event_type == EV_ABS and self.event_code == ABS_MT_TOUCH_MINOR
+
   def is_ABS_MT_DISTANCE(self):
     """ Is this event ABS_MT_DISTANCE? """
     return self.event_type == EV_ABS and self.event_code == ABS_MT_DISTANCE

@@ -64,7 +64,7 @@ PointerEventBuffer.prototype.getDataTableForColumns = function(columns) {
  * This function generate csv file of the events and then download it.
  */
 PointerEventBuffer.prototype.saveEventsToCSV = function() {
-  var text = "syn_time, x, y, tilt_x, tilt_y, pressure \n";
+  var text = "syn_time, x, y, tilt_x, tilt_y, pressure, major, minor \n";
   for (var i = 0; i < this.data.length; i++) {
     text += this.data[i].syn_time;
     text += ",";
@@ -77,6 +77,10 @@ PointerEventBuffer.prototype.saveEventsToCSV = function() {
     text += this.data[i].tilt_y;
     text += ",";
     text += this.data[i].pressure;
+    text += ",";
+    text += this.data[i].touch_major;
+    text += ",";
+    text += this.data[i].touch_minor;
     text += "\n";
   }
   var element = document.createElement('a');
@@ -97,6 +101,8 @@ PointerEventBuffer.prototype.saveEventsToCSV = function() {
  * @param {Element} xyChartDiv the div to draw xy chart.
  * @param {Element} tiltChartDiv the div to draw tilt chart.
  * @param {Element} pressureChartDiv the div to draw pressure chart.
+ * @param {Element} majorChartDiv the div to draw major chart.
+ * @param {Element} minorChartDiv the div to draw minor chart.
  * @param {int} touchMinX the min x value of the touch device.
  * @param {int} touchMaxX the max x value of the touch device.
  * @param {int} touchMinY the min y value of the touch device.
@@ -107,20 +113,30 @@ PointerEventBuffer.prototype.saveEventsToCSV = function() {
  * @param {int} tiltMaxX the max tilt x value of the touch device.
  * @param {int} tiltMinY the min tilt y value of the touch device.
  * @param {int} tiltMaxY the max tilt y value of the touch device.
+ * @param {int} majorMin the min major value of the touch device.
+ * @param {int} majorMax the max major value of the touch device.
+ * @param {int} minorMin the min minor value of the touch device.
+ * @param {int} minorMax the max minor value of the touch device.
  */
-function TouchLineChart(xyChartDiv, tiltChartDiv, pressureChartDiv, touchMinX,
+function TouchLineChart(xyChartDiv, tiltChartDiv, pressureChartDiv,
+    majorChartDiv, minorChartDiv, touchMinX,
     touchMaxX, touchMinY, touchMaxY, touchMinPressure, touchMaxPressure,
-    tiltMinX, tiltMaxX, tiltMinY, tiltMaxY) {
+    tiltMinX, tiltMaxX, tiltMinY, tiltMaxY, majorMin, majorMax, minorMin,
+    minorMax) {
   this.xyChartMin = Math.min(touchMinX, touchMinY);
   this.xyChartMax = Math.min(touchMaxX, touchMaxY);
   this.tiltChartMin = Math.min(tiltMinX, tiltMinY);
   this.tiltChartMax = Math.min(tiltMaxX, tiltMaxY);
   this.pressureChartMin = touchMinPressure;
   this.pressureChartMax = touchMaxPressure;
-
+  this.majorMin = majorMin;
+  this.majorMax = majorMax;
+  this.minorMin = minorMin;
+  this.minorMax = minorMax;
   this.eventBuffer = new PointerEventBuffer();
 
-  this.initCharts(xyChartDiv, tiltChartDiv, pressureChartDiv);
+  this.initCharts(xyChartDiv, tiltChartDiv, pressureChartDiv, majorChartDiv,
+      minorChartDiv);
   this.drawCharts();
 }
 
@@ -155,9 +171,11 @@ TouchLineChart.prototype.getChartOptions = function(vName, minValue, maxValue) {
  * @param {Element} xyChartDiv div for the xy chart.
  * @param {Element} tiltChartDiv div for the tilt chart.
  * @param {Element} pressureChartDiv div for the pressure chart.
+ * @param {Element} majorChartDiv div for the major chart.
+ * @param {Element} minorChartDiv div for the minor chart.
  */
 TouchLineChart.prototype.initCharts = function(xyChartDiv, tiltChartDiv,
-  pressureChartDiv) {
+  pressureChartDiv, majorChartDiv, minorChartDiv) {
   this.xyChart = new google.visualization.LineChart(xyChartDiv);
   this.xyChartOption = this.getChartOptions("Position", this.xyChartMin,
       this.xyChartMax);
@@ -170,6 +188,16 @@ TouchLineChart.prototype.initCharts = function(xyChartDiv, tiltChartDiv,
       new google.visualization.LineChart(pressureChartDiv);
   this.pressureChartOption = this.getChartOptions("Pressure",
       this.pressureChartMin, this.pressureChartMax);
+
+  this.majorChart =
+      new google.visualization.LineChart(majorChartDiv);
+  this.majorOptions = this.getChartOptions("Major",
+      this.majorMin, this.majorMax);
+
+  this.minorChart =
+      new google.visualization.LineChart(minorChartDiv);
+  this.minorOptions = this.getChartOptions("Minor",
+      this.minorMin, this.minorMax);
 }
 
 /**
@@ -184,6 +212,12 @@ TouchLineChart.prototype.drawCharts = function() {
 
   this.pressureChart.draw(this.eventBuffer.getDataTableForColumns(['pressure']),
       this.pressureChartOption);
+
+  this.majorChart.draw(this.eventBuffer.getDataTableForColumns(['touch_major']),
+      this.majorOptions);
+
+  this.minorChart.draw(this.eventBuffer.getDataTableForColumns(['touch_minor']),
+      this.minorOptions);
 }
 
 /**
@@ -255,6 +289,10 @@ function createWS() {
   var tiltMaxX = document.getElementById('tiltMaxX').innerText;
   var tiltMinY = document.getElementById('tiltMinY').innerText;
   var tiltMaxY = document.getElementById('tiltMaxY').innerText;
+  var majorMin = document.getElementById('majorMin').innerText;
+  var majorMax = document.getElementById('majorMax').innerText;
+  var minorMin = document.getElementById('minorMin').innerText;
+  var minorMax = document.getElementById('minorMax').innerText;
 
   if (window.WebSocket) {
     ws = new WebSocket(websocket);
@@ -273,6 +311,8 @@ function createWS() {
   touchLineChart = new TouchLineChart(document.getElementById('xyChart'),
                         document.getElementById('tiltChart'),
                         document.getElementById('pressureChart'),
+                        document.getElementById('touchMajorChart'),
+                        document.getElementById('touchMinorChart'),
                         touchMinX, touchMaxX, touchMinY, touchMaxY,
                         touchMinPressure, touchMaxPressure, tiltMinX, tiltMaxX,
                         tiltMinY, tiltMaxY);
