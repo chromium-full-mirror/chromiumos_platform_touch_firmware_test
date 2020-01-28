@@ -2,6 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 class RemoteTouchDevice:
   """ An abstract base class to define access to touch events on remote devices
 
@@ -40,12 +44,12 @@ class RemoteTouchDevice:
   def __init__(self):
     self.warnings = []
 
-  def Warn(self, warning_message):
+  def Warn(self, message):
     """ Display a warning on stdout as well as storing it in a member variable
     for later use.
     """
-    print '\033[1;31mWARNING (remote touch device): %s\033[0m' % warning_message
-    self.warnings.append(warning_message)
+    print('\033[1;31mWARNING (remote touch device): %s\033[0m' % message)
+    self.warnings.append(message)
 
   def FlushSnapshotBuffer(self, wait_until_no_fingers_present=False):
     while True:
@@ -129,5 +133,6 @@ class RemoteTouchDevice:
   def PxToMm_Y(self, x):
     return float(x) / float(self.ResolutionY())
 
-  def PxToMm(self, (x, y)):
+  def PxToMm(self, point):
+    (x, y) = point
     return self.PxToMm_X(x), self.PxToMm_Y(y)

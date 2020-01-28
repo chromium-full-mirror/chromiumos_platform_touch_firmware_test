@@ -15,6 +15,10 @@ New device classes should be added as subclasses here if they are already
 installed in a working computer system with an OS that offers a remote terminal.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import inspect
 import os
 import re
@@ -22,9 +26,9 @@ import select
 import stat
 from subprocess import PIPE, Popen
 
-import mt
-from mt.input import linux_input
-from remote import RemoteTouchDevice
+from . import mt
+from .mt.input import linux_input
+from .remote import RemoteTouchDevice
 
 
 class RemoteInSystemTouchDevice(RemoteTouchDevice):
@@ -51,7 +55,7 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
     if self.device_num is None:
       self.device_num = self._GetDeviceNumber(self.is_touchscreen)
     if self.device_num is None:
-      print 'ERROR: Unable to determind the device number!'
+      print('ERROR: Unable to determind the device number!')
 
     # Spawn the event gathering subprocess
     self._InitializeEventGatheringSubprocess()
@@ -116,7 +120,7 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
     # Check to make sure it didn't terminate immediately
     ret_code = self.event_stream_process.poll()
     if ret_code is not None:
-      print 'ERROR: streaming terminated unexpectedly (%d)' % ret_code
+      print('ERROR: streaming terminated unexpectedly (%d)' % ret_code)
       return False
 
     # Block until there's *something* to read, indicating everything is ready
@@ -212,7 +216,7 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
       self.event_stream_process.terminate()
       return_code = self.event_stream_process.wait()
       if return_code is None:
-        print 'Error in killing the event_stream_process!'
+        print('Error in killing the event_stream_process!')
     self.event_stream_process = None
     return return_code
 
@@ -244,16 +248,16 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
 
     # Ask the user to pick an input device from the list provided by evtest.
     # It's difficult/impossible to autodetect this reliably
-    print 'Please select the correct device from the list below'
+    print('Please select the correct device from the list below')
     sorted_devices = sorted(device_names_by_number.items(), key=lambda x:x[0])
     for device_number, device_name in sorted_devices:
-      print '%d: "%s"' % (device_number, device_name)
+      print('%d: "%s"' % (device_number, device_name))
 
     # Loop until the user makes a valid device selection for us.
     selection = None
     while selection not in device_names_by_number:
       if selection:
-        print 'Error: That is not a legal device number'
+        print('Error: That is not a legal device number')
 
       selection = raw_input('Enter the device number you wish to test: ')
       try:
@@ -298,11 +302,11 @@ class AndroidTouchDevice(RemoteInSystemTouchDevice):
     event = self._NextEvent()
     while not event.is_SYN_REPORT():
       if event.is_SYN_MT_REPORT():
-        print 'MTA selected by the presence of SYN_MT_REPORT events'
+        print('MTA selected by the presence of SYN_MT_REPORT events')
         return mt.MTA
       event = self._NextEvent()
 
-    print 'MTB selected by the absence of SYN_MT_REPORT events'
+    print('MTB selected by the absence of SYN_MT_REPORT events')
     return mt.MTB
 
   def _GetResolution(self):
@@ -528,10 +532,10 @@ class ChromeOSTouchDevice(RemoteInSystemTouchDevice):
     pattern = '^.*type (\d+) .*, code (\d+) .*, value (-?[0-9a-fA-F]+).*$'
     matches = re.match(pattern, contents)
     if matches is None:
-      print 'ERROR: Unable to parse event!'
-      print '\tline: (%s)' % line
-      print '\ttimestamp: (%f)' % timestamp
-      print '\tcontents: (%s)' % contents
+      print('ERROR: Unable to parse event!')
+      print('\tline: (%s)' % line)
+      print('\ttimestamp: (%f)' % timestamp)
+      print('\tcontents: (%s)' % contents)
 
     event_type = int(matches.group(1))
     event_code = int(matches.group(2))
@@ -551,8 +555,8 @@ class ChromeOSTouchDevice(RemoteInSystemTouchDevice):
     RSA_KEY_PATH = os.path.dirname(
         os.path.realpath(inspect.getfile(
         inspect.currentframe()))) + '/data/testing_rsa'
-    if stat.S_IMODE(os.stat(RSA_KEY_PATH).st_mode) != 0600:
-      os.chmod(RSA_KEY_PATH, 0600)
+    if stat.S_IMODE(os.stat(RSA_KEY_PATH).st_mode) != 0o600:
+      os.chmod(RSA_KEY_PATH, 0o600)
 
     args = ['ssh', 'root@%s' % self.addr,
             '-i', RSA_KEY_PATH,

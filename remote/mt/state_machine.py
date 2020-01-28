@@ -2,8 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 from collections import namedtuple
-from event import MtEvent, EV_ABS, ABS_MT_TRACKING_ID
+from .event import MtEvent, EV_ABS, ABS_MT_TRACKING_ID
 
 MtFinger = namedtuple('MtFinger', ['tid', 'syn_time', 'x', 'y', 'pressure',\
                                    'tilt_x', 'tilt_y', 'touch_major',\

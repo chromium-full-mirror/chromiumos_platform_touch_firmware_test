@@ -13,9 +13,13 @@ New device classes should be added as subclasses here if they are not already
 connected to the computer using an Ardvark i2c to USB adaptor.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import inspect
 import os
-import Queue
+import queue
 import re
 import select
 import sys
@@ -23,9 +27,9 @@ from subprocess import PIPE, Popen
 import time
 from importlib import import_module
 
-import mt
-from mt.input import linux_input
-from remote import RemoteTouchDevice
+from . import mt
+from .mt.input import linux_input
+from .remote import RemoteTouchDevice
 
 class RemoteAardvarkTouchDevice(RemoteTouchDevice):
   """ This class impliments much of the shared functionality among remote
@@ -45,9 +49,9 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
     try:
       self.adapter = import_module('aardvark_py')
     except ImportError:
-      print 'The files "aardvark_py.py" and "aardvark.so" are needed.'
-      print 'You can download these files from the following link.'
-      print 'https://www.totalphase.com/downloadable/download/sample/sample_id/16/'
+      print('The files "aardvark_py.py" and "aardvark.so" are needed.')
+      print('You can download these files from the following link.')
+      print('https://www.totalphase.com/downloadable/download/sample/sample_id/16/')
       sys.exit()
 
     RemoteTouchDevice.__init__(self)
@@ -73,7 +77,7 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
 
   def __del__(self):
     # Turning off the device
-    print 'Turning off'
+    print('Turning off')
     self.adapter.aa_target_power(self._handle,
                                  self.adapter.AA_TARGET_POWER_NONE)
 
@@ -82,8 +86,8 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
     handle = self.adapter.aa_open(self._port)
     self._handle = handle
     if handle <= 0:
-      print 'Unable to open Aardvark device on port'
-      print 'Error code = %d' % handle
+      print('Unable to open Aardvark device on port')
+      print('Error code = %d' % handle)
       sys.exit()
     # Ensure that the I2C subsystem is enabled
     self.adapter.aa_configure(handle,  self.adapter.AA_CONFIG_SPI_I2C)
@@ -101,7 +105,7 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
       if (port & self.adapter.AA_PORT_NOT_FREE):
         port &= ~self.adapter.AA_PORT_NOT_FREE
       return port
-    print 'No Aardvark devices found.'
+    print('No Aardvark devices found.')
     sys.exit()
 
   def _Initialize_Device(self):
@@ -119,9 +123,9 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
     retVal = self.adapter.aa_i2c_write(self._handle,
                                        self._addr, self.I2C_NO_FLAGS, data_out)
     if retVal != data_len:
-      print 'Error: Number of bytes written: %d' % retVal
-      print '       Make sure that the slave address is correct'
-      print '       Slave address: %d' % self._addr
+      print('Error: Number of bytes written: %d' % retVal)
+      print('       Make sure that the slave address is correct')
+      print('       Slave address: %d' % self._addr)
       sys.exit()
     else:
       return retVal
@@ -189,13 +193,13 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
 
   def __init__(self, addr):
     RemoteAardvarkTouchDevice.__init__(self, ElanTouchDevice.I2C_ETP_ADDRESS)
-    self._eventQ = Queue.Queue()
+    self._eventQ = queue.Queue()
     
     self._last_event_time = time.time()
     self._event_started = False
   def _CheckReturnVal(self, val, expected, description):
     if val != expected:
-      print 'Error: The device does not reply to get', description, 'command.'
+      print('Error: The device does not reply to get', description, 'command.')
       sys.exit()
 
   def _Initialize_Device(self):
@@ -283,8 +287,8 @@ class ElanTouchDevice(RemoteAardvarkTouchDevice):
       if input_len < ElanTouchDevice.EVENT_LEN:
         continue
       if data[ElanTouchDevice.REPORT_ID_INDEX] != ElanTouchDevice.REPORT_ID:
-        print ' Incompatible format'
-        print '        Maybe your device is not isolated and has noise'
+        print(' Incompatible format')
+        print('        Maybe your device is not isolated and has noise')
       else:
         if time.time() - timestamp > timeout:
           timestamp = time.time()
@@ -385,7 +389,7 @@ class ElanTouchScreenDevice(RemoteAardvarkTouchDevice):
     RemoteAardvarkTouchDevice.__init__(self,
                                        ElanTouchScreenDevice.I2C_ETS_ADDRESS)
     self.flush_timeout = self.AARDVARK_FLUSH_TIMEOUT
-    self._eventQ = Queue.Queue()
+    self._eventQ = queue.Queue()
     self._last_event_time = time.time()
     self._event_started = False
 
@@ -402,8 +406,8 @@ class ElanTouchScreenDevice(RemoteAardvarkTouchDevice):
     hello_len, hello_packet = self._i2c_read(self.HEADER_SIZE)
     for i in xrange(4):
       if hello_packet[i] != 0x55:
-        print 'Failed to initialize the device.'
-        print 'Hello packaet does not have the correct format.'
+        print('Failed to initialize the device.')
+        print('Hello packaet does not have the correct format.')
 
     # Read FW Id
     self._i2c_repeat_cmd(self.QUERY_FW_ID_CMD)
@@ -466,7 +470,7 @@ class ElanTouchScreenDevice(RemoteAardvarkTouchDevice):
       resp = self._i2c_execute_cmd(cmd)
       if resp:
          return resp
-    print ('ERROR: exiting after %d retries to issue command %s' %
+    print('ERROR: exiting after %d retries to issue command %s' %
            self.MAX_RETRIES, cmd)
     sys.exit()
 
@@ -486,7 +490,7 @@ class ElanTouchScreenDevice(RemoteAardvarkTouchDevice):
           data[self.FW_HDR_TYPE] == self.CMD_HEADER_REK):
         continue
       if (data[self.FW_HDR_TYPE] == self.QUEUE_HEADER_WAIT):
-        print 'Waiting...'
+        print('Waiting...')
         self.adapter.aa_sleep_ms(30)
         continue
 
@@ -499,11 +503,11 @@ class ElanTouchScreenDevice(RemoteAardvarkTouchDevice):
       if (data[self.FW_HDR_TYPE] == self.QUEUE_HEADER_NORMAL):
         report_count = data[self.FW_HDR_COUNT]
         if report_count > 3:
-          print 'The report count is greater than the max limit'
+          print('The report count is greater than the max limit')
           continue
         report_len = data[self.FW_HDR_LENGTH]
         if not report_len == self.PACKET_SIZE * report_count:
-          print 'Mismatching report length'
+          print('Mismatching report length')
           continue
         for i in xrange(report_count):
           self._finger_report_parser(data, self.HEADER_SIZE + i * self.PACKET_SIZE,
@@ -575,12 +579,12 @@ class SynapticsTouchDevice(RemoteAardvarkTouchDevice):
                                 SynapticsTouchDevice.I2C_SNPTCS_ADDRESS,
                                 mt.MtStateMachine.PRESSURE_FROM_MT_TOUCH_MAJOR)
     self.flush_timeout = self.AARDVARK_FLUSH_TIMEOUT
-    self._eventQ = Queue.Queue()
+    self._eventQ = queue.Queue()
     self._last_event_time = time.time()
     self._event_started = False
 
   def _Initialize_Device(self):
-    print 'initializing the device'
+    print('initializing the device')
     self.synaptics_rmi4_query_device()
     return None
 
@@ -627,7 +631,7 @@ class SynapticsTouchDevice(RemoteAardvarkTouchDevice):
       if retVal == self.PAGE_SELECT_LEN:
         return retVal
 
-    print 'Page Select Error. Was not able to write all the bytes.'
+    print('Page Select Error. Was not able to write all the bytes.')
     sys.exit()
 
   def _rmi_i2c_read(self, rmi_addr, length):
@@ -645,7 +649,7 @@ class SynapticsTouchDevice(RemoteAardvarkTouchDevice):
       if temp_len == length:
         return tmp_data
 
-    print 'I2C Read Error. Was not able to read all the bytes.'
+    print('I2C Read Error. Was not able to read all the bytes.')
     sys.exit()
 
   def _rmi_i2c_write(self, rmi_addr, data_out, length):
@@ -661,7 +665,7 @@ class SynapticsTouchDevice(RemoteAardvarkTouchDevice):
       if retVal > 0:
         return retVal
 
-    print 'I2C Write Error. Was not able to write all the bytes.'
+    print('I2C Write Error. Was not able to write all the bytes.')
     sys.exit()
 
 
@@ -687,13 +691,13 @@ class SynapticsTouchDevice(RemoteAardvarkTouchDevice):
   # These functions weren't supposed to be used with touch panels.
   # But we should add the support of these functions in the future.
   def f12(self, data, page_number):
-    print 'f12 found. This functionality is not supported.'
+    print('f12 found. This functionality is not supported.')
     sys.exit()
   def f1A(self, data, page_number):
-    print 'f1A found. This functionality is not supported.'
+    print('f1A found. This functionality is not supported.')
     sys.exit()
   def f35(self, data, page_number):
-    print 'f35 found. This functionality is not supported.'
+    print('f35 found. This functionality is not supported.')
     sys.exit()
 
   def _NextEvent(self, timeout=None):

@@ -7,7 +7,11 @@
 # Python version of include/linux/input.h
 #  as of kernel v2.6.39
 
-from linux_ioctl import *
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from .linux_ioctl import *
 
 # The event structure itself
 #   struct input_event {
