@@ -471,7 +471,7 @@ class ElanTouchScreenDevice(RemoteAardvarkTouchDevice):
       if resp:
          return resp
     print('ERROR: exiting after %d retries to issue command %s' %
-           self.MAX_RETRIES, cmd)
+          (self.MAX_RETRIES, cmd))
     sys.exit()
 
   def _NextEvent(self, timeout=None):
