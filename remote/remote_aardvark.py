@@ -19,7 +19,10 @@ from __future__ import print_function
 
 import inspect
 import os
-import queue
+try:
+  import queue
+except ImportError:
+  import Queue as queue
 import re
 import select
 import sys
