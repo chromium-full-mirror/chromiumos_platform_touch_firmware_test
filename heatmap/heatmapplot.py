@@ -42,7 +42,7 @@ def SimpleSystemOutput(cmd):
     proc = subprocess.Popen(
         cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     stdout, _ = proc.communicate()
-  except Exception, e:
+  except Exception as e:
     logging.warning('Command (%s) failed (%s).', cmd, e)
   else:
     return None if proc.returncode else stdout.strip()

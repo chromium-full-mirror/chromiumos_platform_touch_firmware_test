@@ -791,7 +791,7 @@ ABS_MT_DISTANCE     = 0x3b  # Contact hover distance
 
 ABS_MT_FIRST        = ABS_MT_TOUCH_MAJOR
 ABS_MT_LAST         = ABS_MT_DISTANCE
-ABS_MT_RANGE        = range(ABS_MT_FIRST, ABS_MT_LAST+1)
+ABS_MT_RANGE        = list(range(ABS_MT_FIRST, ABS_MT_LAST+1))
 
 ABS_MAX             = 0x3f
 ABS_CNT             = (ABS_MAX + 1)

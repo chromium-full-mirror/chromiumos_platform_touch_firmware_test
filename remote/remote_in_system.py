@@ -181,7 +181,7 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
       if inputs[0] not in readable:
         return None
 
-    line = self.event_stream_process.stdout.readline()
+    line = self.event_stream_process.stdout.readline().decode()
 
     # If the event_stream_process had been terminated, just return None.
     if self.event_stream_process is None:
@@ -227,7 +227,7 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
     """
     def GetAllDeviceNumberMappings():
       # This file contains the mappings so we can determine which event file
-      output = self._RunRemoteCmd('cat /proc/bus/input/devices').stdout.read()
+      output = self._RunRemoteCmd('cat /proc/bus/input/devices').stdout.read().decode()
 
       # Build up a dictionary mapping device names -> device numbers
       mappings = {}
@@ -259,7 +259,7 @@ class RemoteInSystemTouchDevice(RemoteTouchDevice):
       if selection:
         print('Error: That is not a legal device number')
 
-      selection = raw_input('Enter the device number you wish to test: ')
+      selection = input('Enter the device number you wish to test: ')
       try:
         selection = int(selection)
       except:
@@ -363,7 +363,7 @@ class AndroidTouchDevice(RemoteInSystemTouchDevice):
     x = y = p = None
     touch_major = touch_minor = {}
     cmd = 'getevent -p /dev/input/event%d' % self.device_num
-    output = self._RunRemoteCmd(cmd).stdout.read()
+    output = self._RunRemoteCmd(cmd).stdout.read().decode()
     for line in output.split('\n'):
       pattern = '^.*([0-9a-f]{4})\s+:\s+.*min (\d*),\s+max (\d*),.*$'
       matches = re.match(pattern, line, re.M)
@@ -482,8 +482,8 @@ class ChromeOSTouchDevice(RemoteInSystemTouchDevice):
     x = y = p = tilt_x = tilt_y = None
     touch_major = touch_minor = {}
     while not all([x, y, p, tilt_x, tilt_y]):
-      line = self._GetNextLine(timeout=2)
-      if line is None:
+      line = self._GetNextLine()
+      if line is None or 'interrupt to exit' in line:
         break
 
       if '(ABS_MT_POSITION_X)' in line or '(ABS_X)' in line:

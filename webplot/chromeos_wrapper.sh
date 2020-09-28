@@ -53,8 +53,9 @@ if [ "$FLAGS_kill" = "$FLAGS_TRUE" ]; then
 fi
 
 # Search the webplot directory.
-# Stop at the first found webplot directory. Priority is given to /usr/lib*.
-DIRS="/usr/lib* /usr/local/lib*"
+# Stop at the first found python3 webplot directory.
+# Priority is given to /usr/lib*.
+DIRS="/usr/lib*/python3* /usr/local/lib*/python3*"
 for d in $DIRS; do
   PROG_DIR="$(find $d -name $PROG -type d -print -quit)"
   if [ -n "$PROG_DIR" ]; then
@@ -83,5 +84,5 @@ else
 
   echo "Start $PROG server..."
   [ "$FLAGS_grab" = "$FLAGS_FALSE" ] && grab_option="--nograb"
-  exec python "${PROG_DIR}/${PROG}".py $grab_option --behind_firewall -p80
+  exec python3 "${PROG_DIR}/${PROG}".py $grab_option --behind_firewall -p80
 fi

@@ -55,7 +55,7 @@ def EstablishADBConnectionTunnel(port):
   Returns:
     Return False if errors happen; otherwise return True.
   """
-  print '\n' + '-' * SEPARATION_LINEWIDTH
+  print('\n' + '-' * SEPARATION_LINEWIDTH)
 
   # To prevent adb no permissions issue, it needs sudo to start adb server.
   os.system('sudo adb kill-server')
@@ -65,7 +65,7 @@ def EstablishADBConnectionTunnel(port):
     return subprocess.check_output(['adb', 'get-state']).strip() == 'device'
 
   if not _GetDeviceOnline():
-    print 'Currently no device attached!\nPlease attach your testing device...'
+    print('Currently no device attached!\nPlease attach your testing device...')
     retry_times = 0
     while True:
       time.sleep(0.2)
@@ -73,12 +73,12 @@ def EstablishADBConnectionTunnel(port):
         break
       retry_times += 1
       if retry_times > ADB_GETSTATE_RETRIES:
-        print 'Timeout polling for testing device (%.1f seconds)...' % (
-            0.2 * ADB_GETSTATE_RETRIES)
+        print('Timeout polling for testing device (%.1f seconds)...' % (
+            0.2 * ADB_GETSTATE_RETRIES))
         return False
 
-  print '\nDevice is attached.\n'
-  print 'Try to build tunnel port %d between device and server...' % port
+  print('\nDevice is attached.\n')
+  print('Try to build tunnel port %d between device and server...' % port)
 
   retry_times = 0
   while True:
@@ -93,7 +93,7 @@ def EstablishADBConnectionTunnel(port):
     if retry_times > ADB_FORWARD_RETRIES:
       return False
 
-  print '\nTunnel is established successfully.\n'
+  print('\nTunnel is established successfully.\n')
   return True
 
 
@@ -125,33 +125,33 @@ def _ParseArguments():
 def Main():
   args = _ParseArguments()
 
-  print '\n' + '-' * SEPARATION_LINEWIDTH + '\n'
-  print '**** Centroiding Data Visualizing Tool ****'
-  print 'webplot server address:', args.server_addr
-  print 'webplot server port:', args.server_port
+  print('\n' + '-' * SEPARATION_LINEWIDTH + '\n')
+  print('**** Centroiding Data Visualizing Tool ****')
+  print('webplot server address:', args.server_addr)
+  print('webplot server port:', args.server_port)
 
-  print '\n' + '-' * SEPARATION_LINEWIDTH + '\n'
-  print 'dut socket forwarding port:', args.dut_forward_port
-  print '  (this port will be tunneled between dut and server)\n'
-  print 'dut config file:', args.config
+  print('\n' + '-' * SEPARATION_LINEWIDTH + '\n')
+  print('dut socket forwarding port:', args.dut_forward_port)
+  print('  (this port will be tunneled between dut and server)\n')
+  print('dut config file:', args.config)
 
   device = CentroidingDevice(config=args.config)
 
-  print '  - device name:', device.device
-  print '  - data_scale:', device.data_scale
-  print '  - data_offset:', device.data_offset
-  print '  - width:', device.width
-  print '  - height:', device.height
+  print('  - device name:', device.device)
+  print('  - data_scale:', device.data_scale)
+  print('  - data_offset:', device.data_offset)
+  print('  - width:', device.width)
+  print('  - height:', device.height)
 
   if not EstablishADBConnectionTunnel(args.dut_forward_port):
-    print 'Connection to device failed. Task is aborted...'
+    print('Connection to device failed. Task is aborted...')
     return
 
-  print '\n' + '-' * SEPARATION_LINEWIDTH + '\n'
-  print 'webplot server has started...'
-  print 'port %d is listening on sockets from dut...' % args.dut_forward_port
-  print ('check http://%s:%d on browser of your device to view the plot...\n' %
-      (args.server_addr, args.server_port))
+  print('\n' + '-' * SEPARATION_LINEWIDTH + '\n')
+  print('webplot server has started...')
+  print('port %d is listening on sockets from dut...' % args.dut_forward_port)
+  print(('check http://%s:%d on browser of your device to view the plot...\n' %
+      (args.server_addr, args.server_port)))
 
   if args.log_data:
     time_now = datetime.now().strftime('%Y%m%d%H%M%S')
@@ -171,11 +171,11 @@ def Main():
   receiver.StartReceive()
 
   if args.log_data:
-    print '\ncentroiding raw data are saved into file %s\n' % save_data
-    print 'parsing saved raw data to analytical format...'
+    print('\ncentroiding raw data are saved into file %s\n' % save_data)
+    print('parsing saved raw data to analytical format...')
     data_parser = CentroidingDataParser(save_data, device)
     data_parser.Parse()
-    print 'parse finished...'
+    print('parse finished...')
 
 
 if __name__ == '__main__':

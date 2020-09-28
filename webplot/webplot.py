@@ -51,10 +51,10 @@ def SimpleSystemOutput(cmd):
     proc = subprocess.Popen(
         cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     stdout, _ = proc.communicate()
-  except Exception, e:
+  except Exception as e:
     logging.warning('Command (%s) failed (%s).', cmd, e)
   else:
-    return None if proc.returncode else stdout.strip()
+    return None if proc.returncode else stdout.decode().strip()
 
 
 def IsDestinationPortEnabled(port):
@@ -117,7 +117,7 @@ class WebplotWSHandler(WebSocket):
 
   def received_message(self, msg):
     """A callback for received message."""
-    data = msg.data.split(':', 1)
+    data = msg.data.decode().split(':', 1)
     mtype = data[0].lower()
     content = data[1] if len(data) == 2 else None
 
@@ -322,7 +322,7 @@ class CentroidingRoot(object):
       'dataWidth': str(self.data_width),
       'dataHeight': str(self.data_height),
     }
-    print websocket_dict
+    print(websocket_dict)
     root_page = os.path.join(os.path.abspath(os.path.dirname(__file__)),
                              'centroiding.html')
     with open(root_page) as f:
@@ -487,10 +487,10 @@ class Webplot(threading.Thread):
        so that the corresponding finger color could be released for reuse.
     """
     # Convert MtSnapshot.
-    converted = dict(snapshot.__dict__.items())
+    converted = snapshot._asdict()
 
     # Convert MtFinger.
-    converted['fingers'] = [dict(finger.__dict__.items())
+    converted['fingers'] = [finger._asdict()
                             for finger in converted['fingers']]
     converted['raw_events'] = [str(event) for event in converted['raw_events']]
 
@@ -580,7 +580,7 @@ def _CheckLegalUser():
   reason.
   """
   if os.path.exists('/etc/cros_chroot_version') and os.getuid() == 0:
-    print ('You should run webplot in chroot as a regular user '
+    print('You should run webplot in chroot as a regular user '
            'instead of as root.\n')
     exit(1)
 
@@ -655,7 +655,7 @@ def Main():
   # Specify Webplot for centroiding purpose.
   is_centroiding = args.dut_type == 'centroiding'
 
-  print '\n' + '-' * 70
+  print('\n' + '-' * 70)
   if is_centroiding:
     cherrypy.log('**** Centroiding Data Visualizing Tool ****')
     cherrypy.log('dut config file: %s' % args.config)
@@ -673,7 +673,7 @@ def Main():
     cherrypy.log('Warning: the grab option is not supported on Android devices'
                  ' yet.')
   cherrypy.log('touch events are saved in %s' % SAVED_FILE)
-  print '-' * 70 + '\n\n'
+  print('-' * 70 + '\n\n')
 
   if args.server_port == 80:
     url = 'http://%s' % args.server_addr
@@ -686,10 +686,10 @@ def Main():
   else:
     which_machine = 'on any machine'
 
-  print '*' * 70
-  print msg % (url, which_machine)
-  print 'Press \'q\' on the browser to quit.'
-  print '*' * 70 + '\n\n'
+  print('*' * 70)
+  print(msg % (url, which_machine))
+  print('Press \'q\' on the browser to quit.')
+  print('*' * 70 + '\n\n')
 
   # Instantiate a touch device.
   if args.dut_type == 'chromeos':
@@ -703,7 +703,7 @@ def Main():
     from centroiding import CentroidingDataReceiver, CentroidingDevice
     device = CentroidingDevice(args.config)
   else:
-    print 'Unrecognized dut_type: %s. Webplot is aborted...' % args.dut_type
+    print('Unrecognized dut_type: %s. Webplot is aborted...' % args.dut_type)
     exit(1)
 
   # Instantiate a webplot server daemon and start it.
@@ -715,12 +715,12 @@ def Main():
   if args.automatically_start_browser:
     opened_successfully = webbrowser.open(url)
     if opened_successfully:
-      print 'Web browser opened successfully!'
+      print('Web browser opened successfully!')
     else:
-      print '!' * 80
-      print 'Sorry, we were unable to automatically open a web browser for you'
-      print 'Please navigate to "%s" in a browser manually, instead' % url
-      print '!' * 80
+      print('!' * 80)
+      print('Sorry, we were unable to automatically open a web browser for you')
+      print('Please navigate to "%s" in a browser manually, instead' % url)
+      print('!' * 80)
 
   if not is_centroiding:
     # Get touch snapshots from the touch device and have clients plot them.

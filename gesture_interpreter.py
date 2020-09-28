@@ -226,7 +226,7 @@ def PerformCorrespondingGesture(test, variation_number, robot, device_spec):
     fn = lambda: _PerformSquareResolutionTest(variation, robot, device_spec)
 
   if fn is None:
-    print color.Fore.RED + 'Robot unable to perform gesture! Skipping...'
+    print(color.Fore.RED + 'Robot unable to perform gesture! Skipping...')
     return None
 
   return Thread(target=fn)

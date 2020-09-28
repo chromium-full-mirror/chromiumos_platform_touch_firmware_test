@@ -12,6 +12,7 @@ import json
 import os
 import socket
 import time
+from builtins import range
 
 # Pre-load librt.so for MonotonicTime()
 librt_name = ctypes.util.find_library('rt')
@@ -127,15 +128,15 @@ class CentroidingDataReceiver(object):
             if self._NULL_CHAR in chunk_buffer:
               chunk_buffer = self._ExtractSnapshots(chunk_buffer, f)
           except KeyboardInterrupt:
-            print 'Keyboard interrupt accepted!'
-            print 'Centroiding receiver is terminated...'
-            print 'Webplot server is terminated...'
+            print('Keyboard interrupt accepted!')
+            print('Centroiding receiver is terminated...')
+            print('Webplot server is terminated...')
             self.sock.close()
             self.webplot.Quit()
             break
     except IOError as e:
-      print 'Oops!! something wrong while saving data to %s: %s' % (
-          self.save_path, str(e))
+      print('Oops!! something wrong while saving data to %s: %s' % (
+          self.save_path, str(e)))
       self.sock.close()
       self.webplot.Quit()
 
@@ -150,7 +151,7 @@ class CentroidingDataReceiver(object):
       The residue on chunk buffer after snapshot extraction.
     """
     snapshots = chunk_buffer.split(self._NULL_CHAR)
-    for i in xrange(len(snapshots)):
+    for i in range(len(snapshots)):
       if i == len(snapshots) - 1:
         return snapshots[i]
       if len(snapshots[i]) == 0:
@@ -189,4 +190,4 @@ class CentroidingDataReceiver(object):
           {"fps": [self.fps_receiver.GetFPS(), self.fps_plot.GetFPS()]})
       self.webplot.AddSnapshot(snapshot_json)
     except Exception as e:
-      print 'Exception while plotting snapshot = %r:' % snapshot, e
+      print('Exception while plotting snapshot = %r:' % snapshot, e)

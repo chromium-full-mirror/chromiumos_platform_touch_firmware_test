@@ -120,7 +120,7 @@ class RemoteHeatMapDevice(object):
     items = line.split()
     if len(items) < 1 or (items[0] != 'x' and items[0] != 'y'):
       return None
-    data = map(float, items[1:])
+    data = list(map(float, items[1:]))
     return HeatMapEvent(items[0], data)
 
   def _RunRemoteCmd(self, cmd):
@@ -128,8 +128,8 @@ class RemoteHeatMapDevice(object):
     RSA_KEY_PATH = os.path.dirname(
         os.path.realpath(inspect.getfile(
             inspect.currentframe()))) + '/data/testing_rsa'
-    if stat.S_IMODE(os.stat(RSA_KEY_PATH).st_mode) != 0600:
-      os.chmod(RSA_KEY_PATH, 0600)
+    if stat.S_IMODE(os.stat(RSA_KEY_PATH).st_mode) != 0o600:
+      os.chmod(RSA_KEY_PATH, 0o600)
 
     args = ['ssh', 'root@%s' % self.addr,
             '-i', RSA_KEY_PATH,
