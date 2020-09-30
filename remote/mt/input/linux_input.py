@@ -800,7 +800,7 @@ ABS_CNT             = (ABS_MAX + 1)
 SW_LID                  = 0x00  # set = lid shut
 SW_TABLET_MODE          = 0x01  # set = tablet mode
 SW_HEADPHONE_INSERT     = 0x02  # set = inserted
-SW_RFKILL_ALL           = 0x03  # rfkill master switch, type "any"
+SW_RFKILL_ALL           = 0x03  # rfkill main switch, type "any"
                                 # set = radio enabled
 SW_RADIO = SW_RFKILL_ALL        # deprecated
 SW_MICROPHONE_INSERT    = 0x04  # set = inserted
