@@ -52,17 +52,13 @@ if [ "$FLAGS_kill" = "$FLAGS_TRUE" ]; then
   exit 0
 fi
 
-# Search the webplot directory.
-# Stop at the first found python3 webplot directory.
+# Search for the first python3 webplot directory.
 # Priority is given to /usr/lib*.
-DIRS="/usr/lib*/python3* /usr/local/lib*/python3*"
-for d in $DIRS; do
-  PROG_DIR="$(find $d -name $PROG -type d -print -quit)"
-  if [ -n "$PROG_DIR" ]; then
-    echo "Found webplot path in $PROG_DIR"
-    break
-  fi
-done
+PROG_DIR="$(find /usr/lib*/python3* /usr/local/lib*/python3* \
+            -name "$PROG" -type d -print -quit 2> /dev/null || true)"
+if [ -n "$PROG_DIR" ]; then
+  echo "Found webplot path in $PROG_DIR"
+fi
 
 if [ -z "$PROG_DIR" ]; then
   die "Fail to find the path of $PROG."
