@@ -127,8 +127,8 @@ class RemoteAardvarkTouchDevice(RemoteTouchDevice):
                                        self._addr, self.I2C_NO_FLAGS, data_out)
     if retVal != data_len:
       print('Error: Number of bytes written: %d' % retVal)
-      print('       Make sure that the slave address is correct')
-      print('       Slave address: %d' % self._addr)
+      print('       Make sure that the peripheral address is correct')
+      print('       Peripheral address: %d' % self._addr)
       sys.exit()
     else:
       return retVal
