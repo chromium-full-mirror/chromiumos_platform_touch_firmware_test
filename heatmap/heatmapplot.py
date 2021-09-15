@@ -14,8 +14,8 @@ through webscoket. Then javascript will plot the data as bar charts.
 """
 
 from __future__ import print_function
-from chromite.lib import cros_logging as logging
 import argparse
+import logging
 import os
 import re
 import subprocess
