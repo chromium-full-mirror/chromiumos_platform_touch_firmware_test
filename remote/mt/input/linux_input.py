@@ -882,7 +882,8 @@ BUS_SPI         = 0x1C
 # MT_TOOL types
 MT_TOOL_FINGER  = 0
 MT_TOOL_PEN     = 1
-MT_TOOL_MAX     = 1
+MT_TOOL_PALM    = 2
+MT_TOOL_MAX     = 2
 
 # Values describing the status of a force-feedback effect
 FF_STATUS_STOPPED   = 0x00

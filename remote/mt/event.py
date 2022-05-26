@@ -71,6 +71,10 @@ class MtEvent(object):
     """ Is this event ABS_MT_DISTANCE? """
     return self.event_type == EV_ABS and self.event_code == ABS_MT_DISTANCE
 
+  def is_ABS_MT_TOOL_TYPE(self):
+    """ Is this event ABS_MT_TOOL_TYPE? """
+    return self.event_type == EV_ABS and self.event_code == ABS_MT_TOOL_TYPE
+
   def _is_EV_KEY(self):
     """ Is this an EV_KEY event? """
     return self.event_type == EV_KEY

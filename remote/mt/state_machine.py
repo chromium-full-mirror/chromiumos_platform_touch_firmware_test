@@ -7,7 +7,7 @@ from __future__ import division
 from __future__ import print_function
 
 from collections import namedtuple
-from .event import MtEvent, EV_ABS, ABS_MT_TRACKING_ID
+from .event import MtEvent, EV_ABS, ABS_MT_TRACKING_ID, MT_TOOL_PALM
 
 MtFinger = namedtuple('MtFinger', ['tid', 'syn_time', 'x', 'y', 'pressure',\
                                    'tilt_x', 'tilt_y', 'touch_major',\
@@ -186,6 +186,8 @@ class MtbStateMachine(MtStateMachine):
     self.pressure = {}
     self.touch_major = {}
     self.touch_minor = {}
+    self.tool_type = {}
+    self.palm_tids = set()
     self.syn_time = None
     self.leaving_slots = []
     self.button_pressed = False
@@ -236,6 +238,8 @@ class MtbStateMachine(MtStateMachine):
       self.touch_minor[self.slot] = event.value
     elif event.is_ABS_MT_DISTANCE():
       self.distance[self.slot] = event.value
+    elif event.is_ABS_MT_TOOL_TYPE():
+      self.tool_type[self.slot] = event.value
 
     # Use the SYN_REPORT time as the snapshot time
     elif event.is_SYN_REPORT():
@@ -255,9 +259,18 @@ class MtbStateMachine(MtStateMachine):
       distance = self.distance.get(slot, None)
       major = self.touch_major.get(slot, 0)
       minor = self.touch_minor.get(slot, 0)
+      tool_type = self.tool_type.get(slot, 0)
 
       # Skip any fingers that are hovering (they have a distance)
       if distance:
+        continue
+
+      # Skip any palm touches. A touch is considered as a palm if it has ever
+      # been marked with TOOL_TYPE=MT_TOOL_PALM.
+      if tool_type == MT_TOOL_PALM:
+        self.palm_tids.add(tid)
+        continue
+      elif tid in self.palm_tids:
         continue
 
       if self.pressure_src == MtStateMachine.PRESSURE_FROM_MT_TOUCH_MAJOR:
