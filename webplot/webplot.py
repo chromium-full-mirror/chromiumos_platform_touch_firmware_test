@@ -297,45 +297,6 @@ class TouchRoot(object):
     state.IncCount()
 
 
-class CentroidingRoot(object):
-  """A class to handle requests about docroot."""
-
-  def __init__(self, ip, port, data_scale, data_offset,
-               data_width, data_height):
-    self.ip = ip
-    self.port = port
-    self.data_scale = data_scale
-    self.data_offset = data_offset
-    self.data_width = data_width
-    self.data_height = data_height
-    self.scheme = 'ws'
-    cherrypy.log('Root address: (%s, %s)' % (ip, str(port)))
-    cherrypy.log('scheme: %s' % self.scheme)
-
-  @cherrypy.expose
-  def index(self):
-    """This is the default index.html page."""
-    websocket_dict = {
-      'websocketUrl': '%s://%s:%s/ws' % (self.scheme, self.ip, self.port),
-      'dataScale': str(self.data_scale),
-      'dataOffset': str(self.data_offset),
-      'dataWidth': str(self.data_width),
-      'dataHeight': str(self.data_height),
-    }
-    print(websocket_dict)
-    root_page = os.path.join(os.path.abspath(os.path.dirname(__file__)),
-                             'centroiding.html')
-    with open(root_page) as f:
-      return f.read() % websocket_dict
-
-  @cherrypy.expose
-  def ws(self):
-    """This handles the request to create a new web socket per client."""
-    cherrypy.log('A new client requesting for WS')
-    cherrypy.log('WS handler created: %s' % repr(cherrypy.request.ws_handler))
-    state.IncCount()
-
-
 class Webplot(threading.Thread):
   """The server handling the Plotting of finger traces.
 
@@ -375,13 +336,11 @@ class Webplot(threading.Thread):
   """
 
   def __init__(self, server_addr, server_port, device, saved_file=SAVED_FILE,
-               logging=False, is_behind_iptables_firewall=False,
-               is_centroiding=False):
+               logging=False, is_behind_iptables_firewall=False):
     self._server_addr = server_addr
     self._server_port = server_port
     self._device = device
     self._saved_file = saved_file
-    self._is_centroiding = is_centroiding
     super(Webplot, self).__init__(name='webplot thread')
 
     self.daemon = True
@@ -414,37 +373,25 @@ class Webplot(threading.Thread):
     # If the cherrypy server exits for whatever reason, close the device
     # for required cleanup. Otherwise, there might exist local/remote
     # zombie processes.
-    if not self._is_centroiding:
-      cherrypy.engine.subscribe('exit',  self._device.__del__)
+    cherrypy.engine.subscribe('exit',  self._device.__del__)
 
     cherrypy.engine.signal_handler.handlers['SIGINT'] = InterruptHandler
     cherrypy.engine.signal_handler.handlers['SIGTERM'] = InterruptHandler
 
   def run(self):
     """Start the cherrypy engine."""
-    if not self._is_centroiding:
-      x_min, x_max = self._device.RangeX()
-      y_min, y_max = self._device.RangeY()
-      p_min, p_max = self._device.RangeP()
-      tilt_x_min, tilt_x_max = self._device.RangeTiltX()
-      tilt_y_min, tilt_y_max = self._device.RangeTiltY()
-      major_min, major_max = self._device.RangeMajor()
-      minor_min, minor_max = self._device.RangeMinor()
+    x_min, x_max = self._device.RangeX()
+    y_min, y_max = self._device.RangeY()
+    p_min, p_max = self._device.RangeP()
+    tilt_x_min, tilt_x_max = self._device.RangeTiltX()
+    tilt_y_min, tilt_y_max = self._device.RangeTiltY()
+    major_min, major_max = self._device.RangeMajor()
+    minor_min, minor_max = self._device.RangeMinor()
 
-      root = TouchRoot(self._server_addr, self._server_port,
-                       x_min, x_max, y_min, y_max, p_min, p_max, tilt_x_min,
-                       tilt_x_max, tilt_y_min, tilt_y_max,
-                       major_min, major_max, minor_min, minor_max,)
-    else:
-      data_scale = self._device.data_scale
-      data_offset = self._device.data_offset
-      data_width = self._device.width
-      data_height = self._device.height
-      tilt_x_min, tilt_x_max = self._device.RangeTiltX()
-      tilt_y_min, tilt_y_max = self._device.RangeTiltY()
-      root = CentroidingRoot(self._server_addr, self._server_port,
-                             data_scale, data_offset, data_width, data_height,
-                             tilt_x_min, tilt_x_max, tilt_y_min, tilt_y_max)
+    root = TouchRoot(self._server_addr, self._server_port,
+                     x_min, x_max, y_min, y_max, p_min, p_max, tilt_x_min,
+                     tilt_x_max, tilt_y_min, tilt_y_max,
+                     major_min, major_max, minor_min, minor_max,)
 
     cherrypy.quickstart(
         root,
@@ -513,8 +460,7 @@ class Webplot(threading.Thread):
 
   def AddSnapshot(self, snapshot):
     """Convert the snapshot to a proper format and publish it to clients."""
-    if not self._is_centroiding:
-      snapshot = self._ConvertNamedtupleToDict(snapshot)
+    snapshot = self._ConvertNamedtupleToDict(snapshot)
     cherrypy.engine.publish('websocket-broadcast', json.dumps(snapshot))
     return snapshot
 
@@ -615,7 +561,7 @@ def _ParseArguments():
   parser.add_argument('-s', '--server_addr', default='0.0.0.0',
                       help='the address the webplot http server listens to')
   parser.add_argument('-t', '--dut_type', default='chromeos', type=str.lower,
-                      help='dut type: chromeos, android, centroiding')
+                      help='dut type: chromeos, android')
   parser.add_argument('--automatically_start_browser', action='store_true',
                       help=('When this flag is set the script will try to '
                             'start a web browser automatically once webplot '
@@ -624,19 +570,6 @@ def _ParseArguments():
                       choices=['auto', 'stylus', 'MTB', 'MTA'],
                       help=('Which protocol does the device use? Choose from '
                             'auto, MTB, MTA, or stylus'))
-
-  # Arguments especial for centroiding visualizing tool.
-  # Please set "--dut_type centroiding" for centroiding utility.
-  parser.add_argument('-f', '--dut_forward_port', default=12345, type=int,
-                      help='the forwarding port for centroiding socket server '
-                           '(default: 12345) (only needed for centroiding)')
-  parser.add_argument('-c', '--config', default='tango.conf', type=str,
-                      help='Config file name of device for centroiding '
-                           'visualizing tool parameters.')
-  parser.add_argument('--fps', default=0, type=int,
-                      help='the target frame rate of visualizer plotting, set '
-                           '0 for keeping same as centroiding processing frame '
-                           'rate.')
 
   args = parser.parse_args()
 
@@ -652,20 +585,11 @@ def Main():
   configure_logger(level=logging.ERROR)
   args = _ParseArguments()
 
-  # Specify Webplot for centroiding purpose.
-  is_centroiding = args.dut_type == 'centroiding'
-
   print('\n' + '-' * 70)
-  if is_centroiding:
-    cherrypy.log('**** Centroiding Data Visualizing Tool ****')
-    cherrypy.log('dut config file: %s' % args.config)
-    cherrypy.log('dut address: %s' % args.dut_addr)
-    cherrypy.log('dut socket forwarding port: %d' % args.dut_forward_port)
-  else:
-    cherrypy.log('dut machine type: %s' % args.dut_type)
-    cherrypy.log('dut\'s touch device: %s' %
+  cherrypy.log('dut machine type: %s' % args.dut_type)
+  cherrypy.log('dut\'s touch device: %s' %
                  ('touchscreen' if args.is_touchscreen else 'touchpad'))
-    cherrypy.log('dut address: %s' % args.dut_addr)
+  cherrypy.log('dut address: %s' % args.dut_addr)
   cherrypy.log('web server address: %s' % args.server_addr)
   cherrypy.log('web server port: %s' % args.server_port)
   cherrypy.log('grab the touch device: %s' % args.grab)
@@ -698,18 +622,13 @@ def Main():
                                  protocol=args.protocol)
   elif args.dut_type == 'android':
     device = AndroidTouchDevice(args.dut_addr, True, protocol=args.protocol)
-  elif is_centroiding:  # args.dut_type == 'centroiding'
-    # Import centroiding library conditionally to avoid missing dependency.
-    from centroiding import CentroidingDataReceiver, CentroidingDevice
-    device = CentroidingDevice(args.config)
   else:
     print('Unrecognized dut_type: %s. Webplot is aborted...' % args.dut_type)
     exit(1)
 
   # Instantiate a webplot server daemon and start it.
   webplot = Webplot(args.server_addr, args.server_port, device, logging=True,
-                    is_behind_iptables_firewall=args.behind_firewall,
-                    is_centroiding=is_centroiding)
+                    is_behind_iptables_firewall=args.behind_firewall)
   webplot.start()
 
   if args.automatically_start_browser:
@@ -722,13 +641,8 @@ def Main():
       print('Please navigate to "%s" in a browser manually, instead' % url)
       print('!' * 80)
 
-  if not is_centroiding:
-    # Get touch snapshots from the touch device and have clients plot them.
-    webplot.GetAndPlotSnapshots()
-  else:
-    receiver = CentroidingDataReceiver(
-        '127.0.0.1', args.dut_forward_port, webplot, plot_fps=args.fps)
-    receiver.StartReceive()
+  # Get touch snapshots from the touch device and have clients plot them.
+  webplot.GetAndPlotSnapshots()
 
 
 if __name__ == '__main__':
